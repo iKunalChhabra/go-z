@@ -1,9 +1,12 @@
 <div class="hero">
-
-# go-zod
-
-**A native Go port of [Zod v4](https://zod.dev)** — same patterns, same issue taxonomy, same fluent API. Built for high-concurrency HTTP services, Gin pipelines, and anyone who wants schema-first validation that feels like Zod.
-
+<p class="eyebrow">Zod v4 · native Go · Gin-ready</p>
+<h1>go-zod</h1>
+<p class="lede">Schema-first validation for Go — same patterns as Zod, same issue taxonomy, fluent API, built for concurrency.</p>
+<p class="hero-actions">
+<a class="btn btn-primary" href="#/guide/installation">Get started</a>
+<a class="btn" href="#/guide/quickstart">Quickstart</a>
+<a class="btn" href="#/integrations/gin">Gin guide</a>
+</p>
 </div>
 
 go-zod is not a thin wrapper around struct tags. It ports Zod’s actual architecture: a `ParsePayload` that accumulates issues, composable checks with `when` / `abort` / `continue`, eleven issue codes byte-compatible with Zod’s JSON, and an error-map chain that resolves messages from check → parse → custom → locale.

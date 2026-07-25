@@ -26,6 +26,15 @@ Existing Zod-inspired Go libraries are thinly maintained. go-zod ports Zod v4's 
 | Classic fluent API | `String().Min(5).Email()` |
 | Locales | `en es fr de ja pt zh` |
 
+## Documentation
+
+Thorough docs (Bun-inspired cream + pink theme) live in [`docs/`](./docs) and are meant for **GitHub Pages**:
+
+- Local: `cd docs && python3 -m http.server 5173` → http://127.0.0.1:5173
+- After enabling Pages: `https://<user>.github.io/go-zod/`
+
+See [docs/README.md](./docs/README.md) for publish steps.
+
 ## Install
 
 ```bash
