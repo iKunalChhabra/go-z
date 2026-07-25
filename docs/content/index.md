@@ -119,3 +119,7 @@ If you know Zod, you already know go-zod. The names, issue codes, and error util
 3. Skim [Comparison](#/guide/comparison) if you’re migrating from `go-playground/validator` or TypeScript Zod.
 
 Welcome. Let’s make invalid input someone else’s problem.
+
+---
+
+<p class="meta">go-zod is MIT licensed, by <a href="https://github.com/iKunalChhabra">Kunal Chhabra</a>. Portions are derived from <a href="https://github.com/colinhacks/zod">Zod</a> (MIT, © 2025 Colin McDonnell). This is an independent project, not affiliated with or endorsed by Zod.</p>

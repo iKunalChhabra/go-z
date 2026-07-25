@@ -201,6 +201,15 @@ Built and maintained by **Kunal Chhabra** ([@iKunalChhabra](https://github.com/i
 
 Contributions are welcome — open an issue or a pull request. Please run `go test -race ./...` and `gofmt -l .` before submitting.
 
-## License
+## License and attribution
 
 MIT — Copyright (c) 2026 Kunal Chhabra. See [LICENSE](./LICENSE).
+
+Portions of this project are derived from [Zod](https://github.com/colinhacks/zod)
+(MIT, Copyright (c) 2025 Colin McDonnell) — string-format patterns, locale
+message text, the issue taxonomy, and behavioural test cases ported from Zod's
+test suite. Zod's licence is reproduced in [NOTICE](./NOTICE).
+
+> go-zod is an independent project. It is not affiliated with, endorsed by, or
+> sponsored by Zod or Colin McDonnell. The name is used only to describe what
+> this library is compatible with.
