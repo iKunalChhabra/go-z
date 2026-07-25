@@ -1,5 +1,5 @@
 /* go-zod docs — "Glass" design system
-   White canvas, frosted translucent surfaces, Bun pink (#f472b6) accent.
+   White canvas, frosted translucent surfaces, a single pink accent (#f472b6).
    Flat colour only: no decorative gradients anywhere.
    Dark theme is a neutral near-black with the same glass language. */
 
@@ -23,7 +23,7 @@
   --muted: #6b6b6b;
   --faint: #9a9a9a;
 
-  /* Bun pink */
+  /* Pink accent */
   --accent: #f472b6;
   --accent-strong: #db2777;
   --accent-deep: #9d174d;

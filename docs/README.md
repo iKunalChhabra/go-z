@@ -1,6 +1,7 @@
 # go-zod documentation site
 
-Static docs site (Bun-inspired cream + pink theme) for GitHub Pages.
+Static, dependency-free docs site for GitHub Pages: a hash router over Markdown
+in `content/`, rendered client-side.
 
 ## Local preview
 
