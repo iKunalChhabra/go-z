@@ -26,7 +26,11 @@ A part is either a literal value or a schema:
 | `*regexp.Regexp` | the pattern as written |
 | a schema with `Values` (`Literal`, `Enum`) | an alternation of its members |
 | `z.String()` | any characters |
-| `z.Number()` / `z.Int64()` | a JSON number |
+| `z.String().Regex(re)` | that pattern |
+| `z.String().Email()` and other formats | the format's pattern |
+| `z.Number()` / `z.Float64()` | a JSON number |
+| `z.Int()` / `z.Int64()` / `z.Int32()` | an integer |
+| `z.Uint32()` | an unsigned integer |
 | `z.Bool()` | `true\|false` |
 | `z.Optional(...)` | the inner pattern, made optional |
 | `z.Nullable(...)` | the inner pattern or `null` |
@@ -40,7 +44,23 @@ version.Parse("v1-beta") // ok
 ```
 
 :::warn Unsupported parts panic at definition time
-A part that has no pattern — an object, an array, a schema whose shape cannot be expressed as a regex — panics while the schema is built, like any other invalid schema definition. It cannot fail at request time.
+A template validates by matching **one** regular expression, so every part has to
+contribute a pattern. Two kinds of part cannot, and both panic while the schema is
+built rather than being silently ignored at request time:
+
+- A schema with no pattern at all — an object, an array, a map.
+- A schema carrying a check with no pattern equivalent: `z.String().Min(5)`,
+  `z.Int().Gte(10)`, a `Refine`, or a transform like `Trim`. Length and range are
+  not expressible in the composed pattern, so a template that accepted them would
+  quietly ignore them.
+
+```go
+z.TemplateLiteral([]any{"id-", z.String().Regex(digits)})  // ok — the pattern composes
+z.TemplateLiteral([]any{"id-", z.String().Min(5)})         // panics: Min has no pattern
+```
+
+Validate that field with its own schema instead, or express the constraint in the
+regex (`^\d{5,}$`).
 :::
 
 ## Combining with coercion

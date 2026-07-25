@@ -9,10 +9,11 @@ import (
 const ContextKey = "zod:value"
 
 // Validate returns middleware that parses the JSON body with schema, stores the
-// result under ContextKey, and calls the next handler — or aborts with 400.
-func Validate(schema z.AnySchemaLike) gin.HandlerFunc {
+// result under ContextKey, and calls the next handler — or aborts with an issue
+// response. Pass BindOptions to change the body limit or Content-Type policy.
+func Validate(schema z.AnySchemaLike, opts ...BindOptions) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		v, ok := BindJSONAny(c, schema)
+		v, ok := BindJSONAny(c, schema, opts...)
 		if !ok {
 			return
 		}
@@ -44,10 +45,10 @@ func GetAs[T any](c *gin.Context) (T, bool) {
 
 // ValidateToStruct is like Validate but wraps schema with z.ToStruct[T] and
 // stores the typed struct under ContextKey for GetAs[T].
-func ValidateToStruct[T any](schema z.AnySchemaLike) gin.HandlerFunc {
+func ValidateToStruct[T any](schema z.AnySchemaLike, opts ...BindOptions) gin.HandlerFunc {
 	typed := z.ToStruct[T](schema)
 	return func(c *gin.Context) {
-		v, ok := BindJSON(c, typed)
+		v, ok := BindJSON(c, typed, opts...)
 		if !ok {
 			return
 		}

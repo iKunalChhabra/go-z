@@ -1,20 +1,18 @@
 package zgin
 
 import (
-	"encoding/json"
 	"errors"
-	"io"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-// BindJSON parses c.Request.Body as JSON into any, validates with schema.
-// On failure writes 400 + Zod issue JSON and returns (zero, false).
-func BindJSON[T any](c *gin.Context, schema z.Schema[T]) (T, bool) {
+// BindJSON parses c.Request.Body as JSON, validates it with schema, and writes
+// an issue response on failure. The body is size-limited (DefaultMaxBodyBytes),
+// its Content-Type is checked, and integers are decoded exactly; see BindOptions.
+func BindJSON[T any](c *gin.Context, schema z.Schema[T], opts ...BindOptions) (T, bool) {
 	var zero T
-	data, ok := readJSONBody(c)
+	data, ok := readJSONBody(c, firstBindOptions(opts))
 	if !ok {
 		return zero, false
 	}
@@ -28,8 +26,8 @@ func BindJSON[T any](c *gin.Context, schema z.Schema[T]) (T, bool) {
 
 // BindJSONAny parses the JSON body and validates with an untyped schema
 // (AnySchemaLike), returning map/any output.
-func BindJSONAny(c *gin.Context, schema z.AnySchemaLike) (any, bool) {
-	data, ok := readJSONBody(c)
+func BindJSONAny(c *gin.Context, schema z.AnySchemaLike, opts ...BindOptions) (any, bool) {
+	data, ok := readJSONBody(c, firstBindOptions(opts))
 	if !ok {
 		return nil, false
 	}
@@ -76,44 +74,6 @@ func BindURI[T any](c *gin.Context, schema z.Schema[T]) (T, bool) {
 		return zero, false
 	}
 	return v, true
-}
-
-func readJSONBody(c *gin.Context) (any, bool) {
-	if c.Request == nil || c.Request.Body == nil {
-		AbortWithError(c, &z.Error{Issues: []z.Issue{{
-			Code:    z.IssueCustom,
-			Message: "missing request body",
-			Path:    []any{},
-		}}}, Options{Status: http.StatusBadRequest})
-		return nil, false
-	}
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		AbortWithError(c, &z.Error{Issues: []z.Issue{{
-			Code:    z.IssueCustom,
-			Message: "failed to read request body",
-			Path:    []any{},
-		}}}, Options{Status: http.StatusBadRequest})
-		return nil, false
-	}
-	if len(body) == 0 {
-		AbortWithError(c, &z.Error{Issues: []z.Issue{{
-			Code:    z.IssueCustom,
-			Message: "empty request body",
-			Path:    []any{},
-		}}}, Options{Status: http.StatusBadRequest})
-		return nil, false
-	}
-	var data any
-	if err := json.Unmarshal(body, &data); err != nil {
-		AbortWithError(c, &z.Error{Issues: []z.Issue{{
-			Code:    z.IssueCustom,
-			Message: "invalid JSON: " + err.Error(),
-			Path:    []any{},
-		}}}, Options{Status: http.StatusBadRequest})
-		return nil, false
-	}
-	return data, true
 }
 
 func abortParseError(c *gin.Context, err error) {

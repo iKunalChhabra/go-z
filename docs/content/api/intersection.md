@@ -37,7 +37,10 @@ right := map[string]any{"meta": map[string]any{"y": 2}}
 
 ### Unrecognized keys
 
-Strict / strip interplay: only keys unrecognized by **both** sides are re-emitted as `unrecognized_keys`. A key known to either side is allowed.
+Each side only knows its own shape, so a strict object inside an intersection
+flags the *other* side's keys. When both sides are objects, the intersection's
+recognized set is the **union of their shapes**, and only a key outside that union
+is reported:
 
 ```go
 strictA := z.Object(z.Shape{"a": z.String()}).Strict()
@@ -46,6 +49,25 @@ cat := z.Intersection(strictA, strictB)
 
 // {"a","b"} ok; {"a","b","c"} → unrecognized_keys ["c"]
 ```
+
+A strict side keeps its strictness even when the other side is loose:
+
+```go
+mixed := z.Intersection(
+    z.Object(z.Shape{"a": z.String()}).Strict(),
+    z.Object(z.Shape{"b": z.String()}).Loose(),
+)
+// {"a","b"} ok; {"a","b","c"} → unrecognized_keys ["c"] — the strict side rejects it
+```
+
+When a side is not a plain object (a union, a pipe) there is no shape to union, and
+the fallback is narrower: only keys **both** sides flagged are reported.
+
+:::info Difference from the original library
+TypeScript Zod runs both sides independently and surfaces each side's
+`unrecognized_keys`, so intersecting two strict objects rejects every input. go-z
+unions the shapes instead, which makes the combination usable.
+:::
 
 ## Unmergeable results
 

@@ -41,10 +41,30 @@ js, err := z.ToJSONSchema(schema, z.ToJSONSchemaOpts{
 
 | Option | Default | Meaning |
 |---|---|---|
-| `Target` | `JSONSchemaDraft202012` | dialect; sets `$schema` (OpenAPI 3.0 omits it) |
+| `Target` | `JSONSchemaDraft202012` | dialect; see below |
 | `Unrepresentable` | `"throw"` | what to do with types JSON Schema cannot express |
 | `IO` | `"output"` | which side of a pipe or codec to emit |
 | `Metadata` | `GlobalRegistry` | registry consulted for `id` / `title` / `description` / `deprecated` |
+
+### Targets
+
+The emitter produces draft 2020-12 and the other dialects are rewrites of that
+document, so what changes is the body, not just `$schema`:
+
+| Target | `$schema` | Rewrites |
+|---|---|---|
+| `JSONSchemaDraft202012` | 2020-12 | none |
+| `JSONSchemaDraft07` | draft-07 | tuples move from `prefixItems` + `items` to the array form of `items` + `additionalItems` |
+| `JSONSchemaOpenAPI30` | omitted | `type: [T, "null"]` → `type: T` + `nullable: true`; `const: v` → `enum: [v]`; numeric `exclusiveMinimum` / `exclusiveMaximum` → the boolean form beside `minimum` / `maximum` |
+
+OpenAPI 3.0 has no tuples and no null type; those follow the `Unrepresentable`
+policy — an error by default, or a permissive schema with `"any"`.
+
+```go
+doc, _ := z.ToJSONSchema(z.Tuple([]z.AnySchemaLike{z.String(), z.Number()}),
+    z.ToJSONSchemaOpts{Target: z.JSONSchemaDraft07})
+// {"type":"array","items":[{"type":"string"},{"type":"number"}],"additionalItems":false}
+```
 
 ### Unrepresentable types
 

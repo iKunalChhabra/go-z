@@ -39,7 +39,37 @@ r.POST("/users", func(c *gin.Context) {
 })
 ```
 
-On failure: writes **400** with the default issues JSON shape and returns `(zero, false)`.
+On failure: writes the default issues JSON shape and returns `(zero, false)`.
+
+### Body handling
+
+The JSON binders harden the read before the schema ever sees it:
+
+| Behaviour | Default | Response when violated |
+|---|---|---|
+| Body size limit | `zgin.DefaultMaxBodyBytes` (1 MiB) | **413** `request body too large` |
+| `Content-Type` must be a JSON type | on (an absent header is accepted) | **415** `unsupported Content-Type` |
+| Trailing data after the JSON value | rejected | **400** `unexpected data after the JSON value` |
+| Integers above 2^53 | kept exact as `int64` | — |
+
+Every failure uses the same issue shape as a validation failure, so a client parses one format.
+
+```go
+body, ok := zgin.BindJSON(c, createUser, zgin.BindOptions{
+    MaxBodyBytes:        4 << 20, // 4 MiB; negative means unlimited
+    AllowAnyContentType: false,
+    AllowTrailingData:   false,
+})
+```
+
+`Validate` and `ValidateToStruct` take the same options.
+
+:::info Exact integers
+The body is decoded with `Decoder.UseNumber`, so a JSON integer larger than 2^53
+reaches the schema as an `int64` instead of a rounded `float64` — which matters for
+database identifiers. Numbers that fit exactly still arrive as `float64`, so
+`z.Number()`, `z.Literal(42)` and discriminated unions behave as before.
+:::
 
 ## BindJSONAny
 
@@ -264,4 +294,6 @@ if err != nil {
 | `ContextKey` | `"zod:value"` |
 | `AbortWithError` | Write schema-shaped error |
 | `Options` / `ErrorFormat` | Status + renderer |
+| `BindOptions` | Body limit, Content-Type policy, trailing data |
+| `DefaultMaxBodyBytes` | 1 MiB body cap used when `BindOptions` is omitted |
 | `CoerceQueryValues` | `url.Values` → `map[string]any` |
