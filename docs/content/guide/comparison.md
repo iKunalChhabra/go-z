@@ -4,8 +4,8 @@ How go-zod sits next to popular Go validators and TypeScript Zod. The goal is cl
 
 ## Quick matrix
 
-| | **go-zod** | **go-playground/validator** | **ozzo-validation** | **Oudwins/zog** | **TypeScript Zod** |
-|---|---|---|---|---|
+| Dimension | **go-zod** | **go-playground/validator** | **ozzo-validation** | **Oudwins/zog** | **TypeScript Zod** |
+| --- | --- | --- | --- | --- | --- |
 | Style | Schema-as-value, fluent | Struct tags + reflect | Fluent rules on values | Zod-inspired schemas | Schema-as-value, fluent |
 | Primary input | `any` / JSON maps | Structs | Values / structs | Maps / structs | `unknown` |
 | Composition | First-class (Object, Union, Lazy, Pipe…) | Limited (nested structs) | Good rule composition | Good | Excellent |

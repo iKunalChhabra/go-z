@@ -77,6 +77,9 @@ func (s *LazySchema) Inner() AnySchemaLike {
 
 func (s *LazySchema) innerType() AnySchemaLike { return s.Inner() }
 
+// Unwrap resolves the inner schema, satisfying Unwrapper for schema walkers.
+func (s *LazySchema) Unwrap() AnySchemaLike { return s.Inner() }
+
 // Check attaches raw checks (immutable clone). Clones share the memoized
 // inner schema via the same lazyState (Zod caches on the shared def).
 func (s *LazySchema) Check(checks ...*Check) *LazySchema {

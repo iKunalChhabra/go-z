@@ -63,13 +63,20 @@ func TestParseReportsInternalTypeMismatch(t *testing.T) {
 	}
 }
 
-// Null and absent values still map to the zero value without an error.
+// Null and absent values still map to the zero value without an error, rather
+// than tripping the internal-mismatch guard above.
 func TestParseZeroValueForNullAndMissing(t *testing.T) {
 	if got, err := Null().Parse(nil); err != nil || got != nil {
 		t.Fatalf("null: %v %v", got, err)
 	}
+	// Optional's typed edge folds an absent value into a nil pointer...
 	got, err := Optional(String()).Parse(Missing)
-	if err != nil || !IsMissing(got) {
+	if err != nil || got != nil {
 		t.Fatalf("missing: %v %v", got, err)
+	}
+	// ...while the raw JSON model still carries the Missing sentinel.
+	raw, err := Optional(String()).ParseAny(Missing)
+	if err != nil || !IsMissing(raw) {
+		t.Fatalf("missing raw: %v %v", raw, err)
 	}
 }

@@ -109,7 +109,7 @@ func (s *CodecSchema) In() AnySchemaLike { return s.inSch }
 func (s *CodecSchema) Out() AnySchemaLike { return s.outSch }
 
 // Check attaches raw checks after codec parse (Zod .check / .refine on codecs).
-func (s *CodecSchema) Check(checks ...*Check) *CheckedSchema {
+func (s *CodecSchema) Check(checks ...*Check) *CheckedSchema[any] {
 	return CheckSchema(s, checks...)
 }
 

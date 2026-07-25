@@ -114,12 +114,33 @@ See [Pipe & Transform](#/api/pipe-transform) — in-place rewrite check after in
 | `CheckSchema` | Uses inner + checks | check-defined | per check |
 | `Custom` | none (any) | `custom` | **abort** |
 
+## Typed refinements for any schema
+
+`RefineOf` / `SuperRefineOf` / `OverwriteOf` take a typed predicate and work with **every** schema type, including ones with no fluent `Refine` method of their own:
+
+```go
+nonEmpty := z.RefineOf(z.Set(z.String()), func(v []any) bool {
+    return len(v) > 0
+}, "set must not be empty")
+
+upper := z.OverwriteOf(z.String(), strings.ToUpper)
+```
+
+The fluent `Refine` / `SuperRefine` methods on `String`, `Number`, `Int64`, `Bool`, `Time`, `Enum`, `BigInt`, `Object`, `Array`, `Tuple`, `Record`, `Map`, and `Set` are sugar that returns the **same** concrete schema type, so type-specific chaining continues (`z.Set(...).Refine(...).Min(1)`). The generic helpers return a `*CheckedSchema[T]`, which ends the type-specific chain but keeps the typed edge.
+
 ## Signatures
 
 ```go
-func Refine(inner AnySchemaLike, pred func(any) bool, params ...any) *CheckedSchema
-func SuperRefine(inner AnySchemaLike, fn func(any, *RefinementCtx), params ...any) *CheckedSchema
-func CheckSchema(inner AnySchemaLike, checks ...*Check) *CheckedSchema
+// Type-erased
+func Refine(inner AnySchemaLike, pred func(any) bool, params ...any) *CheckedSchema[any]
+func SuperRefine(inner AnySchemaLike, fn func(any, *RefinementCtx), params ...any) *CheckedSchema[any]
+func CheckSchema(inner AnySchemaLike, checks ...*Check) *CheckedSchema[any]
 func Custom(pred func(any) bool, params ...any) *CustomSchema
-func OverwriteSchema(inner AnySchemaLike, fn func(any) any) *CheckedSchema
+func OverwriteSchema(inner AnySchemaLike, fn func(any) any) *CheckedSchema[any]
+
+// Typed — works with every schema type
+func RefineOf[T any](inner Schema[T], pred func(T) bool, params ...any) *CheckedSchema[T]
+func SuperRefineOf[T any](inner Schema[T], fn func(T, *RefinementCtx), params ...any) *CheckedSchema[T]
+func OverwriteOf[T any](inner Schema[T], fn func(T) T) *CheckedSchema[T]
+func CheckOf[T any](inner Schema[T], checks ...*Check) *CheckedSchema[T]
 ```

@@ -5,16 +5,20 @@ import "testing"
 // Ported from v4/classic/tests/optional.test.ts and nullable.test.ts (subset).
 
 func TestOptionalBasic(t *testing.T) {
-	schema := Optional(String())
-	if got, err := schema.Parse("adsf"); err != nil || got != "adsf" {
+	schema := OptionalOf(String())
+	if got, err := schema.Parse("adsf"); err != nil || got == nil || *got != "adsf" {
 		t.Fatalf("Parse(string) = %v, %v", got, err)
 	}
 	got, err := schema.Parse(Missing)
 	if err != nil {
 		t.Fatalf("Parse(Missing) error: %v", err)
 	}
-	if !IsMissing(got) {
-		t.Fatalf("Parse(Missing) = %#v, want Missing", got)
+	if got != nil {
+		t.Fatalf("Parse(Missing) = %#v, want nil", got)
+	}
+	raw, err := schema.ParseAny(Missing)
+	if err != nil || !IsMissing(raw) {
+		t.Fatalf("ParseAny(Missing) = %#v, %v", raw, err)
 	}
 	if schema.SafeParse(nil).Success {
 		t.Fatal("optional must reject null")
@@ -89,11 +93,11 @@ func TestPipeOptionality(t *testing.T) {
 }
 
 func TestNullableBasic(t *testing.T) {
-	schema := Nullable(String())
+	schema := NullableOf(String())
 	if got, err := schema.Parse(nil); err != nil || got != nil {
 		t.Fatalf("Parse(nil) = %v, %v", got, err)
 	}
-	if got, err := schema.Parse("asdf"); err != nil || got != "asdf" {
+	if got, err := schema.Parse("asdf"); err != nil || got == nil || *got != "asdf" {
 		t.Fatalf("Parse(string) = %v, %v", got, err)
 	}
 	if schema.SafeParse(123).Success {
@@ -102,17 +106,17 @@ func TestNullableBasic(t *testing.T) {
 }
 
 func TestNullish(t *testing.T) {
-	schema := Nullish(String())
+	schema := NullishOf(String())
 	if !schema.Internals().OptIn || !schema.Internals().OptOut {
 		t.Fatal("nullish should be optional")
 	}
-	if _, err := schema.Parse(Missing); err != nil {
-		t.Fatalf("nullish Missing: %v", err)
+	if got, err := schema.Parse(Missing); err != nil || got != nil {
+		t.Fatalf("nullish Missing: %v, %v", got, err)
 	}
 	if got, err := schema.Parse(nil); err != nil || got != nil {
 		t.Fatalf("nullish nil: %v, %v", got, err)
 	}
-	if got, err := schema.Parse("x"); err != nil || got != "x" {
+	if got, err := schema.Parse("x"); err != nil || got == nil || *got != "x" {
 		t.Fatalf("nullish string: %v, %v", got, err)
 	}
 }

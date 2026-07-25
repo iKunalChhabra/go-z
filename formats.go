@@ -159,6 +159,26 @@ type URLOpts struct {
 	Abort     bool
 }
 
+func (o URLOpts) params() Params { return Params{Error: o.Error, Abort: o.Abort} }
+
+// formatOpt returns the last option of type T in params, accepting either a
+// value or a pointer. Format helpers use it to read their own fields;
+// Error/Abort are already folded in by normalizeParams.
+func formatOpt[T any](params []any) (T, bool) {
+	var out T
+	found := false
+	for _, raw := range params {
+		p, ok := derefParam(raw)
+		if !ok {
+			continue
+		}
+		if v, ok := p.(T); ok {
+			out, found = v, true
+		}
+	}
+	return out, found
+}
+
 func mergeURLOpts(dst, src *URLOpts) {
 	if src.Normalize {
 		dst.Normalize = true
@@ -367,23 +387,14 @@ type JWTOpts struct {
 	Abort bool
 }
 
+func (o JWTOpts) params() Params { return Params{Error: o.Error, Abort: o.Abort} }
+
 // FormatJWT attaches Zod's jwt format check.
 func FormatJWT(params ...any) *Check {
 	p := normalizeParams(params)
 	alg := ""
-	for _, x := range params {
-		switch o := x.(type) {
-		case JWTOpts:
-			alg = o.Alg
-			if o.Error != nil {
-				p.Error = o.Error
-			}
-			if o.Abort {
-				p.Abort = true
-			}
-		case map[string]string:
-			alg = o["alg"]
-		}
+	if o, ok := formatOpt[JWTOpts](params); ok {
+		alg = o.Alg
 	}
 	ch := &Check{
 		Name:  "string_format",
@@ -499,22 +510,14 @@ type MACOpts struct {
 	Abort     bool
 }
 
+func (o MACOpts) params() Params { return Params{Error: o.Error, Abort: o.Abort} }
+
 // FormatMAC attaches Zod's mac format check.
 func FormatMAC(params ...any) *Check {
 	p := normalizeParams(params)
 	delim := ":"
-	for _, x := range params {
-		if o, ok := x.(MACOpts); ok {
-			if o.Delimiter != "" {
-				delim = o.Delimiter
-			}
-			if o.Error != nil {
-				p.Error = o.Error
-			}
-			if o.Abort {
-				p.Abort = true
-			}
-		}
+	if o, ok := formatOpt[MACOpts](params); ok && o.Delimiter != "" {
+		delim = o.Delimiter
 	}
 	var re *regexp.Regexp
 	if delim == ":" {
@@ -540,20 +543,14 @@ type ISOTimeOpts struct {
 	Abort     bool
 }
 
+func (o ISOTimeOpts) params() Params { return Params{Error: o.Error, Abort: o.Abort} }
+
 // FormatISOTime attaches Zod's ISO time format check.
 func FormatISOTime(params ...any) *Check {
 	p := normalizeParams(params)
 	var precision *int
-	for _, x := range params {
-		if o, ok := x.(ISOTimeOpts); ok {
-			precision = o.Precision
-			if o.Error != nil {
-				p.Error = o.Error
-			}
-			if o.Abort {
-				p.Abort = true
-			}
-		}
+	if o, ok := formatOpt[ISOTimeOpts](params); ok {
+		precision = o.Precision
 	}
 	re := timeRegexp(precision)
 	var ch *Check
@@ -577,23 +574,15 @@ type ISODateTimeOpts struct {
 	Abort     bool
 }
 
+func (o ISODateTimeOpts) params() Params { return Params{Error: o.Error, Abort: o.Abort} }
+
 // FormatISODateTime attaches Zod's ISO datetime format check.
 func FormatISODateTime(params ...any) *Check {
 	p := normalizeParams(params)
 	var precision *int
 	offset, local := false, false
-	for _, x := range params {
-		if o, ok := x.(ISODateTimeOpts); ok {
-			precision = o.Precision
-			offset = o.Offset
-			local = o.Local
-			if o.Error != nil {
-				p.Error = o.Error
-			}
-			if o.Abort {
-				p.Abort = true
-			}
-		}
+	if o, ok := formatOpt[ISODateTimeOpts](params); ok {
+		precision, offset, local = o.Precision, o.Offset, o.Local
 	}
 	re := datetimeRegexp(precision, offset, local)
 	var ch *Check

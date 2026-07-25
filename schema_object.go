@@ -467,7 +467,7 @@ func (s *ObjectSchema) Partial(keys ...string) *ObjectSchema {
 		if sch == nil {
 			return nil
 		}
-		if _, ok := sch.(*OptionalSchema); ok {
+		if in := sch.Internals(); in != nil && in.Def != nil && in.Def.Type == "optional" {
 			return sch
 		}
 		return Optional(sch)

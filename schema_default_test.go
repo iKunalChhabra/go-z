@@ -22,7 +22,7 @@ func TestDefaultWithOptional(t *testing.T) {
 		t.Fatalf("got %v, %v", got, err)
 	}
 	unwrapped := schema.Unwrap()
-	u, err := unwrapped.(*OptionalSchema).Parse(Missing)
+	u, err := unwrapped.(*OptionalSchema[any]).ParseAny(Missing)
 	if err != nil || !IsMissing(u) {
 		t.Fatalf("unwrap parse Missing: %v, %v", u, err)
 	}
@@ -112,7 +112,7 @@ func TestOptionalOnDefault(t *testing.T) {
 	schema := Optional(Default(String(), "asdf"))
 	got, err := schema.Parse(Missing)
 	// Optional with OptIn inner (Default): runs default, which replaces Missing.
-	if err != nil || got != "asdf" {
+	if err != nil || got == nil || *got != "asdf" {
 		t.Fatalf("got %v, %v", got, err)
 	}
 }

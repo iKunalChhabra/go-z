@@ -110,33 +110,29 @@ func schemaPatternFragment(schema AnySchemaLike) (string, error) {
 	if schema == nil {
 		return "", fmt.Errorf("nil schema part")
 	}
-	// Unwrap wrappers that affect optionality / nullability in the pattern.
-	switch s := schema.(type) {
-	case *OptionalSchema:
-		inner, err := schemaPatternFragment(s.inner)
-		if err != nil {
-			return "", err
+	in := schema.Internals()
+
+	// Wrappers that widen the pattern: unwrap through the generic Unwrapper
+	// interface so every optional/nullable instantiation is handled.
+	if w, ok := schema.(Unwrapper); ok && in.Def != nil {
+		switch in.Def.Type {
+		case "optional":
+			inner, err := schemaPatternFragment(w.Unwrap())
+			if err != nil {
+				return "", err
+			}
+			return "(?:" + inner + ")?", nil
+		case "nullable":
+			inner, err := schemaPatternFragment(w.Unwrap())
+			if err != nil {
+				return "", err
+			}
+			return "(?:" + inner + "|null)", nil
+		case "lazy":
+			return schemaPatternFragment(w.Unwrap())
 		}
-		return "(?:" + inner + ")?", nil
-	case *NullableSchema:
-		inner, err := schemaPatternFragment(s.inner)
-		if err != nil {
-			return "", err
-		}
-		return "(?:" + inner + "|null)", nil
-	case *TemplateLiteralSchema:
-		if s.pattern != nil {
-			// Strip ^...$ anchors from nested template.
-			src := s.pattern.String()
-			src = strings.TrimPrefix(src, "^")
-			src = strings.TrimSuffix(src, "$")
-			return src, nil
-		}
-	case *LazySchema:
-		return schemaPatternFragment(s.Inner())
 	}
 
-	in := schema.Internals()
 	if in.Pattern != nil {
 		src := in.Pattern.String()
 		src = strings.TrimPrefix(src, "^")

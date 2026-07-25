@@ -42,6 +42,13 @@ both := z.Nullish(z.String())
 | `nil` | ❌ `invalid_type` | ❌ | ✅ → `nil` | ✅ → `nil` |
 | `42` | ❌ | ❌ | ❌ | ❌ |
 
+The arrows above describe the **raw JSON model**, which is what `ParseAny` returns and what object parsing passes around. The typed `Parse` on `Optional` / `Nullable` folds both `Missing` and `nil` into a nil `*T`:
+
+```go
+v, _ := z.String().Optional().Parse(z.Missing)   // (*string)(nil)
+raw, _ := z.String().Optional().ParseAny(z.Missing) // z.Missing — sentinel preserved
+```
+
 ```go
 fmt.Println(z.Optional(z.String()).SafeParse(z.Missing).Success) // true
 fmt.Println(z.Optional(z.String()).SafeParse(nil).Success)         // false
