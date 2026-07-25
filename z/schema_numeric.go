@@ -1,8 +1,10 @@
 package z
 
 import (
+	"encoding/json"
 	"math"
 	"math/big"
+	"reflect"
 	"strconv"
 )
 
@@ -75,6 +77,19 @@ func Int64(params ...any) *Int64Schema {
 	return newNumeric[int64](def, "int64", true)
 }
 
+// NumericOf returns a schema for any Go numeric type, including widths without
+// a named constructor and named types such as `type Port uint16`. A value that
+// T cannot hold exactly is an invalid_type failure, reported with T's kind:
+//
+//	z.NumericOf[uint16]()      // 0 … 65535
+//	z.NumericOf[Port]().Gte(1) // bounds take a Port
+func NumericOf[T Numeric](params ...any) *NumericSchema[T] {
+	kind := reflect.TypeFor[T]().Kind().String()
+	p := normalizeParams(params)
+	def := &Def{Type: kind, Error: p.Error, Coerce: p.Coerce}
+	return newNumeric[T](def, kind, true)
+}
+
 func numericDef(params []any) *Def {
 	p := normalizeParams(params)
 	return &Def{Type: "number", Error: p.Error, Coerce: p.Coerce}
@@ -116,14 +131,20 @@ func newNumeric[T Numeric](def *Def, expected string, strictType bool) *NumericS
 }
 
 // numericConverter returns an exact any → T conversion, reporting false when
-// the input is not a number or cannot be represented in T.
+// the input is not a number or cannot be represented in T. The output kind is
+// resolved once here, so named types (type Port uint16) behave like their
+// underlying kind and the parse path stays a plain closure call.
 func numericConverter[T Numeric]() func(any) (T, bool) {
 	var zero T
-	switch any(zero).(type) {
-	case float64:
+	switch kind := reflect.TypeFor[T]().Kind(); kind {
+	case reflect.Float32, reflect.Float64:
+		lo, hi := -math.MaxFloat64, math.MaxFloat64
+		if kind == reflect.Float32 {
+			lo, hi = -math.MaxFloat32, math.MaxFloat32
+		}
 		return func(v any) (T, bool) {
 			f, ok := ToFloat(v)
-			if !ok || math.IsNaN(f) || math.IsInf(f, 0) {
+			if !ok || math.IsNaN(f) || math.IsInf(f, 0) || f < lo || f > hi {
 				return zero, false
 			}
 			if f == 0 {
@@ -131,24 +152,12 @@ func numericConverter[T Numeric]() func(any) (T, bool) {
 			}
 			return T(f), true
 		}
-	case float32:
-		return func(v any) (T, bool) {
-			f, ok := ToFloat(v)
-			if !ok || math.IsNaN(f) || math.IsInf(f, 0) || f < -math.MaxFloat32 || f > math.MaxFloat32 {
-				return zero, false
-			}
-			if f == 0 {
-				f = 0
-			}
-			return T(f), true
-		}
 	default:
-		lo, hi := integerBounds[T]()
-		unsigned := lo == 0
+		lo, hi, unsigned := integerBounds[T]()
 		return func(v any) (T, bool) {
 			if u, ok := v.(uint64); ok && unsigned && u > math.MaxInt64 {
-				// Only reachable for uint64/uint outputs.
-				if uint64(hi) == math.MaxInt64 || u <= uint64(hi) {
+				// Only reachable for uint64 and uint outputs.
+				if hi == math.MaxInt64 || u <= uint64(hi) {
 					return T(u), true
 				}
 				return zero, false
@@ -163,25 +172,22 @@ func numericConverter[T Numeric]() func(any) (T, bool) {
 }
 
 // integerBounds returns the inclusive int64-domain bounds of integer type T.
-func integerBounds[T Numeric]() (lo, hi int64) {
-	var zero T
-	switch any(zero).(type) {
-	case int8:
-		return math.MinInt8, math.MaxInt8
-	case int16:
-		return math.MinInt16, math.MaxInt16
-	case int32:
-		return math.MinInt32, math.MaxInt32
-	case uint8:
-		return 0, math.MaxUint8
-	case uint16:
-		return 0, math.MaxUint16
-	case uint32:
-		return 0, math.MaxUint32
-	case uint, uint64:
-		return 0, math.MaxInt64
-	default: // int, int64 — int is 64-bit on every platform go-z supports
-		return math.MinInt64, math.MaxInt64
+// uint64 and uint are capped at MaxInt64; numericConverter handles the values
+// above that separately.
+func integerBounds[T Numeric]() (lo, hi int64, unsigned bool) {
+	t := reflect.TypeFor[T]()
+	bits := t.Bits()
+	switch t.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if bits >= 64 {
+			return 0, math.MaxInt64, true
+		}
+		return 0, int64(1)<<bits - 1, true
+	default:
+		if bits >= 64 {
+			return math.MinInt64, math.MaxInt64, false
+		}
+		return -(int64(1) << (bits - 1)), int64(1)<<(bits-1) - 1, false
 	}
 }
 
@@ -189,9 +195,8 @@ func integerBounds[T Numeric]() (lo, hi int64) {
 // try an exact integer parse first so large numeric strings keep every digit,
 // then fall back to the float path so "33.7" still reaches the format check.
 func numericCoercer[T Numeric]() func(any) (any, bool) {
-	var zero T
-	switch any(zero).(type) {
-	case float64, float32:
+	switch reflect.TypeFor[T]().Kind() {
+	case reflect.Float32, reflect.Float64:
 		return func(v any) (any, bool) {
 			f, ok := coerceToNumber(v)
 			return f, ok
@@ -251,8 +256,19 @@ func toInt64(v any) (int64, bool) {
 			return 0, false
 		}
 		return x.Int64(), true
+	case json.Number:
+		// A JSON number decoded with Decoder.UseNumber: parse it as an integer
+		// so digits above 2^53 survive.
+		if n, err := x.Int64(); err == nil {
+			return n, true
+		}
+		f, err := x.Float64()
+		if err != nil {
+			return 0, false
+		}
+		return toInt64(f)
 	default:
-		return 0, false
+		return namedInt(v)
 	}
 }
 
@@ -308,7 +324,7 @@ func coerceToNumber(v any) (float64, bool) {
 		f, _ := new(big.Float).SetInt(x).Float64()
 		return f, true
 	default:
-		return 0, false
+		return ToFloat(v)
 	}
 }
 
@@ -316,29 +332,33 @@ func coerceToNumber(v any) (float64, bool) {
 // Fluent checks — written once, valid for every T
 //////////////////////////////////////////////////////////////////////////////
 
-// clone rebuilds the schema with extra checks, preserving the output type.
+// clone rebuilds the schema with extra checks, preserving the output type and
+// the constructor's failure mode (Def.Type is "number" only for the JSON-number
+// constructors; Int64 and NumericOf name their own type).
 func (s *NumericSchema[T]) clone(checks ...*Check) *NumericSchema[T] {
-	if s.def.Type == "int64" {
-		return newNumeric[T](s.def.withChecks(checks...), "int64", true)
+	if s.def.Type == "number" {
+		return newNumeric[T](s.def.withChecks(checks...), "number", false)
 	}
-	return newNumeric[T](s.def.withChecks(checks...), "number", false)
+	return newNumeric[T](s.def.withChecks(checks...), s.def.Type, true)
 }
 
+// Bounds are passed with the schema's own type so the comparison stays exact:
+// an int64 bound near math.MaxInt64 cannot survive a trip through float64.
 func (s *NumericSchema[T]) Gt(value T, params ...any) *NumericSchema[T] {
-	return s.clone(Gt(numericToFloat(value), params...))
+	return s.clone(GreaterThan(numericBound(value), false, params...))
 }
 func (s *NumericSchema[T]) Gte(value T, params ...any) *NumericSchema[T] {
-	return s.clone(Gte(numericToFloat(value), params...))
+	return s.clone(GreaterThan(numericBound(value), true, params...))
 }
 func (s *NumericSchema[T]) Min(value T, params ...any) *NumericSchema[T] {
 	return s.Gte(value, params...)
 }
 
 func (s *NumericSchema[T]) Lt(value T, params ...any) *NumericSchema[T] {
-	return s.clone(Lt(numericToFloat(value), params...))
+	return s.clone(LessThan(numericBound(value), false, params...))
 }
 func (s *NumericSchema[T]) Lte(value T, params ...any) *NumericSchema[T] {
-	return s.clone(Lte(numericToFloat(value), params...))
+	return s.clone(LessThan(numericBound(value), true, params...))
 }
 func (s *NumericSchema[T]) Max(value T, params ...any) *NumericSchema[T] {
 	return s.Lte(value, params...)
@@ -350,7 +370,10 @@ func (s *NumericSchema[T]) NonPositive(params ...any) *NumericSchema[T] { return
 func (s *NumericSchema[T]) NonNegative(params ...any) *NumericSchema[T] { return s.Gte(0, params...) }
 
 func (s *NumericSchema[T]) MultipleOf(value T, params ...any) *NumericSchema[T] {
-	return s.clone(MultipleOf(numericToFloat(value), params...))
+	if numericIsInteger[T]() {
+		return s.clone(MultipleOfInt64(int64(value), params...))
+	}
+	return s.clone(MultipleOf(float64(value), params...))
 }
 
 // Step is an alias of MultipleOf.
@@ -374,8 +397,19 @@ func (s *NumericSchema[T]) Finite(params ...any) *NumericSchema[T] { return s }
 // Check attaches raw checks.
 func (s *NumericSchema[T]) Check(checks ...*Check) *NumericSchema[T] { return s.clone(checks...) }
 
-// numericToFloat widens a bound to the float64 the check layer compares with.
-func numericToFloat[T Numeric](v T) float64 {
-	f, _ := ToFloat(any(v))
-	return f
+// numericBound hands the check layer a bound it can compare exactly: an int64
+// for integer schemas, a float64 otherwise. Named types are converted through
+// their underlying kind rather than boxed as themselves.
+func numericBound[T Numeric](v T) any {
+	if numericIsInteger[T]() {
+		return int64(v)
+	}
+	return float64(v)
+}
+
+// numericIsInteger reports whether T is an integer type, without naming every
+// type in the constraint: integer division truncates, float division does not.
+func numericIsInteger[T Numeric]() bool {
+	var three T = 3
+	return three/2 == 1
 }
