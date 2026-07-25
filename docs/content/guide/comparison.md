@@ -159,15 +159,15 @@ That makes polyglot teams happier: a TS frontend and a Go API can document one e
 
 ## Performance snapshot
 
-Headline numbers (4-core, see repo `BENCHMARKS.md` for methodology):
+Headline numbers (4-core, Go 1.26.5, median of nine runs — see repo `BENCHMARKS.md` for methodology and spread):
 
 | Scenario | go-z | go-playground/validator | Oudwins/zog |
 |---|---:|---:|---:|
-| Flat user | ~416 ns | ~607 ns | ~1295 ns |
-| Nested object | ~978 ns | ~1090 ns | ~2783 ns |
-| Array 10k (parallel) | ~2.75 ms | ~6.09 ms | ~12.9 ms |
+| Flat user | ~528 ns | ~637 ns | ~1258 ns |
+| Nested object | ~1184 ns | ~1112 ns | ~2646 ns |
+| Array 10k (parallel) | ~2.45 ms | ~6.28 ms | ~12.5 ms |
 
-go-z now leads on all three after replacing the backtracking format regexes with hand-written matchers. validator still wins the failure path, where go-z pays for building Zod-shaped issues.
+go-z leads on flat objects, string formats and large arrays; validator is ~6% ahead on nested objects and ~3.6× ahead on the failure path, where go-z pays for building structured issues. Remember the two are validating different things: go-z parses an untyped map, validator inspects a struct it is handed.
 
 ## Decision guide
 

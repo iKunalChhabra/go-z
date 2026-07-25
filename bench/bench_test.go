@@ -2,7 +2,7 @@ package bench
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 
 	z "github.com/Oudwins/zog"
@@ -13,7 +13,7 @@ import (
 // FlatUser
 // ---------------------------------------------------------------------------
 
-func BenchmarkFlatUser_GoZod(b *testing.B) {
+func BenchmarkFlatUser_GoZ(b *testing.B) {
 	schema := gozFlatUser()
 	data := validFlatUserMap()
 	b.ReportAllocs()
@@ -24,7 +24,7 @@ func BenchmarkFlatUser_GoZod(b *testing.B) {
 	}
 }
 
-func BenchmarkFlatUser_GoZod_Parallel(b *testing.B) {
+func BenchmarkFlatUser_GoZ_Parallel(b *testing.B) {
 	schema := gozFlatUser()
 	data := validFlatUserMap()
 	b.ReportAllocs()
@@ -125,7 +125,7 @@ func BenchmarkFlatUser_Handwritten_Parallel(b *testing.B) {
 // Nested
 // ---------------------------------------------------------------------------
 
-func BenchmarkNested_GoZod(b *testing.B) {
+func BenchmarkNested_GoZ(b *testing.B) {
 	schema := gozNestedUser()
 	data := validNestedUserMap()
 	b.ReportAllocs()
@@ -136,7 +136,7 @@ func BenchmarkNested_GoZod(b *testing.B) {
 	}
 }
 
-func BenchmarkNested_GoZod_Parallel(b *testing.B) {
+func BenchmarkNested_GoZ_Parallel(b *testing.B) {
 	schema := gozNestedUser()
 	data := validNestedUserMap()
 	b.ReportAllocs()
@@ -224,10 +224,10 @@ func BenchmarkNested_Zog_Parallel(b *testing.B) {
 // ArrayN — sequential + ParseParallelSlice
 // ---------------------------------------------------------------------------
 
-func BenchmarkArrayN_GoZod_Sequential(b *testing.B) {
+func BenchmarkArrayN_GoZ_Sequential(b *testing.B) {
 	schema := gozFlatUser()
 	for _, n := range []int{100, 1000, 10000} {
-		b.Run(itoa(n), func(b *testing.B) {
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			data := makeFlatUserMapSlice(n)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -242,10 +242,10 @@ func BenchmarkArrayN_GoZod_Sequential(b *testing.B) {
 	}
 }
 
-func BenchmarkArrayN_GoZod_ParseParallelSlice(b *testing.B) {
+func BenchmarkArrayN_GoZ_ParseParallelSlice(b *testing.B) {
 	schema := gozFlatUser()
 	for _, n := range []int{100, 1000, 10000} {
-		b.Run(itoa(n), func(b *testing.B) {
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			data := makeFlatUserMapSlice(n)
 			opts := goz.ParallelOpts{}
 			b.ReportAllocs()
@@ -262,7 +262,7 @@ func BenchmarkArrayN_GoZod_ParseParallelSlice(b *testing.B) {
 func BenchmarkArrayN_Validator(b *testing.B) {
 	v := playgroundValidator()
 	for _, n := range []int{100, 1000, 10000} {
-		b.Run(itoa(n), func(b *testing.B) {
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			data := makeFlatUserSlice(n)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -280,7 +280,7 @@ func BenchmarkArrayN_Validator(b *testing.B) {
 func BenchmarkArrayN_Zog(b *testing.B) {
 	schema := zogFlatUser()
 	for _, n := range []int{100, 1000, 10000} {
-		b.Run(itoa(n), func(b *testing.B) {
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			items := make([]map[string]any, n)
 			for i := range items {
 				items[i] = map[string]any{
@@ -307,7 +307,7 @@ func BenchmarkArrayN_Zog(b *testing.B) {
 // StringFormats
 // ---------------------------------------------------------------------------
 
-func BenchmarkStringFormats_GoZod(b *testing.B) {
+func BenchmarkStringFormats_GoZ(b *testing.B) {
 	schema := gozFormats()
 	data := validFormatMap()
 	b.ReportAllocs()
@@ -349,7 +349,7 @@ func BenchmarkStringFormats_Zog(b *testing.B) {
 // FailurePath — invalid data + error construction
 // ---------------------------------------------------------------------------
 
-func BenchmarkFailurePath_GoZod(b *testing.B) {
+func BenchmarkFailurePath_GoZ(b *testing.B) {
 	schema := gozFlatUser()
 	data := invalidFlatUserMap()
 	b.ReportAllocs()
@@ -389,20 +389,8 @@ func BenchmarkFailurePath_Zog(b *testing.B) {
 		if errs == nil {
 			b.Fatal("expected error")
 		}
+		// zog returns an issue map with no Error() method; Prettify is the
+		// closest analogue to the other two libraries' default rendering.
 		_ = z.Issues.Prettify(errs)
-		_ = fmt.Sprintf("%d", len(errs))
-	}
-}
-
-func itoa(n int) string {
-	switch n {
-	case 100:
-		return "100"
-	case 1000:
-		return "1000"
-	case 10000:
-		return "10000"
-	default:
-		return "n"
 	}
 }

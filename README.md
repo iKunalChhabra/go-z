@@ -174,20 +174,22 @@ out, err := z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
 
 ## Performance
 
-4-core Xeon, Go 1.26, median of six runs. Full methodology and tables in
-[BENCHMARKS.md](./BENCHMARKS.md).
+4-core Xeon, Go 1.26.5, median of nine runs on a shared cloud VM. Full
+methodology, spread, and tables in [BENCHMARKS.md](./BENCHMARKS.md).
 
 | Scenario | go-z | go-playground/validator | Oudwins/zog |
 |---|---:|---:|---:|
-| Flat object | **416 ns** | 607 ns | 1295 ns |
-| Nested object | **978 ns** | 1090 ns | 2783 ns |
-| String formats (email + uuid + url) | **890 ns** | 1099 ns | 1810 ns |
-| Array of 10k (parallel) | **2.75 ms** | 6.09 ms | 12.9 ms |
+| Flat object | **528 ns** | 637 ns | 1258 ns |
+| Nested object | 1184 ns | **1112 ns** | 2646 ns |
+| String formats (email + uuid + url) | **798 ns** | 1088 ns | 1713 ns |
+| Array of 10k (parallel) | **2.45 ms** | 6.28 ms | 12.5 ms |
 
 Email, UUID, and the ISO date/time formats use hand-written matchers rather than
 backtracking regexes; each is differential-tested against the regex it replaced over
-hundreds of thousands of random inputs. Building structured issues makes the
-**failure** path slower than tag-based validators — see BENCHMARKS.md.
+hundreds of thousands of random inputs. Two places go-z does not win: nested
+objects, where it is ~6% behind validator because every level costs a child
+payload and a path segment, and the **failure** path, which is ~3.6× slower
+because structured issues are finalized through the error-map chain.
 
 ## Design notes
 
@@ -243,9 +245,9 @@ Not implemented: `fromJSONSchema`, and the JavaScript-only surface (`z.function(
 Issues and pull requests are welcome. Before submitting:
 
 ```bash
-go test -race./...
-go vet./...
-gofmt -l.
+go test -race ./...
+go vet ./...
+gofmt -l .
 ```
 
 ## Author

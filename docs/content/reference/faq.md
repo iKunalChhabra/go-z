@@ -52,7 +52,7 @@ Default is `FormatIssues`. Details: [HTTP error shapes](#/integrations/http-erro
 
 ## 10. Can I parse large arrays faster?
 
-Yes — `z.ParseParallelSlice(ctx, elemSchema, data, z.ParallelOpts{})`. Defaults: `Workers=GOMAXPROCS`, `MinChunk=64`. Measured ~**2.5×** at 10k elements on 4 cores. See [Parallel](#/guide/parallel) and [Benchmarks](#/guide/benchmarks).
+Yes — `z.ParseParallelSlice(ctx, elemSchema, data, z.ParallelOpts{})`. Defaults: `Workers=GOMAXPROCS`, `MinChunk=64`. Measured ~**2.2×** at 10k elements on 4 cores. See [Parallel](#/guide/parallel) and [Benchmarks](#/guide/benchmarks).
 
 ## 11. Where is `.encode` / `.decode` / codecs?
 
@@ -113,4 +113,4 @@ import "github.com/iKunalChhabra/go-z/z"         // package is named z
 import "github.com/iKunalChhabra/go-z/zgin"      // Gin helpers
 ```
 
-Requires Go 1.22+.
+Requires Go 1.26+.

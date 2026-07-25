@@ -5,29 +5,37 @@ Comparative benchmarks for **go-z** vs **go-playground/validator/v10** vs **Oudw
 Run from `bench/`:
 
 ```bash
-cd bench && go test -bench=. -benchmem -count=3
+cd bench && go test -bench=. -benchmem -count=9 -benchtime=500ms
 ```
 
 ## Machine
 
 | | |
 |---|---|
-| OS / kernel | `Linux 6.12.94+ #1 SMP PREEMPT_DYNAMIC Wed Jul 22 16:29:09 UTC 2026 x86_64` |
-| Go | `go1.22.2 linux/amd64` (bench module toolchain may auto-select) |
+| OS / kernel | `Linux 6.12.94+ x86_64` |
+| Go | `go1.26.5 linux/amd64` |
 | `GOMAXPROCS` | unset → defaults to **4** (`nproc` = 4) |
-| CPU | Intel(R) Xeon(R) Processor · 4 cores / 4 siblings |
+| CPU | Intel(R) Xeon(R) Processor · 4 cores |
 | Memory | 15 GiB |
-| Command | `go test -bench=. -benchmem -count=3` |
 | Date | 2026-07-25 |
 
-Values below are the **median** of 3 runs (`ns/op`, `B/op`, `allocs/op`).
+Values are the **median of 9 runs** (`-benchtime=500ms`) for the per-value
+benchmarks and the **median of 5 runs** (`-benchtime=300ms`) for the ArrayN
+family, which is slow enough that more samples buy little.
+
+This is a shared cloud VM, so treat the numbers as indicative of ratios rather
+than absolute throughput. Within a single invocation the spread was ≤1.1× for
+the sequential benchmarks; the `RunParallel` variants swing up to 1.4× and their
+absolute values are the least trustworthy figures on this page. Two invocations
+an hour apart differed by up to 30% on the same benchmark, which is why the
+sampling protocol is stated rather than a single run reported.
 
 ## Notes
 
-- **go-z** validates `map[string]any` (JSON model), matching Zod’s untyped core.
-- **validator** validates typed Go structs with tags (no parse/coerce from maps).
-- **zog** parses maps into structs (includes coercion / reflection). Included successfully on this machine (`github.com/Oudwins/zog@v0.22.2`).
-- **Handwritten** is a minimal manual FlatUser check (lower bound).
+- **go-z** validates `map[string]any` (the JSON model), matching the untyped core it is ported from.
+- **validator** validates typed Go structs with tags — no parse or coercion from maps, which is a real advantage in these benchmarks and a real limitation in a JSON pipeline.
+- **zog** parses maps into structs (includes coercion / reflection), `github.com/Oudwins/zog@v0.22.2`.
+- **Handwritten** is a minimal manual FlatUser check — the lower bound.
 - Parallel array mode uses `z.ParseParallelSlice` with default `ParallelOpts` (`Workers=GOMAXPROCS`, `MinChunk=64`).
 
 ---
@@ -38,16 +46,16 @@ Values below are the **median** of 3 runs (`ns/op`, `B/op`, `allocs/op`).
 
 | Library | Mode | ns/op | B/op | allocs/op |
 |---|---|---:|---:|---:|
-| go-z | sequential | 416.0 | 392 | 6 |
-| go-z | `RunParallel` | 231.2 | 392 | 6 |
-| validator | sequential | 607.1 | 0 | 0 |
-| validator | `RunParallel` | 159.4 | 0 | 0 |
-| zog | sequential | 1295 | 169 | 13 |
-| zog | `RunParallel` | 606.8 | 170 | 13 |
-| handwritten | sequential | 230.5 | 96 | 5 |
-| handwritten | `RunParallel` | 74.09 | 96 | 5 |
+| go-z | sequential | 528 | 536 | 12 |
+| go-z | `RunParallel` | 306 | 536 | 12 |
+| validator | sequential | 637 | 0 | 0 |
+| validator | `RunParallel` | 179 | 0 | 0 |
+| zog | sequential | 1258 | 111 | 7 |
+| zog | `RunParallel` | 431 | 111 | 7 |
+| handwritten | sequential | 184 | 96 | 5 |
+| handwritten | `RunParallel` | 67 | 96 | 5 |
 
-**Headline:** go-z is **~1.5× faster than validator** on FlatUser sequential and **~3.1× faster than zog**.
+**Headline:** go-z is **~1.2× faster than validator** and **~2.4× faster than zog** on flat objects, at 2.9× the cost of a handwritten check.
 
 ---
 
@@ -57,14 +65,14 @@ user + `address{city,zip}` + `[]tags` max 10
 
 | Library | Mode | ns/op | B/op | allocs/op |
 |---|---|---:|---:|---:|
-| go-z | sequential | 977.6 | 864 | 14 |
-| go-z | `RunParallel` | 555.8 | 864 | 14 |
-| validator | sequential | 1090 | 88 | 4 |
-| validator | `RunParallel` | 358.7 | 89 | 4 |
-| zog | sequential | 2783 | 492 | 36 |
-| zog | `RunParallel` | 895.9 | 493 | 36 |
+| go-z | sequential | 1184 | 1008 | 20 |
+| go-z | `RunParallel` | 605 | 1009 | 20 |
+| validator | sequential | 1112 | 88 | 4 |
+| validator | `RunParallel` | 380 | 88 | 4 |
+| zog | sequential | 2646 | 362 | 22 |
+| zog | `RunParallel` | 928 | 361 | 22 |
 
-**Headline:** go-z is **~1.1× faster than validator** and **~2.8× faster than zog** on nested objects.
+**Headline:** on nested objects go-z is **~6% slower than validator** and **~2.2× faster than zog**. Nesting is where the payload-per-child model costs the most: a child payload and a path segment per level, against validator walking one struct with reflection.
 
 ---
 
@@ -72,22 +80,22 @@ user + `address{city,zip}` + `[]tags` max 10
 
 | N | Library | ns/op | B/op | allocs/op |
 |---:|---|---:|---:|---:|
-| 100 | go-z sequential | 41510 | 39223 | 600 |
-| 100 | go-z `ParseParallelSlice` | 36073 | 43679 | 613 |
-| 100 | validator | 60946 | 1 | 0 |
-| 100 | zog | 129143 | 16936 | 1300 |
-| 1000 | go-z sequential | 426452 | 392276 | 6001 |
-| 1000 | go-z `ParseParallelSlice` | 333009 | 426438 | 6015 |
-| 1000 | validator | 612798 | 19 | 0 |
-| 1000 | zog | 1299807 | 169425 | 13000 |
-| 10000 | go-z sequential | 4241138 | 3921944 | 60007 |
-| 10000 | go-z `ParseParallelSlice` | 2747636 | 4250742 | 60020 |
-| 10000 | validator | 6087655 | 197 | 0 |
-| 10000 | zog | 12944697 | 1691599 | 130007 |
+| 100 | go-z sequential | 52884 | 53627 | 1200 |
+| 100 | go-z `ParseParallelSlice` | 39772 | 58217 | 1217 |
+| 100 | validator | 62654 | 6 | 0 |
+| 100 | zog | 125411 | 11203 | 700 |
+| 1000 | go-z sequential | 542204 | 536342 | 12001 |
+| 1000 | go-z `ParseParallelSlice` | 323172 | 570798 | 12020 |
+| 1000 | validator | 627579 | 67 | 0 |
+| 1000 | zog | 1248999 | 111682 | 7000 |
+| 10000 | go-z sequential | 5282721 | 5362096 | 120009 |
+| 10000 | go-z `ParseParallelSlice` | 2447755 | 5691449 | 120027 |
+| 10000 | validator | 6277177 | 688 | 0 |
+| 10000 | zog | 12495714 | 1116529 | 70005 |
 
-**Headline — parallel speedup (10k):** sequential **4.24 ms** → parallel **2.75 ms** ≈ **1.5×** on 4 workers. Sequential parsing got fast enough that the parallel win narrowed.
+**Headline — parallel speedup (10k):** sequential **5.28 ms** → parallel **2.45 ms** ≈ **2.2×** on 4 workers, for ~6% more allocated bytes.
 
-At N=10000, even sequential go-z beats validator’s per-element loop (**4.24 ms** vs **6.09 ms**); parallel widens it to **2.75 ms**.
+At N=10 000 even sequential go-z beats validator's per-element loop (**5.28 ms** vs **6.28 ms**); parallel widens that to **2.6×**.
 
 ---
 
@@ -97,25 +105,30 @@ At N=10000, even sequential go-z beats validator’s per-element loop (**4.24 ms
 
 | Library | ns/op | B/op | allocs/op |
 |---|---:|---:|---:|
-| go-z | 889.7 | 688 | 8 |
-| validator | 1099 | 144 | 1 |
-| zog | 1810 | 330 | 15 |
+| go-z | 798 | 688 | 8 |
+| validator | 1088 | 145 | 1 |
+| zog | 1713 | 274 | 9 |
 
-**Headline:** go-z is **~1.2× faster than validator** and **~2× faster than zog**. Email, UUID, and the ISO date/time formats use hand-written matchers instead of the backtracking regexes (see `matchers.go`).
+**Headline:** go-z is **~1.4× faster than validator** and **~2.1× faster than zog**. Email, UUID and the ISO date/time formats use hand-written matchers instead of backtracking regexes (see `z/matchers.go`).
 
 ---
 
 ## FailurePath
 
-Invalid FlatUser; includes error construction / stringification.
+Invalid FlatUser, including error construction and rendering to a string.
 
-| Library | ns/op | B/op | allocs/op |
-|---|---:|---:|---:|
-| go-z | 6706 | 5561 | 31 |
-| validator | 2001 | 1922 | 29 |
-| zog | 2790 | 1121 | 33 |
+| Library | Rendering | ns/op | B/op | allocs/op |
+|---|---|---:|---:|---:|
+| go-z | `err.Error()` | 6845 | 5689 | 37 |
+| validator | `err.Error()` | 1914 | 1923 | 29 |
+| zog | `Issues.Prettify(errs)` | 2645 | 1072 | 27 |
 
-**Headline:** failure-path error rendering is heavier in go-z (Zod-shaped issue JSON / finalize chain) — expected vs tag validators.
+The three are not doing identical work: go-z and validator render their default
+error string, while zog returns an issue map with no `Error()` method, so
+`Prettify` stands in as the closest analogue. Read this table as an
+order-of-magnitude comparison, not a precise ranking.
+
+**Headline:** failure-path rendering is heavier in go-z — **~3.6× validator**, **~2.6× zog** — because building structured issues means finalizing every message through the error-map chain and copying a large `Issue` per problem.
 
 ---
 
@@ -123,12 +136,17 @@ Invalid FlatUser; includes error construction / stringification.
 
 | Scenario | go-z vs validator | go-z vs zog |
 |---|---|---|
-| FlatUser | **~1.5× faster** | **~3.1× faster** |
-| Nested | **~1.1× faster** | **~2.8× faster** |
-| StringFormats | **~1.2× faster** | **~2.0× faster** |
-| Array 10k parallel | **~2.2× faster** than validator loop | **~4.7× faster** than zog loop |
-| FailurePath | ~3.4× slower (richer errors) | ~2.4× slower (richer errors) |
+| FlatUser | **~1.2× faster** | **~2.4× faster** |
+| Nested | ~6% slower | **~2.2× faster** |
+| StringFormats | **~1.4× faster** | **~2.1× faster** |
+| Array 10k parallel | **~2.6× faster** than validator's loop | **~5.1× faster** than zog's loop |
+| FailurePath | ~3.6× slower (structured errors) | ~2.6× slower (structured errors) |
 
-Parallel validation pays off once element count clears `MinChunk` (default 64); measured **~1.5×** wall-time improvement at 10k elements on this 4-core host.
+Parallel validation pays off once the element count clears `MinChunk` (default
+64): **~2.2×** wall-time improvement at 10 000 elements on this 4-core host.
 
-The failure path remains the one place go-z loses: building Zod-shaped issues means finalizing messages through the error-map chain and copying a 400-byte `Issue` per problem. It is the next optimization target.
+The failure path is where go-z loses, and it is the next optimization target:
+finalizing messages through the error-map chain and copying an `Issue` per
+problem dominates. Note that both comparisons validate different inputs — go-z
+parses an untyped map, validator inspects a typed struct — so the happy-path
+ratios above are the meaningful ones.

@@ -249,6 +249,21 @@ Output:
 }
 ```
 
+## Four things that surprise Go developers
+
+The engine models JSON the way the original library does, and a few of those
+decisions are not what a Go developer would guess:
+
+| Behaviour | Why | What to do about it |
+|---|---|---|
+| `Min(3)` on a string counts **UTF-16 code units**, not bytes or runes | Matches JavaScript's `string.length`, so a schema means the same thing on both sides of an API | Use `Length`/`Min`/`Max` for user-facing limits; if you need bytes, add a `Refine` on `len(s)` |
+| `z.Coerce.Number()` turns `""` into `0` (and `true` into `1`) | JavaScript's `Number("")` is `0` | Reach for `Optional` / `Default` instead of coercing a missing query parameter into a silent zero |
+| `Object` returns `map[string]any`, not your struct | The core is untyped so containers can hold heterogeneous schemas | Wrap with `z.ToStruct[T](schema)` when you want a struct, or `zgin.BindJSON` in a handler |
+| An absent key (`Missing`) is not the same as `null` (`nil`) | JavaScript distinguishes `undefined` from `null` and so do the wrappers | `Optional` accepts absent, `Nullable` accepts null, `Nullish` accepts both — see [Missing vs nil](#/guide/missing-nil) |
+
+Numbers, by contrast, are Go-native: `z.Int()` yields an `int`, `z.Int64()` an
+`int64`, `z.Number()` a `float64`.
+
 ## Where to go next
 
 - [Schemas & parsing](#/guide/parsing) — `MustParse`, `ParseCtx`, `Schema[T]`, fluent clones

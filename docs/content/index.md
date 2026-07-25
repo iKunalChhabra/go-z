@@ -43,7 +43,7 @@ func main() {
 ```bash
 go get github.com/iKunalChhabra/go-z/z
 ```
-Requires **Go 1.22+**. Gin users also pull in `github.com/iKunalChhabra/go-z/zgin` (optional).
+Requires **Go 1.26+**. Gin users install the separate `github.com/iKunalChhabra/go-z/zgin` module.
 :::
 
 ## Why teams pick go-z
@@ -54,7 +54,7 @@ Requires **Go 1.22+**. Gin users also pull in `github.com/iKunalChhabra/go-z/zgi
 - **Locales** — `en`, `es`, `fr`, `de`, `ja`, `pt`, `zh` out of the box
 - **Concurrency-safe** — schemas are immutable after construction; `Parse` is lock-free and `-race` clean
 - **Gin-ready** — `zgin.Validate` / `zgin.BindJSONAny` for middleware and one-liner handlers
-- **Parallel arrays** — `ParseParallelSlice` for large lists (~2.5× faster on multi-core vs sequential)
+- **Parallel arrays** — `ParseParallelSlice` for large lists (~2.2× faster at 10k elements on 4 cores)
 - **Struct edge** — `ToStruct[T]` when you want typed Go structs after JSON-shaped parse
 
 ## Start here

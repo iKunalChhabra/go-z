@@ -101,7 +101,7 @@ Notes:
 - Context cancellation returns `ctx.Err`.
 - The **element schema** is still shared immutably across workers — same rules as above.
 
-On multi-core machines, 10k-element arrays are roughly ~2.5× faster than sequential in published benchmarks.
+On multi-core machines, 10k-element arrays are roughly ~2.2× faster than sequential in the published benchmarks (4 cores).
 
 ## Pooling
 
@@ -186,7 +186,7 @@ If you must specialize per tenant, cache the derived schema (e.g. `sync.Map`) ke
 Validate your service under the race detector when you wire custom checks that close over shared state:
 
 ```bash
-go test -race./...
+go test -race ./...
 ```
 
 Safe check:
