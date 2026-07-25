@@ -69,10 +69,10 @@ func TestParityObjectShapeAccess(t *testing.T) {
 	if _, ok := shape["f1"].(*NumberSchema); !ok {
 		t.Fatalf("f1 type %T", shape["f1"])
 	}
-	if _, ok := shape["f2"].(*OptionalSchema); !ok {
+	if !defTypeIs(shape["f2"], "optional") {
 		t.Fatalf("f2 type %T", shape["f2"])
 	}
-	if _, ok := shape["f3"].(*NullableSchema); !ok {
+	if !defTypeIs(shape["f3"], "nullable") {
 		t.Fatalf("f3 type %T", shape["f3"])
 	}
 	if _, ok := shape["f4"].(*ArraySchema); !ok {
@@ -418,13 +418,13 @@ func TestParityObjectRequired(t *testing.T) {
 	})
 	req := object.Required()
 	shape := req.Shape()
-	if _, ok := shape["name"].(*NonOptionalSchema); !ok {
+	if !defTypeIs(shape["name"], "nonoptional") {
 		t.Fatalf("name: %T", shape["name"])
 	}
-	if _, ok := shape["age"].(*NonOptionalSchema); !ok {
+	if !defTypeIs(shape["age"], "nonoptional") {
 		t.Fatalf("age: %T", shape["age"])
 	}
-	if _, ok := shape["field"].(*NonOptionalSchema); !ok {
+	if !defTypeIs(shape["field"], "nonoptional") {
 		t.Fatalf("field: %T", shape["field"])
 	}
 
@@ -449,13 +449,13 @@ func TestParityObjectRequired(t *testing.T) {
 	if _, ok := ms["name"].(*StringSchema); !ok {
 		t.Fatalf("name unchanged: %T", ms["name"])
 	}
-	if _, ok := ms["age"].(*NonOptionalSchema); !ok {
+	if !defTypeIs(ms["age"], "nonoptional") {
 		t.Fatalf("age required: %T", ms["age"])
 	}
 	if _, ok := ms["country"]; ok {
 		t.Fatal("no country")
 	}
-	if _, ok := ms["field"].(*DefaultSchema); !ok {
+	if !defTypeIs(ms["field"], "default") {
 		// field may still be Default
 		t.Logf("field type: %T", ms["field"])
 	}
@@ -473,10 +473,10 @@ func TestParityObjectPartialMask(t *testing.T) {
 	if _, ok := shape["name"].(*StringSchema); !ok {
 		t.Fatalf("name: %T", shape["name"])
 	}
-	if _, ok := shape["age"].(*OptionalSchema); !ok {
+	if !defTypeIs(shape["age"], "optional") {
 		t.Fatalf("age: %T", shape["age"])
 	}
-	if _, ok := shape["country"].(*OptionalSchema); !ok {
+	if !defTypeIs(shape["country"], "optional") {
 		t.Fatalf("country: %T", shape["country"])
 	}
 	if _, err := partial.Parse(map[string]any{"name": "x"}); err != nil {
@@ -495,7 +495,7 @@ func TestParityObjectPartialAlreadyOptional(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := p.Shape()["a"]
-	if _, ok := a.(*OptionalSchema); !ok {
+	if !defTypeIs(a, "optional") {
 		t.Fatalf("want Optional, got %T", a)
 	}
 }

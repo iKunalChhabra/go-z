@@ -74,8 +74,8 @@ func TestFluentObjectStrictDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("default object: %v", err)
 	}
-	m, ok := got.(map[string]any)
-	if !ok || m["a"] != "x" {
+	// Default keeps the object's typed edge: Parse returns map[string]any.
+	if got["a"] != "x" {
 		t.Fatalf("got %#v", got)
 	}
 }

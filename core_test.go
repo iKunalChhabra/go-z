@@ -141,3 +141,14 @@ func TestPathPrepend(t *testing.T) {
 		t.Fatalf("bad path: %v", p.Issues[0].Path)
 	}
 }
+
+// defTypeIs reports whether sch is a schema of the given def type. Wrapper
+// types are generic, so *OptionalSchema[string] and *OptionalSchema[any] are
+// distinct Go types; the def type is the stable identity to assert on.
+func defTypeIs(sch AnySchemaLike, want string) bool {
+	if sch == nil {
+		return false
+	}
+	in := sch.Internals()
+	return in != nil && in.Def != nil && in.Def.Type == want
+}

@@ -139,6 +139,16 @@ type AnySchemaLike interface {
 	Internals() *Internals
 }
 
+// Unwrapper is implemented by every wrapper schema that holds exactly one
+// inner schema (optional, nullable, default, prefault, catch, non-optional,
+// readonly, refined, transform, preprocess, lazy). Tools that walk a schema
+// tree — ToJSONSchema, TemplateLiteral — use it instead of type switching on
+// each wrapper type, so new wrappers work without touching the walkers.
+type Unwrapper interface {
+	AnySchemaLike
+	Unwrap() AnySchemaLike
+}
+
 // schemaBase provides the typed Parse surface over Internals; concrete schema
 // types embed it.
 type schemaBase[T any] struct {
@@ -197,6 +207,79 @@ func parseTyped[T any](in *Internals, data any, ctx *ParseCtx) (T, error) {
 		return zero, nil
 	}
 	return out, nil
+}
+
+// ptrBase is the typed surface for wrappers whose output domain is "T or
+// nothing" — Optional (T or Missing) and Nullable (T or null). Go's honest
+// encoding of Zod's `T | undefined` is *T, so Parse returns a nil pointer when
+// the value is absent or null. Use ParseAny when you need the raw JSON model
+// and must tell Missing apart from null.
+type ptrBase[T any] struct {
+	in *Internals
+}
+
+func newPtrBase[T any](in *Internals) ptrBase[T] { return ptrBase[T]{in: in} }
+
+// Internals exposes the untyped core.
+func (b *ptrBase[T]) Internals() *Internals { return b.in }
+
+// Parse validates data and returns nil when the value is absent or null.
+func (b *ptrBase[T]) Parse(data any) (*T, error) { return parsePtr[T](b.in, data, nil) }
+
+// ParseCtx validates data with per-parse options.
+func (b *ptrBase[T]) ParseCtx(data any, ctx *ParseCtx) (*T, error) {
+	return parsePtr[T](b.in, data, ctx)
+}
+
+// MustParse is Parse but panics with *ZodError on failure.
+func (b *ptrBase[T]) MustParse(data any) *T {
+	v, err := b.Parse(data)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// SafeParse never returns an error value; it mirrors Zod's safeParse result.
+func (b *ptrBase[T]) SafeParse(data any) SafeParseResult[*T] {
+	v, err := b.Parse(data)
+	if err != nil {
+		zerr, _ := err.(*ZodError)
+		return SafeParseResult[*T]{Success: false, Error: zerr}
+	}
+	return SafeParseResult[*T]{Success: true, Data: v}
+}
+
+// ParseAny returns the raw JSON-model value (Missing stays distinguishable
+// from nil) instead of a typed pointer.
+func (b *ptrBase[T]) ParseAny(data any) (any, error) { return parseTyped[any](b.in, data, nil) }
+
+// SafeParseAny is ParseAny with a SafeParseResult.
+func (b *ptrBase[T]) SafeParseAny(data any) SafeParseResult[any] {
+	v, err := b.ParseAny(data)
+	if err != nil {
+		zerr, _ := err.(*ZodError)
+		return SafeParseResult[any]{Success: false, Error: zerr}
+	}
+	return SafeParseResult[any]{Success: true, Data: v}
+}
+
+// parsePtr runs the untyped core and folds Missing/null into a nil pointer.
+func parsePtr[T any](in *Internals, data any, ctx *ParseCtx) (*T, error) {
+	v, err := parseTyped[any](in, data, ctx)
+	if err != nil {
+		return nil, err
+	}
+	if v == nil || IsMissing(v) {
+		return nil, nil
+	}
+	tv, ok := v.(T)
+	if !ok {
+		// Inner schema produced a different dynamic type than the declared
+		// edge (only reachable through the type-erased constructors).
+		return nil, nil
+	}
+	return &tv, nil
 }
 
 // RunChild parses value with a child schema, scoping any child issues under

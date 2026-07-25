@@ -408,22 +408,12 @@ func unionOptions(schema AnySchemaLike) []AnySchemaLike {
 	}
 }
 
+// unwrapJSONSchemaInner picks the schema a wrapper should be represented by.
+// Pipes and codecs have two sides, so they are selected by io; everything else
+// exposes its single inner schema through Unwrapper, which means new wrapper
+// types work here without edits.
 func unwrapJSONSchemaInner(schema AnySchemaLike, io string) AnySchemaLike {
 	switch s := schema.(type) {
-	case *OptionalSchema:
-		return s.inner
-	case *NullableSchema:
-		return s.inner
-	case *DefaultSchema:
-		return s.inner
-	case *PrefaultSchema:
-		return s.inner
-	case *CatchSchema:
-		return s.inner
-	case *ReadonlySchema:
-		return s.inner
-	case *NonOptionalSchema:
-		return s.inner
 	case *PipeSchema:
 		if io == "input" {
 			return s.inSchema
@@ -434,14 +424,8 @@ func unwrapJSONSchemaInner(schema AnySchemaLike, io string) AnySchemaLike {
 			return s.inSch
 		}
 		return s.outSch
-	case *TransformSchema:
-		return s.inner
-	case *CheckedSchema:
-		return s.inner
-	case *LazySchema:
-		return s.Inner()
-	case *PreprocessSchema:
-		return s.schema
+	case Unwrapper:
+		return s.Unwrap()
 	default:
 		return nil
 	}

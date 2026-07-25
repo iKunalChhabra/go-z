@@ -31,10 +31,10 @@ type CodecTx struct {
 // Encode: out → encodeTx → in.
 type CodecSchema struct {
 	schemaBase[any]
-	def   *Def
-	inSch AnySchemaLike
+	def    *Def
+	inSch  AnySchemaLike
 	outSch AnySchemaLike
-	tx    CodecTx
+	tx     CodecTx
 }
 
 // Codec returns a bidirectional codec schema.
@@ -109,7 +109,7 @@ func (s *CodecSchema) In() AnySchemaLike { return s.inSch }
 func (s *CodecSchema) Out() AnySchemaLike { return s.outSch }
 
 // Check attaches raw checks after codec parse (Zod .check / .refine on codecs).
-func (s *CodecSchema) Check(checks ...*Check) *CheckedSchema {
+func (s *CodecSchema) Check(checks ...*Check) *CheckedSchema[any] {
 	return CheckSchema(s, checks...)
 }
 

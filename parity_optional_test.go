@@ -8,14 +8,17 @@ import "testing"
 
 func TestParityOptionalBasic(t *testing.T) {
 	// Ported from classic/tests/optional.test.ts — ".optional()"
-	schema := Optional(String())
+	schema := OptionalOf(String())
 	got, err := schema.Parse("adsf")
-	if err != nil || got != "adsf" {
+	if err != nil || got == nil || *got != "adsf" {
 		t.Fatalf("%v %v", got, err)
 	}
-	got, err = schema.Parse(Missing)
-	if err != nil || !IsMissing(got) {
-		t.Fatalf("Missing: %v %v", got, err)
+	if v, err := schema.Parse(Missing); err != nil || v != nil {
+		t.Fatalf("Missing: %v %v", v, err)
+	}
+	// The raw JSON model still distinguishes undefined from null.
+	if raw, err := schema.ParseAny(Missing); err != nil || !IsMissing(raw) {
+		t.Fatalf("Missing raw: %v %v", raw, err)
 	}
 	if schema.SafeParse(nil).Success {
 		t.Fatal("optional must reject null")
@@ -233,13 +236,13 @@ func TestParityOptionalInObjectOmit(t *testing.T) {
 
 func TestParityNullableBasic(t *testing.T) {
 	// Ported from classic/tests/nullable.test.ts — ".nullable()"
-	nullable := Nullable(String())
+	nullable := NullableOf(String())
 	got, err := nullable.Parse(nil)
 	if err != nil || got != nil {
 		t.Fatalf("%v %v", got, err)
 	}
 	got, err = nullable.Parse("asdf")
-	if err != nil || got != "asdf" {
+	if err != nil || got == nil || *got != "asdf" {
 		t.Fatalf("%v %v", got, err)
 	}
 	if nullable.SafeParse(123).Success {
@@ -275,19 +278,20 @@ func TestParityNullSchema(t *testing.T) {
 }
 
 func TestParityNullish(t *testing.T) {
-	schema := Nullish(String())
+	schema := NullishOf(String())
 	if !schema.Internals().OptIn || !schema.Internals().OptOut {
 		t.Fatal("nullish should be optional")
 	}
-	if _, err := schema.Parse(Missing); err != nil {
-		t.Fatal(err)
+	// Absent and null both decode to a nil *string.
+	if got, err := schema.Parse(Missing); err != nil || got != nil {
+		t.Fatalf("Missing: %v %v", got, err)
 	}
 	got, err := schema.Parse(nil)
 	if err != nil || got != nil {
 		t.Fatalf("%v %v", got, err)
 	}
 	got, err = schema.Parse("x")
-	if err != nil || got != "x" {
+	if err != nil || got == nil || *got != "x" {
 		t.Fatalf("%v %v", got, err)
 	}
 }

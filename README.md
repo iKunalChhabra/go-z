@@ -166,7 +166,9 @@ Schemas are immutable and lock-free — `b.RunParallel` / `-race` clean under co
 
 ## Design notes
 
-- **Untyped core, typed edge.** Like Zod, the engine runs on `any`; `Schema[T]` is the generic boundary. Same-type fluent ops (`Optional`, `Refine`, …) are methods on concrete schemas; output-type-changing ops (`Transform`, `Pipe`, `ToStruct`) stay package-level because Go methods cannot introduce new type parameters.
+- **Untyped core, typed edge.** Like Zod, the engine runs on `any`; `Schema[T]` is the generic boundary. Wrappers are generic too, so the typed edge survives them: `String().Optional().Parse(v)` returns `(*string, error)` and `String().Default("x").Parse(v)` returns `(string, error)`. `Optional`/`Nullable` yield `*T` (nil = absent/null); every other wrapper yields `T`. Each has an erased constructor for heterogeneous containers (`Optional(anySchema)`) and a typed one (`OptionalOf`, `DefaultOf`, `RefineOf`, …) that works with every schema type.
+- **Ops that change the output type** (`Transform`, `Pipe`, `ToStruct`) stay package-level: Go methods cannot introduce new type parameters.
+- **Params are validated at definition time.** Passing an unsupported params type panics while the schema is built (package init / startup), never during request parsing.
 - **JSON model first.** Objects produce `map[string]any`, arrays `[]any`, and `Int()`/`Number()` output `float64`. Use `Int64()` for a typed `int64` edge, or `ToStruct[T]` for structs.
 - **`Missing` ≠ `nil`.** `Missing` is Zod's `undefined` (absent key); `nil` is JSON `null`. `Optional` accepts Missing; `Nullable` accepts nil.
 - **Object field order.** `Object(Shape)` reports issues in sorted key order (Go maps are unordered). Use `ObjectOrdered([]Field{...})` for definition order.
