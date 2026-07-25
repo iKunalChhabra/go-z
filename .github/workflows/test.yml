@@ -48,6 +48,26 @@ jobs:
       - name: Test with race detector
         run: go test -race -count=1 ./...
 
+  zgin:
+    name: Gin integration module
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          check-latest: true
+
+      # zgin is its own module so the core does not depend on Gin; it has to be
+      # built and tested from its own directory.
+      - name: Vet and test
+        working-directory: zgin
+        run: |
+          go vet ./...
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+
   bench:
     name: Benchmarks compile and run
     runs-on: ubuntu-latest

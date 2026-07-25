@@ -9,8 +9,8 @@ Add go-z to your module with the standard Go toolchain. No code generation, no C
 | **Go** | **1.26 or newer** |
 | **Module path** | `github.com/iKunalChhabra/go-z` |
 | **Import path** | `github.com/iKunalChhabra/go-z/z` |
-| **Core dependency** | `golang.org/x/text` (Unicode NFC for `Normalize()`) |
-| **Gin (optional)** | Only if you import `github.com/iKunalChhabra/go-z/zgin` |
+| **Core dependency** | `golang.org/x/text` (Unicode NFC for `Normalize()`) — and nothing else |
+| **Gin (optional)** | A separate module, `github.com/iKunalChhabra/go-z/zgin` |
 
 :::tip Go modules only
 go-z is a normal Go module. There is no `go-z init` CLI and no schema compiler step. You write schemas in Go and call `Parse`.
@@ -42,11 +42,12 @@ The package is named `z` and lives at `/z`, so a plain import gives you the `z.`
 
 ## Optional: Gin integration
 
-The `zgin` subpackage is **not** pulled in unless you import it. Gin is an optional dependency of that subpackage only.
+`zgin` is a **separate Go module** in the same repository, so Gin never enters
+your dependency graph unless you ask for it. Installing the core gives you a
+two-line `go.sum`; installing `zgin` brings in Gin and the core together:
 
 ```bash
-go get github.com/gin-gonic/gin
-go get github.com/iKunalChhabra/go-z/z
+go get github.com/iKunalChhabra/go-z/zgin
 ```
 
 ```go

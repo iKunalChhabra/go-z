@@ -26,11 +26,13 @@ go get github.com/iKunalChhabra/go-z/z
 Requires **Go 1.26+**.
 
 The core package has a single dependency, [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text),
-used for Unicode NFC normalisation in `Normalize()`. Importing the core downloads
-nothing else and compiles nothing else. The optional `zgin` package additionally
-needs [Gin](https://github.com/gin-gonic/gin); because it lives in this module,
-Gin appears in the module graph even if you never import it, but it is never
-downloaded, compiled, or linked unless you do.
+used for Unicode NFC normalisation in `Normalize()`. Nothing else enters your
+`go.sum`. The Gin integration is a separate module, so
+[Gin](https://github.com/gin-gonic/gin) is only downloaded if you ask for it:
+
+```bash
+go get github.com/iKunalChhabra/go-z/zgin
+```
 
 ## Quick start
 
@@ -221,7 +223,7 @@ z/               core package — import "github.com/iKunalChhabra/go-z/z"
   locale_*.go      i18n error maps
   parallel.go      ParseParallelSlice
   tostruct.go      cached reflect decode
-zgin/            Gin binding and middleware
+zgin/            Gin binding and middleware (separate module)
 bench/           comparative benchmarks (separate module)
 docs/            documentation site
 ```
