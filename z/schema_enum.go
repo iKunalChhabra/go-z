@@ -14,8 +14,8 @@ type EnumSchema struct {
 // overload (that was a silent trap: Enum("a","b","msg") would accept "msg").
 // To customize the error, use EnumWith:
 //
-//	zod.EnumWith([]string{"active", "inactive"}, "must be a status")
-//	zod.EnumWith([]string{"active", "inactive"}, zod.Params{Error: ...})
+//	z.EnumWith([]string{"active", "inactive"}, "must be a status")
+//	z.EnumWith([]string{"active", "inactive"}, z.Params{Error: ...})
 func Enum(values ...string) *EnumSchema {
 	entries := make(map[string]string, len(values))
 	for _, v := range values {

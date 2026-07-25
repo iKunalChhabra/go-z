@@ -96,7 +96,7 @@ r.GET("/users/:id", func(c *gin.Context) {
 Middleware that parses the JSON body, stores the result, and continues:
 
 ```go
-const ContextKey = "zod:value" // zgin.ContextKey
+const ContextKey = "go-z:value" // zgin.ContextKey
 
 r.POST("/users", zgin.Validate(userSchema), func(c *gin.Context) {
     body, ok:= zgin.Get(c) // any
@@ -261,7 +261,7 @@ if err != nil {
 | `BindURI[T]` | Path params |
 | `Validate` | Middleware |
 | `Get` | Read middleware value |
-| `ContextKey` | `"zod:value"` |
+| `ContextKey` | `"go-z:value"` |
 | `AbortWithError` | Write schema-shaped error |
 | `Options` / `ErrorFormat` | Status + renderer |
 | `CoerceQueryValues` | `url.Values` → `map[string]any` |

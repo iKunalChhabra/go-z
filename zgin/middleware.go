@@ -6,7 +6,7 @@ import (
 )
 
 // ContextKey is the gin.Context key used by Validate / Get for the parsed value.
-const ContextKey = "zod:value"
+const ContextKey = "go-z:value"
 
 // Validate returns middleware that parses the JSON body with schema, stores the
 // result under ContextKey, and calls the next handler — or aborts with 400.

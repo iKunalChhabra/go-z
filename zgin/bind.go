@@ -11,7 +11,7 @@ import (
 )
 
 // BindJSON parses c.Request.Body as JSON into any, validates with schema.
-// On failure writes 400 + Zod issue JSON and returns (zero, false).
+// On failure writes 400 + issue JSON and returns (zero, false).
 func BindJSON[T any](c *gin.Context, schema z.Schema[T]) (T, bool) {
 	var zero T
 	data, ok := readJSONBody(c)

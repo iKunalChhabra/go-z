@@ -10,7 +10,7 @@ type TimeSchema struct {
 	def *Def
 }
 
-// Time returns a date/time schema (z.date() → zod.Time()). Accepts time.Time
+// Time returns a date/time schema. Accepts time.Time
 // and *time.Time; with Coerce also RFC3339 strings.
 func Time(params ...any) *TimeSchema {
 	p := normalizeParams(params)

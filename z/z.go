@@ -1,7 +1,11 @@
-// Package z provides schema-first validation for Go, ported from v4
-// (https://zod.dev). It is an independent project, not affiliated with.
+// Package z provides schema-first validation for Go: schemas are values you
+// build, compose and share, and parsing returns a typed result or a structured
+// error describing every failure.
 //
-// It mirrors architecture exactly:
+// The design is ported from Zod v4 (https://zod.dev). go-z is an independent
+// project, not affiliated with or endorsed by Zod or its authors.
+//
+// The architecture it inherits:
 //
 //   - a ParsePayload {value, issues} threaded through parsing — issues
 //     accumulate instead of aborting, containers prefix child paths;
@@ -13,7 +17,7 @@
 //     invalid_format, not_multiple_of, unrecognized_keys, invalid_union,
 //     invalid_key, invalid_element, invalid_value, custom) and error-map
 //     resolution chain (per-check → per-parse → global custom → locale);
-//   - the classic fluent API: z.String().Min(5).Email(), plus wrappers
+//   - a fluent API: z.String().Min(5).Email(), plus wrappers
 //     like Optional(schema) / Default(schema, v)
 //
 // # Concurrency

@@ -11,7 +11,7 @@ import (
 type ErrorFormat int
 
 const (
-	// FormatIssues is the default Zod HTTP error shape:
+	// FormatIssues is the default HTTP error shape:
 	// {"success":false,"error":{"issues":[...]}}
 	FormatIssues ErrorFormat = iota
 	// FormatFlatten uses z.Flatten (formErrors + fieldErrors).
@@ -30,7 +30,7 @@ type Options struct {
 	Format ErrorFormat
 }
 
-// AbortWithError writes a Zod-shaped error response and aborts the Gin context.
+// AbortWithError writes an issue-shaped error response and aborts the Gin context.
 func AbortWithError(c *gin.Context, err *z.Error, opts Options) {
 	if err == nil {
 		err = &z.Error{Issues: nil}

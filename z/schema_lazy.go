@@ -56,7 +56,7 @@ func newLazy(def *Def, state *lazyState) *LazySchema {
 // Inner returns the memoized inner schema, resolving the getter if needed.
 // The first call also copies OptIn/OptOut/Values/PropValues onto this Lazy's
 // Internals so container schemas that inspect Internals() see the inner traits
-// (defineLazy getters on _zod).
+// (resolved once, then memoized).
 //
 // The copy happens exactly once. Resolve a Lazy before sharing it across
 // goroutines — call Inner (or build the enclosing schema, which does) during

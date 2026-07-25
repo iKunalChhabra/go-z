@@ -26,7 +26,7 @@ func IsMissing(v any) bool {
 	return ok
 }
 
-// ParseFn is a schema's bare type parser (inst._zod.parse): it validates
+// ParseFn is a schema's bare type parser: it validates
 // and normalizes p.Value, appending issues on failure. It must not run checks.
 type ParseFn func(p *Payload, ctx *ParseCtx)
 
@@ -44,12 +44,12 @@ type Def struct {
 	Coerce bool
 }
 
-// Internals is the untyped core of every schema (inst._zod). The typed
-// Schema[T] surface wraps it.
+// Internals is the untyped core of every schema. The typed Schema[T] surface
+// wraps it.
 //
 // Power-user API: Def and Bag are shared mutable pointers. Schemas are
 // immutable by convention after construction — do not mutate Internals of a
-// shared schema (same caveat as `_zod`). Prefer fluent builders.
+// shared schema. Prefer fluent builders.
 type Internals struct {
 	Def *Def
 	// Parse is the bare type parser (no checks).
@@ -70,10 +70,10 @@ type Internals struct {
 	OptIn  bool
 	OptOut bool
 	// Pattern, when non-nil, is a regexp equivalent of this schema's
-	// validation (uses it for template literals).
+	// validation; template literals compose it.
 	Pattern *regexp.Regexp
 	// Bag is scratch metadata written by check OnAttach hooks (min/max/format
-	// hints), mirroring inst._zod.bag.
+	// hints).
 	Bag map[string]any
 
 	// deferred, when set, resolves the internals that actually carry this
