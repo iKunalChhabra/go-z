@@ -2,6 +2,7 @@ package z
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 )
 
@@ -239,6 +240,18 @@ func parseTyped[T any](in *Internals, data any, ctx *ParseCtx) (T, error) {
 }
 
 func internalTypeMismatch(got, want any) string {
+	// The common cause is a generic wrapper instantiated over an Optional or
+	// Nullable schema: those only become *T at the Parse boundary, so a wrapper
+	// around one sees the inner value and cannot be typed *T.
+	if wantType := reflect.TypeOf(want); wantType != nil && wantType.Kind() == reflect.Ptr {
+		if reflect.TypeOf(got) == wantType.Elem() {
+			return fmt.Sprintf("go-z: a wrapper was instantiated at %s over an Optional or Nullable schema, "+
+				"but the pointer edge only exists at Parse, so the wrapper sees the inner %s. "+
+				"Apply Optional or Nullable last — OptionalOf(RefineOf(inner, pred)) — "+
+				"or use the methods defined on the wrapper itself, such as Optional().Default(v).",
+				wantType, wantType.Elem())
+		}
+	}
 	return fmt.Sprintf("go-z: internal error: schema produced %T but its typed edge is %T "+
 		"(please report at github.com/iKunalChhabra/go-z/issues)", got, want)
 }

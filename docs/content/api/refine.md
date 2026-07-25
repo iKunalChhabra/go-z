@@ -128,6 +128,22 @@ upper := z.OverwriteOf(z.String(), strings.ToUpper)
 
 The fluent `Refine` / `SuperRefine` methods on `String`, `Number`, `Int64`, `Bool`, `Time`, `Enum`, `BigInt`, `Object`, `Array`, `Tuple`, `Record`, `Map`, and `Set` are sugar that returns the **same** concrete schema type, so type-specific chaining continues (`z.Set(...).Refine(...).Min(1)`). The generic helpers return a `*CheckedSchema[T]`, which ends the type-specific chain but keeps the typed edge.
 
+:::warn Apply Optional and Nullable last
+`Optional` and `Nullable` produce `*T` only at the `Parse` boundary — inside the
+engine the value is still a `T` (or the `Missing` sentinel). A generic helper
+instantiated *over* one of them therefore claims a `*T` it will never see:
+
+```go
+z.RefineOf[*string](z.String().Optional(), pred)  // compiles, fails at parse
+z.OptionalOf(z.RefineOf(z.String(), pred))        // correct: Optional outermost
+```
+
+The first form compiles because `*OptionalSchema[string]` satisfies
+`Schema[*string]`, and fails at parse with a message telling you to reorder. The
+methods defined on the wrappers themselves — `z.String().Optional().Default("d")` —
+handle the ordering internally and are always safe.
+:::
+
 ## Signatures
 
 ```go

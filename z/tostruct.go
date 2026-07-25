@@ -472,16 +472,48 @@ func assignScalar(fv reflect.Value, raw any) error {
 		case string:
 			fv.SetString(s)
 			return nil
-		default:
+		case bool, int, int8, int16, int32, int64,
+			uint, uint8, uint16, uint32, uint64, float32, float64:
+			// A JSON scalar in a string field is a reasonable coercion.
 			fv.SetString(fmt.Sprint(raw))
 			return nil
 		}
+		// Anything else — an object, an array — would be stringified into
+		// garbage like "map[]", so refuse it instead.
+		return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
+	case reflect.Map:
+		return assignMap(fv, raw)
 	case reflect.Interface:
 		fv.Set(reflect.ValueOf(raw))
 		return nil
 	}
 
 	return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
+}
+
+// assignMap decodes a JSON object into a typed map, converting each key and value
+// the same way a struct field would be. map[string]any assigns directly and never
+// reaches here.
+func assignMap(fv reflect.Value, raw any) error {
+	rv := reflect.ValueOf(raw)
+	if rv.Kind() != reflect.Map {
+		return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
+	}
+	mapType := fv.Type()
+	out := reflect.MakeMapWithSize(mapType, rv.Len())
+	for iter := rv.MapRange(); iter.Next(); {
+		key := reflect.New(mapType.Key()).Elem()
+		if err := assignScalar(key, iter.Key().Interface()); err != nil {
+			return fmt.Errorf("key %v: %w", iter.Key().Interface(), err)
+		}
+		val := reflect.New(mapType.Elem()).Elem()
+		if err := assignScalar(val, iter.Value().Interface()); err != nil {
+			return fmt.Errorf("[%v]: %w", iter.Key().Interface(), err)
+		}
+		out.SetMapIndex(key, val)
+	}
+	fv.Set(out)
+	return nil
 }
 
 func toFloat64(v any) (float64, bool) {
