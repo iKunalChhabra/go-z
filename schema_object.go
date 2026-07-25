@@ -136,13 +136,20 @@ func makeObjectParse(s *ObjectSchema) ParseFn {
 			}
 			val, present := input[f.key]
 			if !present {
-				if f.child.OptIn {
-					// Optional-in: absent key is skipped (do not pass Missing).
-					continue
-				}
+				// Always parse absent keys as Missing (Zod undefined). Optional
+				// omits the key from output; Default/Prefault/Catch substitute.
+				// Do NOT skip OptIn fields here — that prevented defaults from
+				// applying (Zod always runs the field schema with undefined).
 				val = Missing
 			}
+			startIssues := len(p.Issues)
 			childOut, _ := RunChild(f.child, p, val, ctx, f.key)
+			// Zod handlePropertyResult: ignore failures on absent keys when the
+			// field is optional-in AND optional-out (pure Optional / Nullish).
+			if !present && f.child.OptIn && f.child.OptOut {
+				p.Issues = p.Issues[:startIssues]
+				continue
+			}
 			if IsMissing(childOut) {
 				// Optional wrappers leave Missing; omit from output.
 				continue
