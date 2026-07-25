@@ -3,6 +3,7 @@ package z
 import (
 	"math"
 	"math/big"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -44,7 +45,9 @@ func numericOrigin(value any) string {
 }
 
 // issueBound normalizes a comparison bound for issue Minimum/Maximum fields.
-// Dates become Unix milliseconds (Date.getTime()).
+// Dates become Unix milliseconds (Date.getTime()). Integers report as float64
+// like every other number, except beyond the safe-integer range where float64
+// would round them — there the exact integer is reported instead.
 func issueBound(value any) any {
 	switch x := value.(type) {
 	case time.Time:
@@ -55,6 +58,12 @@ func issueBound(value any) any {
 		}
 		return float64(x.UnixMilli())
 	default:
+		if n, ok := exactInt(value); ok {
+			if n >= int64(MinSafeInteger) && n <= int64(MaxSafeInteger) {
+				return float64(n)
+			}
+			return n
+		}
 		return value
 	}
 }
@@ -79,6 +88,20 @@ func compareNumeric(a, b any) (int, bool) {
 			return 1, true
 		}
 	}
+	// Two integers compare exactly. float64 would round anything above 2^53,
+	// which is precisely the range Int64 exists to serve.
+	if ai, ok := exactInt(a); ok {
+		if bi, ok := exactInt(b); ok {
+			switch {
+			case ai < bi:
+				return -1, true
+			case ai > bi:
+				return 1, true
+			default:
+				return 0, true
+			}
+		}
+	}
 	// float64 / ints
 	fa, oka := ToFloat(a)
 	fb, okb := ToFloat(b)
@@ -93,6 +116,63 @@ func compareNumeric(a, b any) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// exactInt reports v as an int64 when it is a Go integer that fits, so
+// comparisons can avoid float64 rounding. Floats are excluded on purpose: a
+// float64 has already lost whatever precision it was going to lose.
+func exactInt(v any) (int64, bool) {
+	switch x := v.(type) {
+	case int:
+		return int64(x), true
+	case int8:
+		return int64(x), true
+	case int16:
+		return int64(x), true
+	case int32:
+		return int64(x), true
+	case int64:
+		return x, true
+	case uint8:
+		return int64(x), true
+	case uint16:
+		return int64(x), true
+	case uint32:
+		return int64(x), true
+	case uint:
+		if uint64(x) > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(x), true
+	case uint64:
+		if x > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(x), true
+	default:
+		return namedInt(v)
+	}
+}
+
+// namedInt is the slow path of exactInt: a named integer type (type Port uint16)
+// does not match a type switch on its underlying kind.
+func namedInt(v any) (int64, bool) {
+	if v == nil {
+		return 0, false
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return rv.Int(), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		u := rv.Uint()
+		if u > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(u), true
+	default:
+		return 0, false
+	}
 }
 
 func asBigInt(v any) (*big.Int, bool) {
@@ -140,7 +220,7 @@ func GreaterThan(value any, inclusive bool, params ...any) *Check {
 				if !inclusive {
 					key = "exclusiveMinimum"
 				}
-				in.Bag[key] = value
+				in.Bag[key] = issueBound(value)
 			},
 		},
 	}
@@ -181,7 +261,7 @@ func LessThan(value any, inclusive bool, params ...any) *Check {
 				if !inclusive {
 					key = "exclusiveMaximum"
 				}
-				in.Bag[key] = value
+				in.Bag[key] = issueBound(value)
 			},
 		},
 	}
@@ -247,6 +327,49 @@ func MultipleOf(divisor float64, params ...any) *Check {
 			Code:    IssueNotMultipleOf,
 			Origin:  "number",
 			Divisor: divisor,
+			Input:   payload.Value,
+		}))
+	}
+	return ch
+}
+
+// MultipleOfInt64 is MultipleOf for integer divisors. It uses integer
+// remainder, so it stays exact above 2^53 where the float64 path rounds.
+func MultipleOfInt64(divisor int64, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "multiple_of",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				if _, ok := in.Bag["multipleOf"]; !ok {
+					in.Bag["multipleOf"] = issueBound(divisor)
+				}
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		if divisor == 0 {
+			return
+		}
+		n, ok := exactInt(payload.Value)
+		if !ok {
+			// Not an integer value: fall back to the float comparison.
+			f, isNum := ToFloat(payload.Value)
+			if !isNum || floatSafeRemainder(f, float64(divisor)) == 0 {
+				return
+			}
+		} else if n%divisor == 0 {
+			return
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:    IssueNotMultipleOf,
+			Origin:  "number",
+			Divisor: float64(divisor),
 			Input:   payload.Value,
 		}))
 	}

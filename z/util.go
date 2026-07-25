@@ -1,6 +1,7 @@
 package z
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -38,6 +39,8 @@ func ParsedType(v any) string {
 		}
 		return "number"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return "number"
+	case json.Number:
 		return "number"
 	case *big.Int:
 		return "bigint"
@@ -150,8 +153,29 @@ func ToFloat(v any) (float64, bool) {
 		return float64(x), true
 	case uint64:
 		return float64(x), true
+	case json.Number:
+		f, err := x.Float64()
+		return f, err == nil
 	}
-	return 0, false
+	if n, ok := namedInt(v); ok {
+		return float64(n), true
+	}
+	return namedFloat(v)
+}
+
+// namedFloat is the slow path of ToFloat: a named float type (type Ratio
+// float64) does not match a type switch on its underlying kind.
+func namedFloat(v any) (float64, bool) {
+	if v == nil {
+		return 0, false
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return rv.Float(), true
+	default:
+		return 0, false
+	}
 }
 
 // IsIntegral reports whether v is a numeric with an integer value.
