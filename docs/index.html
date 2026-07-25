@@ -8,8 +8,8 @@
       name="description"
       content="go-zod is a native Go port of Zod v4 — same patterns, same errors, fluent schemas, Gin-ready, and built for concurrency."
     />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF3E6" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#191512" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#101014" />
     <script>
       (() => {
         try {
@@ -29,20 +29,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800;1,14..32,400..600&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="assets/css/theme.css" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f472b6'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' font-family='Arial Black,sans-serif' font-size='28' font-weight='900' fill='%231C1917'%3Ez%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f472b6'/%3E%3Cpath d='M10 9h12v3.6l-6.6 7.8H22V23H10v-3.6l6.6-7.8H10z' fill='%23fff'/%3E%3C/svg%3E"
     />
   </head>
   <body>
     <header class="topbar">
       <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" type="button">☰</button>
       <a class="brand" href="#/">
-        <span class="brand-mark">z</span>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="img" aria-label="go-zod">
+            <rect width="32" height="32" rx="9" fill="currentColor" />
+            <path d="M10 9h12v3.6l-6.6 7.8H22V23H10v-3.6l6.6-7.8H10z" fill="#fff" />
+          </svg>
+        </span>
         <span class="brand-text">go-<span>zod</span></span>
       </a>
       <div class="search-wrap">
