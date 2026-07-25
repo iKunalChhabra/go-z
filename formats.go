@@ -234,27 +234,33 @@ func FormatHash(alg string, params ...any) *Check {
 
 // FormatUUID attaches Zod's uuid format check (all versions).
 func FormatUUID(params ...any) *Check {
-	return stringFormatPattern("uuid", reUUID, jsPattern(reUUID), params...)
+	return stringFormatFn("uuid", jsPattern(reUUID), isUUID, params...)
 }
 
 // FormatUUIDv4 attaches uuid version 4 (issue format remains "uuid").
 func FormatUUIDv4(params ...any) *Check {
-	return stringFormatPattern("uuid", reUUIDv4, jsPattern(reUUIDv4), params...)
+	return stringFormatFn("uuid", jsPattern(reUUIDv4), func(s string) bool {
+		return isUUIDVersion(s, '4')
+	}, params...)
 }
 
 // FormatUUIDv6 attaches uuid version 6.
 func FormatUUIDv6(params ...any) *Check {
-	return stringFormatPattern("uuid", reUUIDv6, jsPattern(reUUIDv6), params...)
+	return stringFormatFn("uuid", jsPattern(reUUIDv6), func(s string) bool {
+		return isUUIDVersion(s, '6')
+	}, params...)
 }
 
 // FormatUUIDv7 attaches uuid version 7.
 func FormatUUIDv7(params ...any) *Check {
-	return stringFormatPattern("uuid", reUUIDv7, jsPattern(reUUIDv7), params...)
+	return stringFormatFn("uuid", jsPattern(reUUIDv7), func(s string) bool {
+		return isUUIDVersion(s, '7')
+	}, params...)
 }
 
 // FormatGUID attaches Zod's guid format check.
 func FormatGUID(params ...any) *Check {
-	return stringFormatPattern("guid", reGUID, jsPattern(reGUID), params...)
+	return stringFormatFn("guid", jsPattern(reGUID), isGUID, params...)
 }
 
 // FormatNanoID attaches Zod's nanoid format check.
@@ -418,7 +424,7 @@ func FormatEmoji(params ...any) *Check {
 
 // FormatIPv4 attaches Zod's ipv4 format check.
 func FormatIPv4(params ...any) *Check {
-	return stringFormatPattern("ipv4", reIPv4, jsPattern(reIPv4), params...)
+	return stringFormatFn("ipv4", jsPattern(reIPv4), isIPv4, params...)
 }
 
 // FormatIPv6 attaches Zod's ipv6 format check (URL-based, like Zod).

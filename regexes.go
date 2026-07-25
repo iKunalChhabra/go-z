@@ -101,14 +101,6 @@ func macRegexp(delimiter string) *regexp.Regexp {
 	return regexp.MustCompile(`^(?:[0-9A-F]{2}` + esc + `){5}[0-9A-F]{2}$|^(?:[0-9a-f]{2}` + esc + `){5}[0-9a-f]{2}$`)
 }
 
-// isEmail ports Zod's practical email regex; lookaheads are checked explicitly.
-func isEmail(s string) bool {
-	if s == "" || strings.HasPrefix(s, ".") || strings.Contains(s, "..") {
-		return false
-	}
-	return reEmailBody.MatchString(s)
-}
-
 // isISODuration ports Zod's duration regex (lookaheads hand-coded).
 func isISODuration(s string) bool {
 	if !strings.HasPrefix(s, "P") || s == "P" {
