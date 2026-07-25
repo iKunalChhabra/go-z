@@ -134,6 +134,18 @@ func (s *UnionSchema) NonOptional(params ...any) *NonOptionalSchema {
 	return NonOptional(s, params...)
 }
 
+// --- XorSchema ---
+
+func (s *XorSchema) Optional(params ...any) *OptionalSchema { return Optional(s, params...) }
+func (s *XorSchema) Nullable(params ...any) *NullableSchema { return Nullable(s, params...) }
+func (s *XorSchema) Nullish(params ...any) *OptionalSchema  { return Nullish(s, params...) }
+func (s *XorSchema) Default(v any) *DefaultSchema           { return Default(s, v) }
+func (s *XorSchema) Prefault(v any) *PrefaultSchema         { return Prefault(s, v) }
+func (s *XorSchema) Catch(v any) *CatchSchema               { return Catch(s, v) }
+func (s *XorSchema) NonOptional(params ...any) *NonOptionalSchema {
+	return NonOptional(s, params...)
+}
+
 // --- LiteralSchema ---
 
 func (s *LiteralSchema) Optional(params ...any) *OptionalSchema { return Optional(s, params...) }
@@ -143,5 +155,35 @@ func (s *LiteralSchema) Default(v any) *DefaultSchema           { return Default
 func (s *LiteralSchema) Prefault(v any) *PrefaultSchema         { return Prefault(s, v) }
 func (s *LiteralSchema) Catch(v any) *CatchSchema               { return Catch(s, v) }
 func (s *LiteralSchema) NonOptional(params ...any) *NonOptionalSchema {
+	return NonOptional(s, params...)
+}
+
+// --- CodecSchema ---
+
+func (s *CodecSchema) Optional(params ...any) *OptionalSchema { return Optional(s, params...) }
+func (s *CodecSchema) Nullable(params ...any) *NullableSchema { return Nullable(s, params...) }
+func (s *CodecSchema) Nullish(params ...any) *OptionalSchema  { return Nullish(s, params...) }
+func (s *CodecSchema) Default(v any) *DefaultSchema           { return Default(s, v) }
+func (s *CodecSchema) Prefault(v any) *PrefaultSchema         { return Prefault(s, v) }
+func (s *CodecSchema) Catch(v any) *CatchSchema               { return Catch(s, v) }
+func (s *CodecSchema) NonOptional(params ...any) *NonOptionalSchema {
+	return NonOptional(s, params...)
+}
+
+// --- TemplateLiteralSchema ---
+
+func (s *TemplateLiteralSchema) Optional(params ...any) *OptionalSchema {
+	return Optional(s, params...)
+}
+func (s *TemplateLiteralSchema) Nullable(params ...any) *NullableSchema {
+	return Nullable(s, params...)
+}
+func (s *TemplateLiteralSchema) Nullish(params ...any) *OptionalSchema {
+	return Nullish(s, params...)
+}
+func (s *TemplateLiteralSchema) Default(v string) *DefaultSchema  { return Default(s, v) }
+func (s *TemplateLiteralSchema) Prefault(v string) *PrefaultSchema { return Prefault(s, v) }
+func (s *TemplateLiteralSchema) Catch(v string) *CatchSchema       { return Catch(s, v) }
+func (s *TemplateLiteralSchema) NonOptional(params ...any) *NonOptionalSchema {
 	return NonOptional(s, params...)
 }

@@ -21,6 +21,16 @@ func newPipe(def *Def, a, b AnySchemaLike) *PipeSchema {
 	aIn := a.Internals()
 	bIn := b.Internals()
 	parse := func(p *Payload, ctx *ParseCtx) {
+		if ctx.IsEncode() {
+			// Encode reverses the pipe: B then A.
+			RunSelf(bIn, p, ctx)
+			if len(p.Issues) > 0 {
+				p.Aborted = true
+				return
+			}
+			RunSelf(aIn, p, ctx)
+			return
+		}
 		RunSelf(aIn, p, ctx)
 		if len(p.Issues) > 0 {
 			p.Aborted = true

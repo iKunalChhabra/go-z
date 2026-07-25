@@ -30,6 +30,11 @@ func (coerceNS) Time(params ...any) *TimeSchema {
 	return Time(withCoerce(params)...)
 }
 
+// BigInt returns a coercing bigint schema (z.coerce.bigint()).
+func (coerceNS) BigInt(params ...any) *BigIntSchema {
+	return BigInt(withCoerce(params)...)
+}
+
 // Coerce mirrors Zod's z.coerce namespace.
 //
 // Prefer the methods (Coerce.String, …). Reassigning the package variable is

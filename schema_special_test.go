@@ -130,3 +130,97 @@ func TestBigIntCoerce(t *testing.T) {
 		t.Fatalf("got %v err=%v", got, err)
 	}
 }
+
+func TestUndefined(t *testing.T) {
+	s := Undefined()
+	got, err := s.Parse(Missing)
+	if err != nil || !IsMissing(got) {
+		t.Fatalf("got %v err=%v", got, err)
+	}
+	for _, in := range []any{nil, "undefined", 1, false, map[string]any{}} {
+		res := s.SafeParse(in)
+		if res.Success || res.Error.Issues[0].Expected != "undefined" {
+			t.Fatalf("%v: %+v", in, res.Error)
+		}
+	}
+	res := s.SafeParse("x")
+	if res.Error.Issues[0].Message != "Invalid input: expected undefined, received string" {
+		t.Fatalf("got %q", res.Error.Issues[0].Message)
+	}
+}
+
+func TestVoid(t *testing.T) {
+	s := Void()
+	got, err := s.Parse(Missing)
+	if err != nil || !IsMissing(got) {
+		t.Fatalf("got %v err=%v", got, err)
+	}
+	if s.SafeParse(nil).Success {
+		t.Fatal("null should fail void")
+	}
+	if s.SafeParse("").Success {
+		t.Fatal("empty string should fail void")
+	}
+	res := s.SafeParse(1)
+	if res.Error.Issues[0].Expected != "void" {
+		t.Fatalf("got %+v", res.Error.Issues[0])
+	}
+}
+
+func TestJSON(t *testing.T) {
+	s := JSON()
+	for _, in := range []any{
+		"hello",
+		123.0,
+		true,
+		nil,
+		map[string]any{},
+		map[string]any{"a": "hello"},
+		[]any{1.0, 2.0, 3.0},
+		[]any{map[string]any{"a": "hello"}},
+	} {
+		if _, err := s.Parse(in); err != nil {
+			t.Fatalf("Parse(%v): %v", in, err)
+		}
+	}
+	for _, in := range []any{
+		Missing,
+		map[string]any{"a": Missing},
+		math.NaN(),
+		math.Inf(1),
+		func() {},
+	} {
+		if s.SafeParse(in).Success {
+			t.Fatalf("expected fail for %v", in)
+		}
+	}
+}
+
+func TestStringBool(t *testing.T) {
+	s := StringBool()
+	for _, in := range []string{"true", "yes", "1", "on", "TRUE", "Y", "enabled"} {
+		got, err := s.Parse(in)
+		if err != nil || !got {
+			t.Fatalf("%q: %v %v", in, got, err)
+		}
+	}
+	for _, in := range []string{"false", "no", "0", "off", "FALSE", "n", "disabled"} {
+		got, err := s.Parse(in)
+		if err != nil || got {
+			t.Fatalf("%q: %v %v", in, got, err)
+		}
+	}
+	for _, in := range []any{"other", "", Missing, map[string]any{}, true, false} {
+		if s.SafeParse(in).Success {
+			t.Fatalf("expected fail for %#v", in)
+		}
+	}
+}
+
+func TestCoerceBigIntNS(t *testing.T) {
+	s := Coerce.BigInt()
+	got, err := s.Parse("42")
+	if err != nil || got.Cmp(big.NewInt(42)) != 0 {
+		t.Fatalf("got %v err=%v", got, err)
+	}
+}

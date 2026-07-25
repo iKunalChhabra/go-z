@@ -103,9 +103,25 @@ func TestParityPipeBreakOnFatal(t *testing.T) {
 	}
 }
 
-func TestParityPipeCodecsUnsupported(t *testing.T) {
+func TestParityPipeCodecs(t *testing.T) {
 	// Port: "reverse parsing with pipe" (encode/decode / codecs)
-	t.Skip("codecs / encode-decode not supported in go-zod")
+	schema := Pipe(String(), String())
+	if got, err := Decode(schema, "asdf"); err != nil || got != "asdf" {
+		t.Fatalf("decode: %v %v", got, err)
+	}
+	if got, err := Encode(schema, "asdf"); err != nil || got != "asdf" {
+		t.Fatalf("encode: %v %v", got, err)
+	}
+
+	tx := Transform(String(), func(val any, _ *RefinementCtx) (any, error) {
+		return len(val.(string)), nil
+	})
+	defer func() {
+		if recover() == nil {
+			t.Fatal("encode through unidirectional transform should panic")
+		}
+	}()
+	_, _ = Encode(tx, 1234)
 }
 
 func TestParityPipeInOutAccessors(t *testing.T) {
@@ -238,9 +254,26 @@ func TestParityPreprocessAsyncUnsupported(t *testing.T) {
 	t.Skip("async preprocess not supported in go-zod")
 }
 
-func TestParityPreprocessCtxUnsupported(t *testing.T) {
-	// Port: preprocess ctx.addIssue variants — Go Preprocess is fn(any) any only.
-	t.Skip("preprocess ctx.addIssue not supported (no ctx in Preprocess signature)")
+func TestParityPreprocessCtx(t *testing.T) {
+	// Port: preprocess ctx.addIssue — fail before target schema runs.
+	schema := PreprocessCtx(func(data any, ctx *RefinementCtx) any {
+		if data == nil {
+			ctx.AddMessage("nope")
+			return data
+		}
+		return data
+	}, String())
+	res := schema.SafeParse(nil)
+	if res.Success {
+		t.Fatal("nil should fail")
+	}
+	if res.Error.Issues[0].Message != "nope" {
+		t.Fatalf("message = %q", res.Error.Issues[0].Message)
+	}
+	got, err := schema.Parse("ok")
+	if err != nil || got != "ok" {
+		t.Fatalf(`Parse("ok") = %v, %v`, got, err)
+	}
 }
 
 func TestParityPreprocessStillValidates(t *testing.T) {

@@ -55,7 +55,36 @@ var (
 	reMACColon = macRegexp(":")
 
 	reDurationWeeks = regexp.MustCompile(`^\d+W$`)
+
+	// Hostname body without the length lookahead (enforced in isHostname).
+	// Zod: /^(?=.{1,253}\.?$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[-0-9a-zA-Z]{0,61}[0-9a-zA-Z])?)*\.?$/
+	reHostnameBody = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[-0-9a-zA-Z]{0,61}[0-9a-zA-Z])?)*\.?$`)
+
+	// Domain (FQDN) used by FormatHttpURL / z.httpUrl hostname constraint.
+	reDomain = regexp.MustCompile(`^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
+
+	// HTTP(S) scheme for FormatHttpURL (matched against bare scheme or "https:").
+	reHTTPProtocol = regexp.MustCompile(`^https?$`)
+
+	reHTTPSchemeSlashes = regexp.MustCompile(`(?i)^https?://`)
 )
+
+const patternHostname = `/^(?=.{1,253}\.?$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[-0-9a-zA-Z]{0,61}[0-9a-zA-Z])?)*\.?$/`
+
+// isHostname ports Zod's hostname regex (lookahead expressed as a length check).
+func isHostname(s string) bool {
+	if s == "" {
+		return false
+	}
+	core := strings.TrimSuffix(s, ".")
+	if len(core) < 1 || len(core) > 253 {
+		return false
+	}
+	if len(s) > 254 {
+		return false
+	}
+	return reHostnameBody.MatchString(s)
+}
 
 const dateSource = `(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))`
 

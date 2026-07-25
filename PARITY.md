@@ -32,13 +32,14 @@ go test -race -count=1 ./...
 
 Marked with `t.Skip` in the parity files:
 
-- Async parse / async refinements
-- Codecs / `encode` / `decode`
-- JSON Schema convert / `fromJSONSchema`
-- `z.function`, `z.promise`, `z.file`, `z.instanceof`
-- Template literals
-- Brands / TypeScript-only assignability
-- Some URL hostname/protocol constraint options
+- Async parse / async refinements / async codecs
+- `fromJSONSchema` (import); `ToJSONSchema` export is supported
+- `z.function`, `z.promise`, `z.file`, `z.symbol`, `z.instanceof`
+- Brands / TypeScript-only assignability / Mini API
+- ~~Codecs / `encode` / `decode`~~ (supported via `Codec`, `Decode`/`Encode`, `InvertCodec`)
+- ~~JSON Schema convert~~ (`ToJSONSchema` supported; `fromJSONSchema` not)
+- ~~Template literals~~ (supported via `TemplateLiteral`)
+- ~~Some URL hostname/protocol constraint options~~ (supported via `URLOpts.Hostname` / `URLOpts.Protocol`, `HttpURL`)
 
 ## Concurrency
 

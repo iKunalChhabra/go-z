@@ -1,6 +1,11 @@
 package zod
 
-import "regexp"
+import (
+	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+)
 
 // FormatEmail attaches Zod's email format check.
 func FormatEmail(params ...any) *Check {
@@ -9,17 +14,29 @@ func FormatEmail(params ...any) *Check {
 
 // FormatURL attaches Zod's URL format check (trims; optionally normalizes).
 // Pass URLOpts{Normalize: true} among params to enable href normalization.
+// Optional Hostname / Protocol regexes constrain the parsed URL (Zod $ZodURL).
 func FormatURL(params ...any) *Check {
 	p := normalizeParams(params)
-	normalize := false
+	var opts URLOpts
 	for _, x := range params {
-		if o, ok := x.(URLOpts); ok {
-			normalize = o.Normalize
+		switch o := x.(type) {
+		case URLOpts:
+			mergeURLOpts(&opts, &o)
 			if o.Error != nil {
 				p.Error = o.Error
 			}
 			if o.Abort {
 				p.Abort = true
+			}
+		case *URLOpts:
+			if o != nil {
+				mergeURLOpts(&opts, o)
+				if o.Error != nil {
+					p.Error = o.Error
+				}
+				if o.Abort {
+					p.Abort = true
+				}
 			}
 		}
 	}
@@ -41,9 +58,21 @@ func FormatURL(params ...any) *Check {
 		if !ok {
 			return
 		}
-		out, ok := normalizeURLHref(s, normalize)
-		if !ok {
-			// URL issues omit Origin (matches Zod $ZodURL).
+		trimmed := strings.TrimSpace(s)
+
+		// Zod: when protocol is http(s) and normalize is off, require ://
+		if !opts.Normalize && opts.Protocol != nil && opts.Protocol.String() == reHTTPProtocol.String() {
+			if !reHTTPSchemeSlashes.MatchString(trimmed) {
+				payload.AddIssue(ch.Issue(Issue{
+					Code:   IssueInvalidFormat,
+					Format: "url",
+					Input:  payload.Value,
+				}))
+				return
+			}
+		}
+
+		if !isValidURL(trimmed) {
 			payload.AddIssue(ch.Issue(Issue{
 				Code:   IssueInvalidFormat,
 				Format: "url",
@@ -51,16 +80,156 @@ func FormatURL(params ...any) *Check {
 			}))
 			return
 		}
-		payload.Value = out
+		u, err := url.Parse(trimmed)
+		if err != nil || u.Scheme == "" {
+			payload.AddIssue(ch.Issue(Issue{
+				Code:   IssueInvalidFormat,
+				Format: "url",
+				Input:  payload.Value,
+			}))
+			return
+		}
+
+		if opts.Hostname != nil && !opts.Hostname.MatchString(u.Hostname()) {
+			payload.AddIssue(ch.Issue(Issue{
+				Code:    IssueInvalidFormat,
+				Format:  "url",
+				Pattern: opts.Hostname.String(),
+				Input:   payload.Value,
+			}))
+			if ch.Abort {
+				return
+			}
+		}
+		if opts.Protocol != nil && !protocolMatches(opts.Protocol, u.Scheme) {
+			payload.AddIssue(ch.Issue(Issue{
+				Code:    IssueInvalidFormat,
+				Format:  "url",
+				Pattern: opts.Protocol.String(),
+				Input:   payload.Value,
+			}))
+			if ch.Abort {
+				return
+			}
+		}
+
+		if opts.Normalize {
+			payload.Value = u.String()
+		} else {
+			payload.Value = trimmed
+		}
 	}
 	return ch
+}
+
+// FormatHttpURL is Zod's z.httpUrl() — URL restricted to http/https with a
+// domain hostname (not bare localhost / IP-only hosts). Protocol/hostname are
+// fixed (Zod omits them from httpUrl params); only Normalize/Error/Abort merge.
+func FormatHttpURL(params ...any) *Check {
+	base := URLOpts{
+		Hostname: reDomain,
+		Protocol: reHTTPProtocol,
+	}
+	args := make([]any, 0, len(params)+1)
+	for _, x := range params {
+		switch o := x.(type) {
+		case URLOpts:
+			base.Normalize = o.Normalize
+			base.Error = o.Error
+			base.Abort = o.Abort
+		case *URLOpts:
+			if o != nil {
+				base.Normalize = o.Normalize
+				base.Error = o.Error
+				base.Abort = o.Abort
+			}
+		default:
+			args = append(args, x)
+		}
+	}
+	return FormatURL(append([]any{base}, args...)...)
 }
 
 // URLOpts customizes FormatURL / StringSchema.URL.
 type URLOpts struct {
 	Normalize bool
+	Hostname  *regexp.Regexp // optional hostname constraint
+	Protocol  *regexp.Regexp // optional protocol constraint ("https:" or scheme)
 	Error     ErrorMap
 	Abort     bool
+}
+
+func mergeURLOpts(dst, src *URLOpts) {
+	if src.Normalize {
+		dst.Normalize = true
+	}
+	if src.Hostname != nil {
+		dst.Hostname = src.Hostname
+	}
+	if src.Protocol != nil {
+		dst.Protocol = src.Protocol
+	}
+	if src.Error != nil {
+		dst.Error = src.Error
+	}
+	if src.Abort {
+		dst.Abort = true
+	}
+}
+
+// protocolMatches tests Zod-style protocol constraints. Callers may pass a
+// regex for "https:" (with colon) or bare "https"; both are accepted.
+func protocolMatches(re *regexp.Regexp, scheme string) bool {
+	if re == nil {
+		return true
+	}
+	if re.MatchString(scheme + ":") {
+		return true
+	}
+	return re.MatchString(scheme)
+}
+
+// StringFormat is z.stringFormat(name, pattern|predicate) — a string schema
+// with a custom invalid_format check.
+func StringFormat(name string, matcher any, params ...any) *StringSchema {
+	p := normalizeParams(params)
+	def := &Def{Type: "string", Error: p.Error, Coerce: p.Coerce}
+	return newString(def.withChecks(customStringFormat(name, matcher, params...)))
+}
+
+func customStringFormat(name string, matcher any, params ...any) *Check {
+	switch m := matcher.(type) {
+	case *regexp.Regexp:
+		return stringFormatPattern(name, m, jsPattern(m), params...)
+	case func(string) bool:
+		return stringFormatFn(name, "", m, params...)
+	default:
+		panic(fmt.Sprintf("zod: StringFormat matcher must be *regexp.Regexp or func(string) bool, got %T", matcher))
+	}
+}
+
+// FormatHostname attaches Zod's hostname format check.
+func FormatHostname(params ...any) *Check {
+	return stringFormatFn("hostname", patternHostname, isHostname, params...)
+}
+
+var hashHexLengths = map[string]int{
+	"md5":    32,
+	"sha1":   40,
+	"sha256": 64,
+	"sha384": 96,
+	"sha512": 128,
+}
+
+// FormatHash attaches a hex hash format check (md5|sha1|sha256|sha384|sha512).
+func FormatHash(alg string, params ...any) *Check {
+	n, ok := hashHexLengths[alg]
+	if !ok {
+		panic(fmt.Sprintf("zod: unrecognized hash algorithm %q (want md5|sha1|sha256|sha384|sha512)", alg))
+	}
+	re := regexp.MustCompile(fmt.Sprintf(`^[0-9a-fA-F]{%d}$`, n))
+	format := alg + "_hex"
+	return stringFormatPattern(format, re, jsPattern(re), params...)
 }
 
 // FormatUUID attaches Zod's uuid format check (all versions).

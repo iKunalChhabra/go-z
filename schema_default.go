@@ -34,6 +34,11 @@ func newDefault(inner AnySchemaLike, getDef func() any) *DefaultSchema {
 	s := &DefaultSchema{def: def, inner: inner, getDef: getDef}
 	innerIn := inner.Internals()
 	parse := func(p *Payload, ctx *ParseCtx) {
+		// Defaults apply only in the forward (decode) direction.
+		if ctx.IsEncode() {
+			RunSelf(innerIn, p, ctx)
+			return
+		}
 		if IsMissing(p.Value) {
 			p.Value = getDef()
 			return
@@ -81,7 +86,7 @@ func newPrefault(inner AnySchemaLike, getDef func() any) *PrefaultSchema {
 	s := &PrefaultSchema{def: def, inner: inner, getDef: getDef}
 	innerIn := inner.Internals()
 	parse := func(p *Payload, ctx *ParseCtx) {
-		if IsMissing(p.Value) {
+		if !ctx.IsEncode() && IsMissing(p.Value) {
 			p.Value = getDef()
 		}
 		RunSelf(innerIn, p, ctx)

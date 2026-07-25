@@ -177,8 +177,17 @@ func TestParityCoerceTime(t *testing.T) {
 	}
 }
 
-func TestParityCoerceTemplateLiteralUnsupported(t *testing.T) {
-	t.Skip("template-literal not supported in go-zod")
+func TestParityCoerceTemplateLiteral(t *testing.T) {
+	// Coerce + template literal: coerce string then match template.
+	tpl := TemplateLiteral([]any{"id-", Number()})
+	schema := Pipe(Coerce.String(), tpl)
+	got, err := schema.Parse("id-42")
+	if err != nil || got != "id-42" {
+		t.Fatalf("%v %v", got, err)
+	}
+	if schema.SafeParse("id-x").Success {
+		t.Fatal("expected failure")
+	}
 }
 
 func TestParityCoerceStringTable(t *testing.T) {

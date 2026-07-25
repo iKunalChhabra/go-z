@@ -191,9 +191,9 @@ bench/              comparative benchmarks
 
 ## Status
 
-Ports Zod v4 (`colinhacks/zod` @ `912f0f5`). Covered: primitives, formats, objects/collections, unions/discriminated unions/intersection/lazy, wrappers (optional/nullable/default/catch/pipe/transform/refine), coerce, error utils, locales (7), Gin, ToStruct, parallel parse, benchmarks.
+Ports Zod v4 (`colinhacks/zod` @ `912f0f5`). Covered: primitives, formats (incl. hostname/hash/httpURL), objects/collections, unions/xor/discriminated unions/intersection/lazy, wrappers (optional/nullable/default/catch/pipe/transform/refine/preprocess), codecs (`Decode`/`Encode`/`InvertCodec`), `ToJSONSchema`, `TemplateLiteral`, coerce (incl. BigInt), specials (`Undefined`/`Void`/`JSON`/`StringBool`), error utils, locales (7), Gin, ToStruct, parallel parse, benchmarks.
 
-Roadmap (not in v0): codecs/`encode`/`decode`, JSON Schema conversion, `z.function`, template literals, remaining ~47 locales.
+Roadmap (not in v0): `fromJSONSchema`, `z.function`/`z.promise`/`z.file`/`z.symbol`, remaining ~47 locales.
 
 ## License
 

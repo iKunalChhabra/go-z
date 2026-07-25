@@ -274,8 +274,20 @@ func TestParityErrorPathOnObjectField(t *testing.T) {
 	}
 }
 
-func TestParityErrorJSONSchemaUnsupported(t *testing.T) {
-	t.Skip("json-schema not supported in go-zod")
+func TestParityErrorJSONSchema(t *testing.T) {
+	js, err := ToJSONSchema(String().Email())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if js["type"] != "string" {
+		t.Fatalf("type = %v", js["type"])
+	}
+	if js["format"] != "email" {
+		t.Fatalf("format = %v, want email (%#v)", js["format"], js)
+	}
+	if js["$schema"] != "https://json-schema.org/draft/2020-12/schema" {
+		t.Fatalf("$schema = %v", js["$schema"])
+	}
 }
 
 func TestParityFlattenEmptyNil(t *testing.T) {
