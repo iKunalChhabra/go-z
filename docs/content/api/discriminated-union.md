@@ -5,14 +5,14 @@ Object unions keyed by a shared literal field — Zod’s `z.discriminatedUnion`
 ## DiscriminatedUnion
 
 ```go
-schema := zod.DiscriminatedUnion("role", []zod.AnySchemaLike{
-    zod.Object(zod.Shape{
-        "role":  zod.Literal("admin"),
-        "perms": zod.Array(zod.String()),
+schema := z.DiscriminatedUnion("role", []z.AnySchemaLike{
+    z.Object(z.Shape{
+        "role":  z.Literal("admin"),
+        "perms": z.Array(z.String()),
     }),
-    zod.Object(zod.Shape{
-        "role":    zod.Literal("guest"),
-        "session": zod.String().UUID(),
+    z.Object(z.Shape{
+        "role":    z.Literal("guest"),
+        "session": z.String().UUID(),
     }),
 })
 
@@ -79,7 +79,7 @@ Options may be wrapped in `Lazy` — the builder unwraps lazy schemas when colle
 ## DiscUnionParams
 
 ```go
-schema := zod.DiscriminatedUnion("type", options, zod.DiscUnionParams{
+schema := z.DiscriminatedUnion("type", options, z.DiscUnionParams{
     Error:         myErrorMap,
     UnionFallback: true, // on unknown tag, try plain Union instead of disc error
 })

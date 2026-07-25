@@ -6,7 +6,16 @@ import (
 )
 
 // Shape maps property names to field schemas (Zod's object shape).
+// Because Go maps are unordered, Object(Shape) validates fields in sorted key
+// order (deterministic, but not Zod's definition order). Prefer ObjectOrdered
+// when form UX needs first-error-in-definition-order.
 type Shape map[string]AnySchemaLike
+
+// Field is one object property in definition order (for ObjectOrdered).
+type Field struct {
+	Name   string
+	Schema AnySchemaLike
+}
 
 // objectUnknownMode controls unrecognized-key handling (Zod's catchall variants).
 type objectUnknownMode int
@@ -33,38 +42,67 @@ type objectField struct {
 // Output type is map[string]any (JSON object model).
 type ObjectSchema struct {
 	schemaBase[map[string]any]
-	def      *Def
-	shape    Shape
-	mode     objectUnknownMode
-	catchall AnySchemaLike
-	fields   []objectField // precompiled, keys sorted
-	keySet   map[string]struct{}
+	def        *Def
+	shape      Shape
+	mode       objectUnknownMode
+	catchall   AnySchemaLike
+	fields     []objectField // precompiled in fieldOrder
+	fieldOrder []string      // issue / parse order
+	keySet     map[string]struct{}
 }
 
 // Object returns an object schema (z.object(shape)). Default unknown-key
 // mode is strip: unknown keys are omitted from output without erroring.
+// Field parse/issue order is alphabetical by key (Go maps have no order).
 func Object(shape Shape, params ...any) *ObjectSchema {
 	p := normalizeParams(params)
 	if shape == nil {
 		shape = Shape{}
 	}
+	cloned := cloneShape(shape)
 	def := &Def{Type: "object", Error: p.Error}
-	return newObject(def, cloneShape(shape), unknownStrip, nil)
+	return newObject(def, cloned, sortedShapeKeys(cloned), unknownStrip, nil)
 }
 
-func newObject(def *Def, shape Shape, mode objectUnknownMode, catchall AnySchemaLike) *ObjectSchema {
-	s := &ObjectSchema{
-		def:      def,
-		shape:    shape,
-		mode:     mode,
-		catchall: catchall,
+// ObjectOrdered returns an object schema that parses and reports issues in
+// the given field definition order (closer to Zod / form UX).
+func ObjectOrdered(fields []Field, params ...any) *ObjectSchema {
+	p := normalizeParams(params)
+	shape := make(Shape, len(fields))
+	order := make([]string, 0, len(fields))
+	seen := make(map[string]struct{}, len(fields))
+	for _, f := range fields {
+		if f.Name == "" {
+			continue
+		}
+		if _, dup := seen[f.Name]; dup {
+			continue
+		}
+		seen[f.Name] = struct{}{}
+		shape[f.Name] = f.Schema
+		order = append(order, f.Name)
 	}
-	s.fields, s.keySet = compileObjectPlan(shape)
+	def := &Def{Type: "object", Error: p.Error}
+	return newObject(def, shape, order, unknownStrip, nil)
+}
+
+func newObject(def *Def, shape Shape, order []string, mode objectUnknownMode, catchall AnySchemaLike) *ObjectSchema {
+	s := &ObjectSchema{
+		def:        def,
+		shape:      shape,
+		mode:       mode,
+		catchall:   catchall,
+		fieldOrder: append([]string(nil), order...),
+	}
+	s.fields, s.keySet = compileObjectPlan(shape, s.fieldOrder)
 	parse := makeObjectParse(s)
 	in := buildInternals(def, parse)
 	// Propagate PropValues from field schemas (discriminated-union support).
 	pv := map[string]map[any]struct{}{}
 	for _, f := range s.fields {
+		if f.child == nil {
+			continue
+		}
 		if f.child.Values != nil {
 			pv[f.key] = f.child.Values
 		}
@@ -81,12 +119,41 @@ func newObject(def *Def, shape Shape, mode objectUnknownMode, catchall AnySchema
 	return s
 }
 
-func compileObjectPlan(shape Shape) ([]objectField, map[string]struct{}) {
+func sortedShapeKeys(shape Shape) []string {
 	keys := make([]string, 0, len(shape))
 	for k := range shape {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	return keys
+}
+
+func compileObjectPlan(shape Shape, order []string) ([]objectField, map[string]struct{}) {
+	if len(order) == 0 {
+		order = sortedShapeKeys(shape)
+	}
+	seen := make(map[string]struct{}, len(order))
+	keys := make([]string, 0, len(shape))
+	for _, k := range order {
+		if _, ok := shape[k]; !ok {
+			continue
+		}
+		if _, dup := seen[k]; dup {
+			continue
+		}
+		seen[k] = struct{}{}
+		keys = append(keys, k)
+	}
+	// Append any shape keys missing from order (sorted) for safety.
+	extra := make([]string, 0)
+	for k := range shape {
+		if _, ok := seen[k]; !ok {
+			extra = append(extra, k)
+		}
+	}
+	sort.Strings(extra)
+	keys = append(keys, extra...)
+
 	fields := make([]objectField, 0, len(keys))
 	keySet := make(map[string]struct{}, len(keys))
 	for _, k := range keys {
@@ -99,6 +166,16 @@ func compileObjectPlan(shape Shape) ([]objectField, map[string]struct{}) {
 		keySet[k] = struct{}{}
 	}
 	return fields, keySet
+}
+
+func filterFieldOrder(order []string, keep map[string]struct{}) []string {
+	out := make([]string, 0, len(keep))
+	for _, k := range order {
+		if _, ok := keep[k]; ok {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 func cloneShape(shape Shape) Shape {
@@ -140,7 +217,7 @@ func makeObjectParse(s *ObjectSchema) ParseFn {
 				// omits the key from output; Default/Prefault/Catch substitute.
 				// Do NOT skip OptIn fields here — that prevented defaults from
 				// applying (Zod always runs the field schema with undefined).
-				val = Missing
+				val = missingSentinel
 			}
 			startIssues := len(p.Issues)
 			childOut, _ := RunChild(f.child, p, val, ctx, f.key)
@@ -272,12 +349,12 @@ func (s *ObjectSchema) Strict(params ...any) *ObjectSchema {
 		nd.Error = p.Error
 		def = &nd
 	}
-	return newObject(def, cloneShape(s.shape), unknownStrict, nil)
+	return newObject(def, cloneShape(s.shape), s.fieldOrder, unknownStrict, nil)
 }
 
 // Loose passes unrecognized keys through to output (z.object().loose()).
 func (s *ObjectSchema) Loose() *ObjectSchema {
-	return newObject(s.def, cloneShape(s.shape), unknownLoose, nil)
+	return newObject(s.def, cloneShape(s.shape), s.fieldOrder, unknownLoose, nil)
 }
 
 // Passthrough is an alias for Loose (deprecated Zod name).
@@ -285,12 +362,12 @@ func (s *ObjectSchema) Passthrough() *ObjectSchema { return s.Loose() }
 
 // Strip restores default strip behavior (unknown keys omitted).
 func (s *ObjectSchema) Strip() *ObjectSchema {
-	return newObject(s.def, cloneShape(s.shape), unknownStrip, nil)
+	return newObject(s.def, cloneShape(s.shape), s.fieldOrder, unknownStrip, nil)
 }
 
 // Catchall validates unrecognized keys with schema (overrides Strict/Loose).
 func (s *ObjectSchema) Catchall(schema AnySchemaLike) *ObjectSchema {
-	return newObject(s.def, cloneShape(s.shape), unknownCatchall, schema)
+	return newObject(s.def, cloneShape(s.shape), s.fieldOrder, unknownCatchall, schema)
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -299,6 +376,11 @@ func (s *ObjectSchema) Catchall(schema AnySchemaLike) *ObjectSchema {
 
 // Shape returns a copy of the object shape.
 func (s *ObjectSchema) Shape() Shape { return cloneShape(s.shape) }
+
+// FieldOrder returns the parse/issue key order.
+func (s *ObjectSchema) FieldOrder() []string {
+	return append([]string(nil), s.fieldOrder...)
+}
 
 // Pick keeps only the listed keys (z.object().pick({a:true,...})).
 func (s *ObjectSchema) Pick(keys ...string) *ObjectSchema {
@@ -312,7 +394,7 @@ func (s *ObjectSchema) Pick(keys ...string) *ObjectSchema {
 			next[k] = sch
 		}
 	}
-	return newObject(s.def, next, s.mode, s.catchall)
+	return newObject(s.def, next, filterFieldOrder(s.fieldOrder, want), s.mode, s.catchall)
 }
 
 // Omit drops the listed keys.
@@ -322,21 +404,30 @@ func (s *ObjectSchema) Omit(keys ...string) *ObjectSchema {
 		drop[k] = struct{}{}
 	}
 	next := Shape{}
+	keep := make(map[string]struct{}, len(s.shape))
 	for k, sch := range s.shape {
 		if _, ok := drop[k]; !ok {
 			next[k] = sch
+			keep[k] = struct{}{}
 		}
 	}
-	return newObject(s.def, next, s.mode, s.catchall)
+	return newObject(s.def, next, filterFieldOrder(s.fieldOrder, keep), s.mode, s.catchall)
 }
 
 // Extend merges incoming shape keys over this object's shape (incoming wins).
 func (s *ObjectSchema) Extend(shape Shape) *ObjectSchema {
 	next := cloneShape(s.shape)
+	order := append([]string(nil), s.fieldOrder...)
+	extra := make([]string, 0)
 	for k, sch := range shape {
+		if _, exists := next[k]; !exists {
+			extra = append(extra, k)
+		}
 		next[k] = sch
 	}
-	return newObject(s.def, next, s.mode, s.catchall)
+	sort.Strings(extra)
+	order = append(order, extra...)
+	return newObject(s.def, next, order, s.mode, s.catchall)
 }
 
 // Merge merges another object's shape (other wins on key conflict) and adopts
@@ -346,10 +437,26 @@ func (s *ObjectSchema) Merge(other *ObjectSchema) *ObjectSchema {
 		return s
 	}
 	next := cloneShape(s.shape)
+	order := append([]string(nil), s.fieldOrder...)
+	seen := make(map[string]struct{}, len(order))
+	for _, k := range order {
+		seen[k] = struct{}{}
+	}
+	for _, k := range other.fieldOrder {
+		next[k] = other.shape[k]
+		if _, ok := seen[k]; !ok {
+			order = append(order, k)
+			seen[k] = struct{}{}
+		}
+	}
 	for k, sch := range other.shape {
 		next[k] = sch
+		if _, ok := seen[k]; !ok {
+			order = append(order, k)
+			seen[k] = struct{}{}
+		}
 	}
-	return newObject(s.def, next, other.mode, other.catchall)
+	return newObject(s.def, next, order, other.mode, other.catchall)
 }
 
 // Partial marks every field (or the listed keys) as Optional. Absent keys are
@@ -376,7 +483,7 @@ func (s *ObjectSchema) Partial(keys ...string) *ObjectSchema {
 			}
 		}
 	}
-	return newObject(s.def, next, s.mode, s.catchall)
+	return newObject(s.def, next, s.fieldOrder, s.mode, s.catchall)
 }
 
 // Required wraps every field (or listed keys) with NonOptional so absent keys
@@ -400,20 +507,19 @@ func (s *ObjectSchema) Required(keys ...string) *ObjectSchema {
 			}
 		}
 	}
-	return newObject(s.def, next, s.mode, s.catchall)
+	return newObject(s.def, next, s.fieldOrder, s.mode, s.catchall)
 }
 
 // Keyof returns an Enum of this object's property names (Zod's .keyof()).
 func (s *ObjectSchema) Keyof() *EnumSchema {
-	keys := make([]string, 0, len(s.shape))
-	for k := range s.shape {
-		keys = append(keys, k)
+	keys := append([]string(nil), s.fieldOrder...)
+	if len(keys) == 0 {
+		keys = sortedShapeKeys(s.shape)
 	}
-	sort.Strings(keys)
 	return Enum(keys...)
 }
 
 // Check attaches raw checks.
 func (s *ObjectSchema) Check(checks ...*Check) *ObjectSchema {
-	return newObject(s.def.withChecks(checks...), cloneShape(s.shape), s.mode, s.catchall)
+	return newObject(s.def.withChecks(checks...), cloneShape(s.shape), s.fieldOrder, s.mode, s.catchall)
 }

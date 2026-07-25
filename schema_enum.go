@@ -9,9 +9,26 @@ type EnumSchema struct {
 }
 
 // Enum returns a string enum schema (z.enum(["a","b"])).
-// A trailing Params / ErrorMap / string message is treated as schema params.
+//
+// Every argument is an enum member value — there is no trailing error-message
+// overload (that was a silent trap: Enum("a","b","msg") would accept "msg").
+// To customize the error, use EnumWith:
+//
+//	zod.EnumWith([]string{"active", "inactive"}, "must be a status")
+//	zod.EnumWith([]string{"active", "inactive"}, zod.Params{Error: ...})
 func Enum(values ...string) *EnumSchema {
-	opts, p := splitEnumArgs(values)
+	entries := make(map[string]string, len(values))
+	for _, v := range values {
+		entries[v] = v
+	}
+	def := &Def{Type: "enum"}
+	return newEnum(def, append([]string(nil), values...), entries)
+}
+
+// EnumWith builds an enum from values plus schema params (error message / ErrorMap).
+func EnumWith(values []string, params ...any) *EnumSchema {
+	p := normalizeParams(params)
+	opts := append([]string(nil), values...)
 	entries := make(map[string]string, len(opts))
 	for _, v := range opts {
 		entries[v] = v
@@ -32,13 +49,6 @@ func NativeEnum(m map[string]string, params ...any) *EnumSchema {
 	}
 	def := &Def{Type: "enum", Error: p.Error}
 	return newEnum(def, opts, entries)
-}
-
-func splitEnumArgs(values []string) (opts []string, p Params) {
-	// Enum only takes strings; params must be passed via NativeEnum or a
-	// dedicated overload. Support Enum("a","b") only. For error customization
-	// callers can use Check or we accept empty trailing via separate API.
-	return values, Params{}
 }
 
 func newEnum(def *Def, options []string, entries map[string]string) *EnumSchema {

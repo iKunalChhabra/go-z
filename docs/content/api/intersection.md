@@ -5,9 +5,9 @@ Parse with both schemas, then deep-merge their outputs — Zod’s `z.intersecti
 ## Intersection
 
 ```go
-a := zod.Object(zod.Shape{"a": zod.String()})
-b := zod.Object(zod.Shape{"b": zod.String()})
-ab := zod.Intersection(a, b)
+a := z.Object(z.Shape{"a": z.String()})
+b := z.Object(z.Shape{"b": z.String()})
+ab := z.Intersection(a, b)
 
 ab.Parse(map[string]any{"a": "foo", "b": "bar"})
 // map[string]any{"a": "foo", "b": "bar"}
@@ -40,9 +40,9 @@ right := map[string]any{"meta": map[string]any{"y": 2}}
 Strict / strip interplay follows Zod: only keys unrecognized by **both** sides are re-emitted as `unrecognized_keys`. A key known to either side is allowed.
 
 ```go
-strictA := zod.Object(zod.Shape{"a": zod.String()}).Strict()
-strictB := zod.Object(zod.Shape{"b": zod.String()}).Strict()
-cat := zod.Intersection(strictA, strictB)
+strictA := z.Object(z.Shape{"a": z.String()}).Strict()
+strictB := z.Object(z.Shape{"b": z.String()}).Strict()
+cat := z.Intersection(strictA, strictB)
 
 // {"a","b"} ok; {"a","b","c"} → unrecognized_keys ["c"]
 ```
@@ -53,7 +53,7 @@ When merge fails, go-zod does **not** panic. It emits a `custom` issue so `SafeP
 
 ```go
 Issue{
-    Code:    zod.IssueCustom,
+    Code:    z.IssueCustom,
     Message: "Unmergeable intersection results",
     Path:    mergePath, // e.g. ["field"] or [0]
 }

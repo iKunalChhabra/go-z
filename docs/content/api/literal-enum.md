@@ -4,19 +4,19 @@ Literals and enums constrain values to a closed set. Both populate `Internals().
 
 ## Literal
 
-`zod.Literal(values...)` ports `z.literal(...)`. Multi-value literals are first-class.
+`z.Literal(values...)` ports `z.literal(...)`. Multi-value literals are first-class.
 
 ```go
-zod.Literal("tuna").MustParse("tuna")
-zod.Literal(42).MustParse(42)
-zod.Literal(42).MustParse(float64(42)) // JSON numbers arrive as float64
-zod.Literal(true).MustParse(true)
+z.Literal("tuna").MustParse("tuna")
+z.Literal(42).MustParse(42)
+z.Literal(42).MustParse(float64(42)) // JSON numbers arrive as float64
+z.Literal(true).MustParse(true)
 ```
 
 ### Failure
 
 ```go
-res := zod.Literal("tuna").SafeParse("shark")
+res := z.Literal("tuna").SafeParse("shark")
 // Code: invalid_value
 // Values: ["tuna"]
 // Message: `Invalid input: expected "tuna"`
@@ -25,7 +25,7 @@ res := zod.Literal("tuna").SafeParse("shark")
 ### Multi-value
 
 ```go
-s := zod.Literal("a", "b", 1)
+s := z.Literal("a", "b", 1)
 s.MustParse("a")
 s.MustParse("b")
 s.MustParse(1)
@@ -37,7 +37,7 @@ res := s.SafeParse("c")
 You can also pass a single `[]any` or `[]string` as the value list:
 
 ```go
-zod.Literal([]string{"red", "green", "blue"}).MustParse("green")
+z.Literal([]string{"red", "green", "blue"}).MustParse("green")
 ```
 
 ### Params vs values
@@ -45,11 +45,11 @@ zod.Literal([]string{"red", "green", "blue"}).MustParse("green")
 A trailing `string` / `ErrorMap` / `Params` is treated as schema params **when** there is at least one preceding value (a sole string is a literal value):
 
 ```go
-s := zod.Literal("tuna", "That's not a tuna")
+s := z.Literal("tuna", "That's not a tuna")
 res := s.SafeParse("shark")
 // Message: "That's not a tuna"
 
-zod.Literal("hello") // the value is "hello", not a message
+z.Literal("hello") // the value is "hello", not a message
 ```
 
 ### BigInt literals
@@ -57,7 +57,7 @@ zod.Literal("hello") // the value is "hello", not a message
 ```go
 import "math/big"
 
-s := zod.Literal(big.NewInt(12))
+s := z.Literal(big.NewInt(12))
 s.MustParse(big.NewInt(12))
 res := s.SafeParse(big.NewInt(13))
 // Message: "Invalid input: expected 12n"
@@ -66,44 +66,44 @@ res := s.SafeParse(big.NewInt(13))
 ### Values / Value helpers
 
 ```go
-lit := zod.Literal("a", "b")
+lit := z.Literal("a", "b")
 lit.Values() // []any{"a", "b"}
 
-zod.Literal("only").Value() // "only"
+z.Literal("only").Value() // "only"
 // lit.Value() panics when multiple values exist
 ```
 
 ### Internals.Values for discriminators
 
 ```go
-role := zod.Literal("admin", "guest")
+role := z.Literal("admin", "guest")
 vals := role.Internals().Values
 _, ok := vals["admin"] // true
 
 // Integral number literals are also indexed as float64 for JSON discriminants
-n := zod.Literal(1)
+n := z.Literal(1)
 _, ok = n.Internals().Values[float64(1)] // true
 ```
 
 ```go
-user := zod.DiscriminatedUnion("role", []zod.AnySchemaLike{
-    zod.Object(zod.Shape{
-        "role":  zod.Literal("admin"),
-        "perms": zod.Array(zod.String()),
+user := z.DiscriminatedUnion("role", []z.AnySchemaLike{
+    z.Object(z.Shape{
+        "role":  z.Literal("admin"),
+        "perms": z.Array(z.String()),
     }),
-    zod.Object(zod.Shape{
-        "role":    zod.Literal("guest"),
-        "session": zod.String().UUID(),
+    z.Object(z.Shape{
+        "role":    z.Literal("guest"),
+        "session": z.String().UUID(),
     }),
 })
 ```
 
 ## Enum
 
-`zod.Enum("a", "b", ...)` ports `z.enum([...])`. Members are strings; output type is `string`.
+`z.Enum("a", "b", ...)` ports `z.enum([...])`. Members are strings; output type is `string`.
 
 ```go
-color := zod.Enum("red", "green", "blue")
+color := z.Enum("red", "green", "blue")
 color.MustParse("red")
 
 res := color.SafeParse("yellow")
@@ -121,7 +121,7 @@ _, ok := color.Internals().Values["green"] // true
 
 ### NativeEnum
 
-`zod.NativeEnum(map[string]string)` ports `z.nativeEnum` / `z.enum(object)`. **Accepted values are the map values**, not the keys.
+`z.NativeEnum(map[string]string)` ports `z.nativeEnum` / `z.enum(object)`. **Accepted values are the map values**, not the keys.
 
 ```go
 Status := map[string]string{
@@ -130,7 +130,7 @@ Status := map[string]string{
     "Done":    "done",
 }
 
-schema := zod.NativeEnum(Status)
+schema := z.NativeEnum(Status)
 schema.MustParse("pending")
 _ = schema.SafeParse("Pending") // key is not accepted — value is
 
@@ -141,13 +141,17 @@ schema.Options() // the values (order not guaranteed from map iteration)
 Custom message via params:
 
 ```go
-schema := zod.NativeEnum(Status, "invalid status")
+schema := z.NativeEnum(Status, "invalid status")
 res := schema.SafeParse("nope")
 // Message: "invalid status"
 ```
 
-:::info Enum constructor messages
-Plain `Enum("a","b")` takes only string members. Prefer `NativeEnum(..., message)` or wrap with `Check` / object-level messages when you need customization on a simple enum.
+:::warn Enum args are all values
+`Enum("active", "inactive", "must be a status")` treats the third string as a **member**, not a message. Use `EnumWith` for params:
+
+```go
+schema := z.EnumWith([]string{"active", "inactive"}, "must be a status")
+```
 :::
 
 ## Literal vs Enum

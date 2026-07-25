@@ -21,7 +21,8 @@ func Number(params ...any) *NumberSchema {
 }
 
 // Int returns a number schema that requires a safe integer (z.int() =
-// number + safeint format check).
+// number + safeint format check). Output type is float64 (JSON number model).
+// Prefer Int64 when you want a typed Go int64 edge.
 func Int(params ...any) *NumberSchema {
 	p := normalizeParams(params)
 	def := &Def{Type: "number", Error: p.Error, Coerce: p.Coerce}

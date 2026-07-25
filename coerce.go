@@ -1,12 +1,8 @@
 package zod
 
 // coerceNS holds the z.coerce.* constructors (Zod's z.coerce namespace).
-type coerceNS struct {
-	String func(params ...any) *StringSchema
-	Number func(params ...any) *NumberSchema
-	Bool   func(params ...any) *BoolSchema
-	Time   func(params ...any) *TimeSchema
-}
+// Methods (not function fields) so callers cannot replace individual constructors.
+type coerceNS struct{}
 
 func withCoerce(params []any) []any {
 	args := make([]any, 0, len(params)+1)
@@ -14,11 +10,28 @@ func withCoerce(params []any) []any {
 	return append(args, params...)
 }
 
-// Coerce mirrors Zod's z.coerce namespace. Each constructor returns the
-// corresponding primitive with Def.Coerce=true.
-var Coerce = coerceNS{
-	String: func(params ...any) *StringSchema { return String(withCoerce(params)...) },
-	Number: func(params ...any) *NumberSchema { return Number(withCoerce(params)...) },
-	Bool:   func(params ...any) *BoolSchema { return Bool(withCoerce(params)...) },
-	Time:   func(params ...any) *TimeSchema { return Time(withCoerce(params)...) },
+// String returns a coercing string schema (z.coerce.string()).
+func (coerceNS) String(params ...any) *StringSchema {
+	return String(withCoerce(params)...)
 }
+
+// Number returns a coercing number schema (z.coerce.number()).
+func (coerceNS) Number(params ...any) *NumberSchema {
+	return Number(withCoerce(params)...)
+}
+
+// Bool returns a coercing bool schema (z.coerce.boolean()).
+func (coerceNS) Bool(params ...any) *BoolSchema {
+	return Bool(withCoerce(params)...)
+}
+
+// Time returns a coercing time schema (z.coerce.date()).
+func (coerceNS) Time(params ...any) *TimeSchema {
+	return Time(withCoerce(params)...)
+}
+
+// Coerce mirrors Zod's z.coerce namespace.
+//
+// Prefer the methods (Coerce.String, …). Reassigning the package variable is
+// unsupported and has no effect on already-captured call sites.
+var Coerce coerceNS

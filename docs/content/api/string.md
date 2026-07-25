@@ -1,18 +1,18 @@
 # String
 
-`zod.String()` is the Go port of Zod’s `z.string()`. It accepts Go `string` values, runs fluent checks, and returns a typed `string` from `Parse` / `SafeParse`.
+`z.String()` is the Go port of Zod’s `z.string()`. It accepts Go `string` values, runs fluent checks, and returns a typed `string` from `Parse` / `SafeParse`.
 
 ```go
-import "github.com/iKunalChhabra/go-zod"
+import z "github.com/iKunalChhabra/go-zod"
 
-schema := zod.String().Min(1).Max(100)
+schema := z.String().Min(1).Max(100)
 
 s, err := schema.Parse("hello")
 // s == "hello", err == nil
 ```
 
 :::tip Module
-All examples use `import "github.com/iKunalChhabra/go-zod"` and the `zod` package prefix.
+All examples use `import z "github.com/iKunalChhabra/go-zod"` (alias `z`) to match Zod’s `z` convention.
 :::
 
 ## Basics
@@ -20,13 +20,13 @@ All examples use `import "github.com/iKunalChhabra/go-zod"` and the `zod` packag
 Without checks, only the type is validated:
 
 ```go
-schema := zod.String()
+schema := z.String()
 
 schema.MustParse("ok")
 
 res := schema.SafeParse(123)
 // res.Success == false
-// res.Error.Issues[0].Code == zod.IssueInvalidType
+// res.Error.Issues[0].Code == z.IssueInvalidType
 // res.Error.Issues[0].Expected == "string"
 // Message: "Invalid input: expected string, received number"
 ```
@@ -43,10 +43,10 @@ Length is measured in **UTF-16 code units** (same as JavaScript `string.length`)
 | `NonEmpty()` | alias of `Min(1)` | same as `Min` |
 
 ```go
-minFive := zod.String().Min(5, "min5")
-maxFive := zod.String().Max(5, "max5")
-justFive := zod.String().Length(5)
-nonempty := zod.String().NonEmpty("nonempty")
+minFive := z.String().Min(5, "min5")
+maxFive := z.String().Max(5, "max5")
+justFive := z.String().Length(5)
+nonempty := z.String().NonEmpty("nonempty")
 
 minFive.MustParse("12345")
 maxFive.MustParse("1234")
@@ -56,13 +56,13 @@ nonempty.MustParse("x")
 res := minFive.SafeParse("1234")
 // Message: "min5"
 
-res = zod.String().Min(5).SafeParse("hi")
+res = z.String().Min(5).SafeParse("hi")
 // Message: "Too small: expected string to have >=5 characters"
 
-res = zod.String().Max(2).SafeParse("hello")
+res = z.String().Max(2).SafeParse("hello")
 // Message: "Too big: expected string to have <=2 characters"
 
-res = zod.String().Length(3).SafeParse("ab")
+res = z.String().Length(3).SafeParse("ab")
 // Issue.Exact == true, Code == too_small
 ```
 
@@ -82,47 +82,47 @@ All emit `invalid_format` with `Origin: "string"` (except where noted).
 ```go
 import "regexp"
 
-re := zod.String().Regex(regexp.MustCompile(`^moo+$`))
+re := z.String().Regex(regexp.MustCompile(`^moo+$`))
 re.MustParse("moooo")
 
 res := re.SafeParse("boooo")
 // Code: invalid_format, Format: "regex", Pattern: "/^moo+$/"
 // Message: "Invalid string: must match pattern /^moo+$/"
 
-custom := zod.String().Regex(regexp.MustCompile(`^moo+$`), "Custom error message")
+custom := z.String().Regex(regexp.MustCompile(`^moo+$`), "Custom error message")
 res = custom.SafeParse("boooo")
 // Message: "Custom error message"
 ```
 
 ```go
-includes := zod.String().Includes("includes")
+includes := z.String().Includes("includes")
 includes.MustParse("XincludesXX")
 _ = includes.SafeParse("XincludeXX") // fail
 
 // Start searching from byte index 2
-from2 := zod.String().Includes("includes", 2)
+from2 := z.String().Includes("includes", 2)
 from2.MustParse("XXXincludesXX")
 _ = from2.SafeParse("XincludesXX") // fail — match starts before index 2
 
-starts := zod.String().StartsWith("startsWith")
-ends := zod.String().EndsWith("endsWith")
+starts := z.String().StartsWith("startsWith")
+ends := z.String().EndsWith("endsWith")
 starts.MustParse("startsWithX")
 ends.MustParse("XendsWith")
 
-res := zod.String().StartsWith("ab").SafeParse("x")
+res := z.String().StartsWith("ab").SafeParse("x")
 // Message: `Invalid string: must start with "ab"`
 
-res = zod.String().EndsWith("yz").SafeParse("x")
+res = z.String().EndsWith("yz").SafeParse("x")
 // Message: `Invalid string: must end with "yz"`
 ```
 
 ```go
-zod.String().Uppercase().MustParse("ABC")
-res := zod.String().Uppercase().SafeParse("Abc")
+z.String().Uppercase().MustParse("ABC")
+res := z.String().Uppercase().SafeParse("Abc")
 // Message: "Invalid uppercase"
 
-zod.String().Lowercase().MustParse("abc")
-_ = zod.String().Lowercase().SafeParse("Abc") // fail
+z.String().Lowercase().MustParse("abc")
+_ = z.String().Lowercase().SafeParse("Abc") // fail
 ```
 
 :::info Uppercase vs ToUpperCase
@@ -141,27 +141,27 @@ These mutate the parsed string in place (Zod “overwrite” checks). They do no
 | `Normalize()` | Unicode NFC |
 
 ```go
-got, err := zod.String().Trim().Min(2).Parse(" 12 ")
+got, err := z.String().Trim().Min(2).Parse(" 12 ")
 // got == "12", err == nil
 
 // Order matters: checks run in attachment order.
-got, err = zod.String().Min(2).Trim().Parse(" 1 ")
+got, err = z.String().Min(2).Trim().Parse(" 1 ")
 // Trim runs after Min — Min sees " 1 " (length 3) → success, then trim → "1"
 
-_, err = zod.String().Trim().Min(2).Parse(" 1 ")
+_, err = z.String().Trim().Min(2).Parse(" 1 ")
 // Trim first → "1", then Min(2) fails
 
-got = zod.String().ToLowerCase().MustParse("ASDF") // "asdf"
-got = zod.String().ToUpperCase().MustParse("asdf") // "ASDF"
-got = zod.String().Normalize().MustParse("e\u0301") // NFC "é"
+got = z.String().ToLowerCase().MustParse("ASDF") // "asdf"
+got = z.String().ToUpperCase().MustParse("asdf") // "ASDF"
+got = z.String().Normalize().MustParse("e\u0301") // NFC "é"
 ```
 
 ## Coercion
 
-Pass `zod.Params{Coerce: true}` (or use [`zod.Coerce.String()`](/api/coerce)) to stringify common primitives before the type check:
+Pass `z.Params{Coerce: true}` (or use [`z.Coerce.String()`](/api/coerce)) to stringify common primitives before the type check:
 
 ```go
-s := zod.String(zod.Params{Coerce: true})
+s := z.String(z.Params{Coerce: true})
 
 s.MustParse(123)   // "123"
 s.MustParse(true)  // "true"
@@ -176,18 +176,18 @@ See [Coercion](/api/coerce) for the full conversion table.
 Fluent methods accept trailing params:
 
 - `string` → fixed error message
-- `zod.ErrorMap` / `func(*zod.Issue) string` → dynamic message
-- `zod.Params` → `{ Error, Abort, Coerce }`
+- `z.ErrorMap` / `func(*z.Issue) string` → dynamic message
+- `z.Params` → `{ Error, Abort, Coerce }`
 
 ```go
-schema := zod.String().Min(5, "too short").Max(20, "too long")
+schema := z.String().Min(5, "too short").Max(20, "too long")
 
 res := schema.SafeParse("hi")
 // Message: "too short"
 
 // Abort stops later checks that lack a When gate
-s := zod.String().
-    Email(zod.Params{Abort: true}).
+s := z.String().
+    Email(z.Params{Abort: true}).
     Regex(regexp.MustCompile(`^x$`))
 res = s.SafeParse("not-email")
 // Only the email issue is reported
@@ -196,7 +196,7 @@ res = s.SafeParse("not-email")
 Constructor-level params:
 
 ```go
-schema := zod.String("must be a string")
+schema := z.String("must be a string")
 res := schema.SafeParse(42)
 // Message: "must be a string"
 ```
@@ -206,7 +206,7 @@ res := schema.SafeParse(42)
 Length and case checks compose with [string formats](/api/string-formats):
 
 ```go
-schema := zod.String().Email().Min(10).Lowercase()
+schema := z.String().Email().Min(10).Lowercase()
 schema.MustParse("longemail@example.com")
 _ = schema.SafeParse("ort@e.co")              // too short
 _ = schema.SafeParse("EMAIL@EXAMPLE.COM")     // not lowercase

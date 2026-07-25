@@ -1,11 +1,11 @@
 # BigInt
 
-`zod.BigInt()` ports `z.bigint()`. The Go output type is `*big.Int` from `math/big`.
+`z.BigInt()` ports `z.bigint()`. The Go output type is `*big.Int` from `math/big`.
 
 ```go
 import "math/big"
 
-schema := zod.BigInt().Positive()
+schema := z.BigInt().Positive()
 
 n, err := schema.Parse(big.NewInt(42))
 // n.Cmp(big.NewInt(42)) == 0
@@ -19,12 +19,12 @@ Accepted without coerce:
 - `int64` and `int` (converted to `*big.Int`)
 
 ```go
-zod.BigInt().MustParse(big.NewInt(1))
-zod.BigInt().MustParse(big.NewInt(0))
-zod.BigInt().MustParse(big.NewInt(-1))
-zod.BigInt().MustParse(int64(7))
+z.BigInt().MustParse(big.NewInt(1))
+z.BigInt().MustParse(big.NewInt(0))
+z.BigInt().MustParse(big.NewInt(-1))
+z.BigInt().MustParse(int64(7))
 
-res := zod.BigInt().SafeParse("x")
+res := z.BigInt().SafeParse("x")
 // Message: "Invalid input: expected bigint, received string"
 ```
 
@@ -46,30 +46,30 @@ Bound arguments are `*big.Int`. Issues use `Origin: "bigint"`.
 ```go
 five := big.NewInt(5)
 
-gt := zod.BigInt().Gt(five)
+gt := z.BigInt().Gt(five)
 gt.MustParse(big.NewInt(6))
 _ = gt.SafeParse(big.NewInt(5)) // fail
 
-gte := zod.BigInt().Gte(five)
+gte := z.BigInt().Gte(five)
 gte.MustParse(big.NewInt(5))
 gte.MustParse(big.NewInt(6))
 
-lt := zod.BigInt().Lt(five)
+lt := z.BigInt().Lt(five)
 lt.MustParse(big.NewInt(4))
 _ = lt.SafeParse(big.NewInt(5))
 
-pos := zod.BigInt().Positive()
+pos := z.BigInt().Positive()
 pos.MustParse(big.NewInt(3))
 _ = pos.SafeParse(big.NewInt(0))
 
-neg := zod.BigInt().Negative()
+neg := z.BigInt().Negative()
 neg.MustParse(big.NewInt(-2))
 
-nn := zod.BigInt().NonNegative()
+nn := z.BigInt().NonNegative()
 nn.MustParse(big.NewInt(0))
 nn.MustParse(big.NewInt(7))
 
-np := zod.BigInt().NonPositive()
+np := z.BigInt().NonPositive()
 np.MustParse(big.NewInt(0))
 np.MustParse(big.NewInt(-12))
 ```
@@ -77,7 +77,7 @@ np.MustParse(big.NewInt(-12))
 ## MultipleOf
 
 ```go
-mult := zod.BigInt().MultipleOf(big.NewInt(5))
+mult := z.BigInt().MultipleOf(big.NewInt(5))
 mult.MustParse(big.NewInt(15))
 mult.MustParse(big.NewInt(-15))
 
@@ -93,7 +93,7 @@ If the divisor is `0`, the multiple-of check is skipped (modulo by zero is undef
 ## Coercion
 
 ```go
-s := zod.BigInt(zod.Params{Coerce: true})
+s := z.BigInt(z.Params{Coerce: true})
 
 got := s.MustParse("5")
 // got.Cmp(big.NewInt(5)) == 0
@@ -110,7 +110,7 @@ _ = s.SafeParse(3.14) // fail
 ## Custom messages
 
 ```go
-schema := zod.BigInt().Min(big.NewInt(0), "must be non-negative")
+schema := z.BigInt().Min(big.NewInt(0), "must be non-negative")
 res := schema.SafeParse(big.NewInt(-1))
 // Message: "must be non-negative"
 ```

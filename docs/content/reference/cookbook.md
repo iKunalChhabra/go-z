@@ -5,16 +5,16 @@ Copy-paste recipes for common go-zod patterns.
 ## 1. Signup form
 
 ```go
-var Signup = zod.SuperRefine(zod.Object(zod.Shape{
-    "email":           zod.String().Email(),
-    "password":        zod.String().Min(8).Max(128),
-    "confirmPassword": zod.String(),
-    "acceptTerms":     zod.Literal(true),
-}), func(v any, ctx *zod.RefinementCtx) {
+var Signup = z.SuperRefine(z.Object(z.Shape{
+    "email":           z.String().Email(),
+    "password":        z.String().Min(8).Max(128),
+    "confirmPassword": z.String(),
+    "acceptTerms":     z.Literal(true),
+}), func(v any, ctx *z.RefinementCtx) {
     m := v.(map[string]any)
     if m["password"] != m["confirmPassword"] {
-        ctx.AddIssue(zod.Issue{
-            Code:    zod.IssueCustom,
+        ctx.AddIssue(z.Issue{
+            Code:    z.IssueCustom,
             Message: "passwords must match",
             Path:    []any{"confirmPassword"},
         }.WithContinue())
@@ -39,11 +39,11 @@ _ = err
 ```go
 import "os"
 
-envSchema := zod.Object(zod.Shape{
-    "PORT":     zod.Coerce.Number().Gte(1).Lte(65535),
-    "DEBUG":    zod.Default(zod.Coerce.Bool(), false),
-    "DATABASE": zod.String().Min(1),
-    "APP_ENV":  zod.Default(zod.Enum("dev", "staging", "prod"), "dev"),
+envSchema := z.Object(z.Shape{
+    "PORT":     z.Coerce.Number().Gte(1).Lte(65535),
+    "DEBUG":    z.Default(z.Coerce.Bool(), false),
+    "DATABASE": z.String().Min(1),
+    "APP_ENV":  z.Default(z.Enum("dev", "staging", "prod"), "dev"),
 })
 
 func loadEnv() (map[string]any, error) {
@@ -73,10 +73,10 @@ type PageQuery struct {
     Q     string  `json:"q"`
 }
 
-var pageQuery = zod.ToStruct[PageQuery](zod.Object(zod.Shape{
-    "page":  zod.Default(zod.Coerce.Number().Gte(1), float64(1)),
-    "limit": zod.Default(zod.Coerce.Number().Gte(1).Lte(100), float64(20)),
-    "q":     zod.Optional(zod.String().Max(200)),
+var pageQuery = z.ToStruct[PageQuery](z.Object(z.Shape{
+    "page":  z.Default(z.Coerce.Number().Gte(1), float64(1)),
+    "limit": z.Default(z.Coerce.Number().Gte(1).Lte(100), float64(20)),
+    "q":     z.Optional(z.String().Max(200)),
 }))
 
 // Gin:
@@ -86,17 +86,17 @@ var pageQuery = zod.ToStruct[PageQuery](zod.Object(zod.Shape{
 ## 4. Nested address
 
 ```go
-address := zod.Object(zod.Shape{
-    "line1":   zod.String().Min(1),
-    "line2":   zod.Optional(zod.String()),
-    "city":    zod.String().Min(1),
-    "zip":     zod.String().Min(5).Max(10),
-    "country": zod.String().Length(2),
+address := z.Object(z.Shape{
+    "line1":   z.String().Min(1),
+    "line2":   z.Optional(z.String()),
+    "city":    z.String().Min(1),
+    "zip":     z.String().Min(5).Max(10),
+    "country": z.String().Length(2),
 })
 
-profile := zod.Object(zod.Shape{
-    "name":    zod.String().Min(2),
-    "email":   zod.String().Email(),
+profile := z.Object(z.Shape{
+    "name":    z.String().Min(2),
+    "email":   z.String().Email(),
     "address": address,
 })
 
@@ -113,48 +113,48 @@ type Profile struct {
     Address Address `json:"address"`
 }
 
-var parseProfile = zod.ToStruct[Profile](profile)
+var parseProfile = z.ToStruct[Profile](profile)
 ```
 
 ## 5. Recursive comments
 
 ```go
-var Comment zod.AnySchemaLike
-Comment = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "id":      zod.String().UUID(),
-        "author":  zod.String().Min(1),
-        "body":    zod.String().Min(1).Max(5000),
-        "replies": zod.Default(zod.Array(Comment), []any{}),
+var Comment z.AnySchemaLike
+Comment = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "id":      z.String().UUID(),
+        "author":  z.String().Min(1),
+        "body":    z.String().Min(1).Max(5000),
+        "replies": z.Default(z.Array(Comment), []any{}),
     })
 })
 
-thread := zod.Object(zod.Shape{
-    "title":    zod.String().Min(1),
-    "comments": zod.Array(Comment),
+thread := z.Object(z.Shape{
+    "title":    z.String().Min(1),
+    "comments": z.Array(Comment),
 })
 ```
 
 ## 6. Discriminated union webhooks
 
 ```go
-webhooks := zod.DiscriminatedUnion("type", []zod.AnySchemaLike{
-    zod.Object(zod.Shape{
-        "type": zod.Literal("user.created"),
-        "data": zod.Object(zod.Shape{
-            "userId": zod.String().UUID(),
-            "email":  zod.String().Email(),
+webhooks := z.DiscriminatedUnion("type", []z.AnySchemaLike{
+    z.Object(z.Shape{
+        "type": z.Literal("user.created"),
+        "data": z.Object(z.Shape{
+            "userId": z.String().UUID(),
+            "email":  z.String().Email(),
         }),
     }),
-    zod.Object(zod.Shape{
-        "type": zod.Literal("user.deleted"),
-        "data": zod.Object(zod.Shape{
-            "userId": zod.String().UUID(),
+    z.Object(z.Shape{
+        "type": z.Literal("user.deleted"),
+        "data": z.Object(z.Shape{
+            "userId": z.String().UUID(),
         }),
     }),
-    zod.Object(zod.Shape{
-        "type":   zod.Literal("ping"),
-        "sentAt": zod.String().ISODateTime(),
+    z.Object(z.Shape{
+        "type":   z.Literal("ping"),
+        "sentAt": z.String().ISODateTime(),
     }),
 })
 
@@ -179,13 +179,13 @@ func handleWebhook(raw any) error {
 ## 7. Gin middleware CRUD
 
 ```go
-var userBody = zod.Object(zod.Shape{
-    "name":  zod.String().Min(2).Max(100),
-    "email": zod.String().Email(),
+var userBody = z.Object(z.Shape{
+    "name":  z.String().Min(2).Max(100),
+    "email": z.String().Email(),
 })
 
-var userID = zod.Object(zod.Shape{
-    "id": zod.String().UUID(),
+var userID = z.Object(z.Shape{
+    "id": z.String().UUID(),
 })
 
 func RegisterUserRoutes(r *gin.Engine) {
@@ -197,7 +197,7 @@ func RegisterUserRoutes(r *gin.Engine) {
     })
 
     g.GET("/:id", func(c *gin.Context) {
-        p, ok := zgin.BindURI(c, zod.ToStruct[struct {
+        p, ok := zgin.BindURI(c, z.ToStruct[struct {
             ID string `json:"id"`
         }](userID))
         if !ok {
@@ -207,7 +207,7 @@ func RegisterUserRoutes(r *gin.Engine) {
     })
 
     g.PUT("/:id", func(c *gin.Context) {
-        if _, ok := zgin.BindURI(c, zod.ToStruct[struct {
+        if _, ok := zgin.BindURI(c, z.ToStruct[struct {
             ID string `json:"id"`
         }](userID)); !ok {
             return
@@ -220,7 +220,7 @@ func RegisterUserRoutes(r *gin.Engine) {
     })
 
     g.DELETE("/:id", func(c *gin.Context) {
-        if _, ok := zgin.BindURI(c, zod.ToStruct[struct {
+        if _, ok := zgin.BindURI(c, z.ToStruct[struct {
             ID string `json:"id"`
         }](userID)); !ok {
             return
@@ -233,20 +233,20 @@ func RegisterUserRoutes(r *gin.Engine) {
 ## 8. Parallel batch import
 
 ```go
-var importRow = zod.Object(zod.Shape{
-    "email": zod.String().Email(),
-    "name":  zod.String().Min(1),
-    "role":  zod.Default(zod.Enum("user", "admin"), "user"),
+var importRow = z.Object(z.Shape{
+    "email": z.String().Email(),
+    "name":  z.String().Min(1),
+    "role":  z.Default(z.Enum("user", "admin"), "user"),
 })
 
 func ImportUsers(ctx context.Context, rows []any) ([]any, error) {
-    out, err := zod.ParseParallelSlice(ctx, importRow, rows, zod.ParallelOpts{
+    out, err := z.ParseParallelSlice(ctx, importRow, rows, z.ParallelOpts{
         Workers:  runtime.NumCPU(),
         MinChunk: 64,
     })
     if err != nil {
-        if zerr, ok := err.(*zod.ZodError); ok {
-            // log zod.Prettify(zerr) or return Flatten for the client
+        if zerr, ok := err.(*z.ZodError); ok {
+            // log z.Prettify(zerr) or return Flatten for the client
             _ = zerr
         }
         return out, err
@@ -258,10 +258,10 @@ func ImportUsers(ctx context.Context, rows []any) ([]any, error) {
 ## 9. Partial update (PATCH)
 
 ```go
-base := zod.Object(zod.Shape{
-    "name":  zod.String().Min(2),
-    "email": zod.String().Email(),
-    "bio":   zod.String().Max(500),
+base := z.Object(z.Shape{
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
+    "bio":   z.String().Max(500),
 })
 
 // All fields optional for PATCH
@@ -274,6 +274,6 @@ emailOnly := base.Pick("email")
 ## 10. Catch bad query flags
 
 ```go
-flag := zod.Catch(zod.Coerce.Bool(), false)
+flag := z.Catch(z.Coerce.Bool(), false)
 // "?verbose=nope" → false instead of 400
 ```

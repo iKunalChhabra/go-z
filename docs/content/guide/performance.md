@@ -33,9 +33,9 @@ Hot-path parse walks `[]objectField` — **no reflection**, no map iteration ove
 
 ```go
 // Built once at init — plan is fixed for the life of the schema
-var user = zod.Object(zod.Shape{
-    "name":  zod.String().Min(2),
-    "email": zod.String().Email(),
+var user = z.Object(z.Shape{
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
 })
 ```
 

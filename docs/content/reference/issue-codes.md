@@ -240,6 +240,6 @@ Message resolution order (Zod-compatible):
 6. `"Invalid input"`
 
 ```go
-cfg := zod.GetConfig()
-// cfg.LocaleError = zod.EsLocale  // etc.
+cfg := z.GetConfig()
+// cfg.LocaleError = z.EsLocale  // etc.
 ```

@@ -5,7 +5,7 @@ Attach custom validation after (or instead of) structural parsing.
 ## Refine
 
 ```go
-schema := zod.Refine(zod.String(), func(v any) bool {
+schema := z.Refine(z.String(), func(v any) bool {
     s, _ := v.(string)
     return strings.Contains(s, "@")
 }, "must contain @")
@@ -18,10 +18,10 @@ Failed predicates produce a `custom` issue. Defaults to **continue** (non-abort)
 ### Params
 
 ```go
-zod.Refine(inner, pred, "message")
-zod.Refine(inner, pred, zod.Params{Error: map, Abort: true})
-zod.Refine(inner, pred, zod.RefineOpts{
-    Error:  zod.MessageFromString("bad"),
+z.Refine(inner, pred, "message")
+z.Refine(inner, pred, z.Params{Error: map, Abort: true})
+z.Refine(inner, pred, z.RefineOpts{
+    Error:  z.MessageFromString("bad"),
     Abort:  true,
     Path:   []any{"field"},
     Params: map[string]any{"rule": "contains-at"},
@@ -40,14 +40,14 @@ zod.Refine(inner, pred, zod.RefineOpts{
 ## SuperRefine
 
 ```go
-schema := zod.SuperRefine(zod.Object(zod.Shape{
-    "password": zod.String(),
-    "confirm":  zod.String(),
-}), func(v any, ctx *zod.RefinementCtx) {
+schema := z.SuperRefine(z.Object(z.Shape{
+    "password": z.String(),
+    "confirm":  z.String(),
+}), func(v any, ctx *z.RefinementCtx) {
     m := v.(map[string]any)
     if m["password"] != m["confirm"] {
-        ctx.AddIssue(zod.Issue{
-            Code:    zod.IssueCustom,
+        ctx.AddIssue(z.Issue{
+            Code:    z.IssueCustom,
             Message: "passwords must match",
             Path:    []any{"confirm"},
         }.WithContinue())
@@ -80,7 +80,7 @@ Control abort behavior with `Issue.WithAbort()` / `Issue.WithContinue()`.
 Composition primitive for attaching raw `*Check` values to any `AnySchemaLike`:
 
 ```go
-schema := zod.CheckSchema(zod.String(), zod.MinLength(5), myCheck)
+schema := z.CheckSchema(z.String(), z.MinLength(5), myCheck)
 ```
 
 Fluent schemas (`String().Check(...)`) already expose this; `CheckSchema` is for wrappers / unions that only satisfy `AnySchemaLike`.
@@ -88,7 +88,7 @@ Fluent schemas (`String().Check(...)`) already expose this; `CheckSchema` is for
 ## Custom
 
 ```go
-schema := zod.Custom(func(v any) bool {
+schema := z.Custom(func(v any) bool {
     _, ok := v.(MyType)
     return ok
 }, "expected MyType")
@@ -98,7 +98,7 @@ Accepts **any** input type, then runs the predicate. Defaults to **`abort: true`
 
 ```go
 // Override abort default
-zod.Custom(pred, zod.RefineOpts{Abort: false})
+z.Custom(pred, z.RefineOpts{Abort: false})
 ```
 
 ## OverwriteSchema

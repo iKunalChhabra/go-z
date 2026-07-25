@@ -7,9 +7,11 @@
   const searchResults = document.getElementById("searchResults");
   const searchModalInput = document.getElementById("searchModalInput");
   const searchInput = document.getElementById("searchInput");
+  const themeToggle = document.getElementById("themeToggle");
 
   const cache = new Map();
   let searchIndex = null;
+  let tocObserver = null;
 
   function pathToFile(path) {
     if (!path || path === "/") return "content/index.md";
@@ -18,14 +20,11 @@
 
   function currentPath() {
     const raw = location.hash.replace(/^#/, "") || "/";
-    // Support "#/path" and legacy "#path"
     const path = raw.startsWith("/") ? raw : `/${raw}`;
-    // Strip secondary heading fragment if somehow present in hash path
     return path.split("#")[0] || "/";
   }
 
   function headingFragment() {
-    // "#/guide/errors#zoderror" → "zoderror"
     const parts = location.hash.split("#").filter(Boolean);
     return parts.length >= 2 && parts[0].startsWith("/") ? parts[1] : null;
   }
@@ -64,7 +63,24 @@
     );
   }
 
+  function triggerPageEnter(root) {
+    root.classList.remove("page-enter");
+    // force reflow so the animation restarts on every route change
+    void root.offsetWidth;
+    root.classList.add("page-enter");
+    const hero = root.querySelector(".hero");
+    if (hero) {
+      hero.classList.remove("page-enter");
+      void hero.offsetWidth;
+      hero.classList.add("page-enter");
+    }
+  }
+
   function renderToc(root) {
+    if (tocObserver) {
+      tocObserver.disconnect();
+      tocObserver = null;
+    }
     const headings = [...root.querySelectorAll("h2, h3")];
     if (!headings.length) {
       tocEl.innerHTML = "";
@@ -74,27 +90,77 @@
       .map((h) => {
         if (!h.id) h.id = slugify(h.textContent || "section");
         const depth = h.tagName === "H3" ? "depth-3" : "";
-        return `<a class="${depth}" href="#${currentPath()}#${h.id}">${h.textContent}</a>`;
+        return `<a class="${depth}" href="#${currentPath()}#${h.id}" data-id="${h.id}">${h.textContent}</a>`;
       })
       .join("");
     tocEl.innerHTML = `<h3>On this page</h3>${links}`;
+
+    const tocLinks = [...tocEl.querySelectorAll("a[data-id]")];
+    const byId = new Map(tocLinks.map((a) => [a.dataset.id, a]));
+
+    const setActive = (id) => {
+      tocLinks.forEach((a) => a.classList.toggle("active", a.dataset.id === id));
+    };
+
+    tocObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: "-64px 0px -70% 0px", threshold: [0, 1] }
+    );
+    headings.forEach((h) => tocObserver.observe(h));
+    if (headings[0]) setActive(headings[0].id);
+  }
+
+  function langFromCode(code) {
+    const cls = [...(code?.classList || [])].find((c) => c.startsWith("language-"));
+    return cls ? cls.replace("language-", "") : "text";
   }
 
   function decorateCodeBlocks(root) {
     root.querySelectorAll("pre").forEach((pre) => {
-      if (pre.querySelector(".copy-btn")) return;
+      if (pre.closest(".code-block")) return;
+      const code = pre.querySelector("code");
+      const lang = langFromCode(code);
+
+      const wrap = document.createElement("div");
+      wrap.className = "code-block";
+
+      const header = document.createElement("div");
+      header.className = "code-block-header";
+      header.innerHTML = `
+        <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <span class="code-lang">${lang}</span>
+      `;
+
       const btn = document.createElement("button");
       btn.className = "copy-btn";
       btn.type = "button";
       btn.textContent = "Copy";
       btn.addEventListener("click", async () => {
-        const code = pre.querySelector("code")?.textContent || pre.textContent;
-        await navigator.clipboard.writeText(code);
-        btn.textContent = "Copied";
-        setTimeout(() => (btn.textContent = "Copy"), 1200);
+        const text = code?.textContent || pre.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          /* ignore */
+        }
+        btn.textContent = "✓";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = "Copy";
+          btn.classList.remove("copied");
+        }, 1200);
       });
-      pre.appendChild(btn);
+      header.appendChild(btn);
+
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(header);
+      wrap.appendChild(pre);
     });
+
     if (window.hljs) {
       root.querySelectorAll("pre code").forEach((block) => {
         try {
@@ -118,12 +184,12 @@
     pagerEl.innerHTML = `
       ${
         prev
-          ? `<a href="#${prev.path}"><span class="label">Previous</span><span class="title">← ${prev.title}</span></a>`
+          ? `<a href="#${prev.path}"><span class="label">Previous</span><span class="title"><span class="arrow">←</span> ${prev.title}</span></a>`
           : `<span></span>`
       }
       ${
         next
-          ? `<a class="next" href="#${next.path}"><span class="label">Next</span><span class="title">${next.title} →</span></a>`
+          ? `<a class="next" href="#${next.path}"><span class="label">Next</span><span class="title">${next.title} <span class="arrow">→</span></span></a>`
           : `<span></span>`
       }
     `;
@@ -145,7 +211,6 @@
     try {
       const md = enhanceMarkdown(await loadMarkdown(path));
       const renderer = new marked.Renderer();
-      // marked v9+ uses token object; v8 used (text, level)
       renderer.heading = function (arg, levelMaybe) {
         let text;
         let level;
@@ -161,13 +226,13 @@
       };
 
       contentEl.innerHTML = marked.parse(md, { renderer, gfm: true });
-      // Ensure IDs even if renderer path differed
       contentEl.querySelectorAll("h1, h2, h3, h4").forEach((h) => {
         if (!h.id) h.id = slugify(h.textContent || "section");
       });
       decorateCodeBlocks(contentEl);
       renderToc(contentEl);
       renderPager(path);
+      triggerPageEnter(contentEl);
 
       const page = DOCS_PAGES.find((p) => p.path === path);
       document.title = page ? `${page.title} · go-zod` : "go-zod — Zod for Go";
@@ -177,7 +242,8 @@
         const el = document.getElementById(frag);
         if (el) el.scrollIntoView({ block: "start" });
       } else {
-        window.scrollTo({ top: 0 });
+        // Instant scroll on route change (no global smooth)
+        window.scrollTo(0, 0);
       }
       document.body.classList.remove("sidebar-open");
     } catch (err) {
@@ -260,6 +326,7 @@
 
   function openSearch() {
     searchModal.classList.add("open");
+    searchModal.setAttribute("aria-hidden", "false");
     searchModalInput.value = "";
     searchResults.innerHTML = `<div class="search-empty">Type to search across ${DOCS_PAGES.length} pages</div>`;
     searchModalInput.focus();
@@ -269,7 +336,52 @@
   }
   function closeSearch() {
     searchModal.classList.remove("open");
+    searchModal.setAttribute("aria-hidden", "true");
   }
+
+  function applyTheme(theme) {
+    const next = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("go-zod-theme", next);
+    if (themeToggle) {
+      themeToggle.setAttribute("aria-label", next === "dark" ? "Switch to light theme" : "Switch to dark theme");
+    }
+  }
+
+  function initTheme() {
+    const stored = localStorage.getItem("go-zod-theme");
+    if (stored === "light" || stored === "dark") {
+      applyTheme(stored);
+      return;
+    }
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+
+  // Smooth-scroll only for same-page heading anchors
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest('a[href*="#"]');
+    if (!a) return;
+    const href = a.getAttribute("href") || "";
+    if (!href.includes("#")) return;
+    const parts = href.replace(/^#/, "").split("#").filter(Boolean);
+    // "#/path#heading" or just "#heading" relative patterns used by TOC
+    let frag = null;
+    let pathPart = null;
+    if (href.startsWith("#/") || href.startsWith("#")) {
+      if (parts.length >= 2 && parts[0].startsWith("/")) {
+        pathPart = parts[0];
+        frag = parts[1];
+      }
+    }
+    if (!frag || !pathPart) return;
+    if (pathPart !== currentPath()) return;
+    const el = document.getElementById(frag);
+    if (!el) return;
+    e.preventDefault();
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    history.replaceState(null, "", `#${pathPart}#${frag}`);
+  });
 
   window.addEventListener("hashchange", () => render(currentPath()));
   document.getElementById("menuToggle").addEventListener("click", () => {
@@ -292,6 +404,14 @@
     if (e.key === "Escape") closeSearch();
   });
 
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const cur = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      applyTheme(cur === "dark" ? "light" : "dark");
+    });
+  }
+
+  initTheme();
   if (!location.hash) location.hash = "#/";
   render(currentPath());
 })();

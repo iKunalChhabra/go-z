@@ -5,9 +5,9 @@ Try options in order; the first successful parse wins.
 ## Union
 
 ```go
-schema := zod.Union([]zod.AnySchemaLike{
-    zod.String(),
-    zod.Number(),
+schema := z.Union([]z.AnySchemaLike{
+    z.String(),
+    z.Number(),
 })
 
 schema.Parse("hi") // "hi"
@@ -18,8 +18,8 @@ schema.SafeParse(true) // fails: invalid_union
 Optional params: string message, `ErrorMap`, or `Params`.
 
 ```go
-zod.Union(options, "must be string or number")
-zod.Union(options, zod.Params{Error: myMap})
+z.Union(options, "must be string or number")
+z.Union(options, z.Params{Error: myMap})
 ```
 
 ### UnionOf
@@ -27,7 +27,7 @@ zod.Union(options, zod.Params{Error: myMap})
 Variadic convenience:
 
 ```go
-schema := zod.UnionOf(zod.String(), zod.Number(), zod.Bool())
+schema := z.UnionOf(z.String(), z.Number(), z.Bool())
 ```
 
 ## Parse algorithm
@@ -48,7 +48,7 @@ When multiple options abort (or zero non-aborted remain), go-zod emits:
 
 ```go
 Issue{
-    Code:   zod.IssueInvalidUnion,
+    Code:   z.IssueInvalidUnion,
     Errors: [][]Issue{ /* one slice per option, finalized */ },
     Input:  input,
 }
@@ -73,7 +73,7 @@ If **any** option has OptIn / OptOut, the union inherits those flags. If every o
 ## Traits & immutability
 
 ```go
-u := zod.Union([]zod.AnySchemaLike{zod.String(), zod.Number()})
+u := z.Union([]z.AnySchemaLike{z.String(), z.Number()})
 u2 := u.Check(myCheck) // immutable clone; Options are copied at construction
 ```
 

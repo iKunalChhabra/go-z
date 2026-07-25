@@ -1,11 +1,11 @@
 # Tuple
 
-`zod.Tuple(items)` ports `z.tuple([...])`. Fixed positions plus optional trailing `Rest`. Output is `[]any`.
+`z.Tuple(items)` ports `z.tuple([...])`. Fixed positions plus optional trailing `Rest`. Output is `[]any`.
 
 ```go
-pair := zod.Tuple([]zod.AnySchemaLike{
-    zod.String(),
-    zod.Number(),
+pair := z.Tuple([]z.AnySchemaLike{
+    z.String(),
+    z.Number(),
 })
 
 out := pair.MustParse([]any{"age", 42})
@@ -17,7 +17,7 @@ out := pair.MustParse([]any{"age", 42})
 Without `Rest`, length must match the item list (accounting for optional trailing elements):
 
 ```go
-schema := zod.Tuple([]zod.AnySchemaLike{zod.String(), zod.String()})
+schema := z.Tuple([]z.AnySchemaLike{z.String(), z.String()})
 
 schema.MustParse([]any{"asdf", "1234"})
 
@@ -34,7 +34,7 @@ res = schema.SafeParse(map[string]any{})
 ## Element type errors & paths
 
 ```go
-schema := zod.Tuple([]zod.AnySchemaLike{zod.String(), zod.String()})
+schema := z.Tuple([]z.AnySchemaLike{z.String(), z.String()})
 res := schema.SafeParse([]any{"asdf", 1234})
 // Path: [1], Code: invalid_type, Expected: "string"
 ```
@@ -44,7 +44,7 @@ res := schema.SafeParse([]any{"asdf", 1234})
 `.Rest(schema)` accepts zero or more additional elements of that type:
 
 ```go
-schema := zod.Tuple([]zod.AnySchemaLike{zod.String()}).Rest(zod.String())
+schema := z.Tuple([]z.AnySchemaLike{z.String()}).Rest(z.String())
 
 schema.MustParse([]any{"a"})
 schema.MustParse([]any{"a", "b", "c"})
@@ -58,11 +58,11 @@ res := schema.SafeParse([]any{"a", 1})
 Trailing `Optional(...)` items may be omitted. Optional-out failures for absent slots are swallowed (Zod tuple semantics). Combine with `Rest`:
 
 ```go
-schema := zod.Tuple([]zod.AnySchemaLike{
-    zod.String(),
-    zod.Optional(zod.String()),
-    zod.Optional(zod.String()),
-}).Rest(zod.String())
+schema := z.Tuple([]z.AnySchemaLike{
+    z.String(),
+    z.Optional(z.String()),
+    z.Optional(z.String()),
+}).Rest(z.String())
 
 schema.MustParse([]any{"asdf"})
 schema.MustParse([]any{"asdf", "1234"})
@@ -77,7 +77,7 @@ Like Zod, optional tuple slots should be at the end of the fixed prefix. Leading
 ## Inspect items
 
 ```go
-t := zod.Tuple([]zod.AnySchemaLike{zod.String(), zod.Bool()})
+t := z.Tuple([]z.AnySchemaLike{z.String(), z.Bool()})
 items := t.Items() // copy of the fixed schemas
 ```
 

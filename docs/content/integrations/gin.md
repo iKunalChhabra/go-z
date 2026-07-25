@@ -10,7 +10,7 @@ go get github.com/iKunalChhabra/go-zod
 ```go
 import (
     "github.com/gin-gonic/gin"
-    "github.com/iKunalChhabra/go-zod"
+    z "github.com/iKunalChhabra/go-zod"
     "github.com/iKunalChhabra/go-zod/zgin"
 )
 ```
@@ -25,9 +25,9 @@ type CreateUser struct {
     Email string `json:"email"`
 }
 
-var createUser = zod.ToStruct[CreateUser](zod.Object(zod.Shape{
-    "name":  zod.String().Min(2),
-    "email": zod.String().Email(),
+var createUser = z.ToStruct[CreateUser](z.Object(z.Shape{
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
 }))
 
 r.POST("/users", func(c *gin.Context) {
@@ -51,13 +51,13 @@ body, ok := zgin.BindJSONAny(c, userSchema)
 
 ## BindQuery
 
-URL query → schema. Values are coerced with `CoerceQueryValues` (single values unwrapped to `string`; multi-values stay `[]string`). Pair with `zod.Coerce.*` for numbers/bools:
+URL query → schema. Values are coerced with `CoerceQueryValues` (single values unwrapped to `string`; multi-values stay `[]string`). Pair with `z.Coerce.*` for numbers/bools:
 
 ```go
-var listQuery = zod.ToStruct[ListQuery](zod.Object(zod.Shape{
-    "page":  zod.Coerce.Number().Gte(1),
-    "limit": zod.Default(zod.Coerce.Number().Gte(1).Lte(100), float64(20)),
-    "q":     zod.Optional(zod.String()),
+var listQuery = z.ToStruct[ListQuery](z.Object(z.Shape{
+    "page":  z.Coerce.Number().Gte(1),
+    "limit": z.Default(z.Coerce.Number().Gte(1).Lte(100), float64(20)),
+    "q":     z.Optional(z.String()),
 }))
 
 r.GET("/items", func(c *gin.Context) {
@@ -71,11 +71,11 @@ r.GET("/items", func(c *gin.Context) {
 
 ## BindURI
 
-Gin path params → schema. All values are **strings**; use `zod.Coerce.*` for numeric/bool fields:
+Gin path params → schema. All values are **strings**; use `z.Coerce.*` for numeric/bool fields:
 
 ```go
-var idParam = zod.ToStruct[IDParam](zod.Object(zod.Shape{
-    "id": zod.Coerce.Number().Int(), // or String().UUID()
+var idParam = z.ToStruct[IDParam](z.Object(z.Shape{
+    "id": z.Coerce.Number().Int(), // or String().UUID()
 }))
 
 r.GET("/users/:id", func(c *gin.Context) {
@@ -91,7 +91,7 @@ r.GET("/users/:id", func(c *gin.Context) {
 `zgin.CoerceQueryValues(map[string][]string) map[string]any` is public if you need the same conversion outside BindQuery.
 :::
 
-## Validate + Get
+## Validate + Get / GetAs
 
 Middleware that parses the JSON body, stores the result, and continues:
 
@@ -99,11 +99,29 @@ Middleware that parses the JSON body, stores the result, and continues:
 const ContextKey = "zod:value" // zgin.ContextKey
 
 r.POST("/users", zgin.Validate(userSchema), func(c *gin.Context) {
-    body, ok := zgin.Get(c)
+    body, ok := zgin.Get(c) // any
     if !ok {
         return
     }
     c.JSON(200, body)
+})
+```
+
+Typed end-to-end with `ToStruct`:
+
+```go
+type User struct {
+    Name  string  `json:"name"`
+    Email string  `json:"email"`
+    Age   float64 `json:"age"`
+}
+
+r.POST("/users", zgin.ValidateToStruct[User](userSchema), func(c *gin.Context) {
+    user, ok := zgin.GetAs[User](c)
+    if !ok {
+        return
+    }
+    c.JSON(200, user)
 })
 ```
 
@@ -123,9 +141,9 @@ zgin.AbortWithError(c, zerr, zgin.Options{
 | Constant | Body shape |
 |---|---|
 | `FormatIssues` (default) | `{"success":false,"error":{"issues":[...]}}` |
-| `FormatFlatten` | `formErrors` + `fieldErrors` via `zod.Flatten` |
-| `FormatTree` | nested tree via `zod.Treeify` |
-| `FormatPretty` | string via `zod.Prettify` |
+| `FormatFlatten` | `formErrors` + `fieldErrors` via `z.Flatten` |
+| `FormatTree` | nested tree via `z.Treeify` |
+| `FormatPretty` | string via `z.Prettify` |
 
 See [HTTP error shapes](#/integrations/http-errors) for JSON examples.
 
@@ -138,7 +156,7 @@ import (
     "net/http"
 
     "github.com/gin-gonic/gin"
-    "github.com/iKunalChhabra/go-zod"
+    z "github.com/iKunalChhabra/go-zod"
     "github.com/iKunalChhabra/go-zod/zgin"
 )
 
@@ -148,21 +166,21 @@ type User struct {
     Age   float64 `json:"age"`
 }
 
-var userShape = zod.Object(zod.Shape{
-    "name":  zod.String().Min(2).Max(100),
-    "email": zod.String().Email(),
-    "age":   zod.Optional(zod.Int().Gte(0).Lt(150)),
+var userShape = z.Object(z.Shape{
+    "name":  z.String().Min(2).Max(100),
+    "email": z.String().Email(),
+    "age":   z.Optional(z.Int().Gte(0).Lt(150)),
 })
 
-var createUser = zod.ToStruct[User](userShape)
+var createUser = z.ToStruct[User](userShape)
 
-var listQuery = zod.Object(zod.Shape{
-    "page":  zod.Default(zod.Coerce.Number().Gte(1), float64(1)),
-    "limit": zod.Default(zod.Coerce.Number().Gte(1).Lte(100), float64(20)),
+var listQuery = z.Object(z.Shape{
+    "page":  z.Default(z.Coerce.Number().Gte(1), float64(1)),
+    "limit": z.Default(z.Coerce.Number().Gte(1).Lte(100), float64(20)),
 })
 
-var idURI = zod.Object(zod.Shape{
-    "id": zod.String().UUID(),
+var idURI = z.Object(z.Shape{
+    "id": z.String().UUID(),
 })
 
 func main() {
@@ -184,7 +202,7 @@ func main() {
     })
 
     r.GET("/users", func(c *gin.Context) {
-        q, ok := zgin.BindQuery(c, zod.ToStruct[struct {
+        q, ok := zgin.BindQuery(c, z.ToStruct[struct {
             Page  float64 `json:"page"`
             Limit float64 `json:"limit"`
         }](listQuery))
@@ -195,7 +213,7 @@ func main() {
     })
 
     r.GET("/users/:id", func(c *gin.Context) {
-        p, ok := zgin.BindURI(c, zod.ToStruct[struct {
+        p, ok := zgin.BindURI(c, z.ToStruct[struct {
             ID string `json:"id"`
         }](idURI))
         if !ok {
@@ -224,7 +242,7 @@ func main() {
 ```go
 v, err := schema.Parse(data)
 if err != nil {
-    zgin.AbortWithError(c, err.(*zod.ZodError), zgin.Options{
+    zgin.AbortWithError(c, err.(*z.ZodError), zgin.Options{
         Format: zgin.FormatTree,
         Status: http.StatusUnprocessableEntity,
     })

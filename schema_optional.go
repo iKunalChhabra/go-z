@@ -28,7 +28,7 @@ func newOptional(def *Def, inner AnySchemaLike) *OptionalSchema {
 			RunSelf(innerIn, p, ctx)
 			if IsMissing(input) && len(p.Issues) > 0 {
 				p.Issues = p.Issues[:0]
-				p.Value = Missing
+				p.Value = missingSentinel
 			}
 			return
 		}
@@ -42,7 +42,7 @@ func newOptional(def *Def, inner AnySchemaLike) *OptionalSchema {
 	s.in.OptOut = true
 	propagateWrapperMeta(s.in, innerIn)
 	if s.in.Values != nil {
-		s.in.Values[Missing] = struct{}{}
+		s.in.Values[missingSentinel] = struct{}{}
 	}
 	return s
 }
@@ -124,7 +124,7 @@ func newNonOptional(def *Def, inner AnySchemaLike) *NonOptionalSchema {
 	s.schemaBase = newBase[any](buildInternals(def, parse))
 	propagateWrapperMeta(s.in, innerIn)
 	if s.in.Values != nil {
-		delete(s.in.Values, Missing)
+		delete(s.in.Values, missingSentinel)
 	}
 	return s
 }

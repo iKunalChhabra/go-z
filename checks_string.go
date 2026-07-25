@@ -205,13 +205,16 @@ func Regex(pattern *regexp.Regexp, params ...any) *Check {
 
 // Includes ports $ZodCheckIncludes. An int among params sets the start position.
 func Includes(includes string, params ...any) *Check {
-	p := normalizeParams(params)
 	position := -1
+	filtered := make([]any, 0, len(params))
 	for _, x := range params {
 		if n, ok := x.(int); ok {
 			position = n
+			continue
 		}
+		filtered = append(filtered, x)
 	}
+	p := normalizeParams(filtered)
 	ch := &Check{
 		Name:  "string_format",
 		Error: p.Error,

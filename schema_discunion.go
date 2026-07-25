@@ -71,6 +71,8 @@ func normalizeDiscUnionParams(params []any) (Params, bool) {
 					fallback = true
 				}
 			}
+		default:
+			panic("zod: unsupported discriminated-union params type (want string, ErrorMap, Params, DiscUnionParams, or nil)")
 		}
 	}
 	return out, fallback
@@ -205,7 +207,7 @@ func makeDiscUnionParse(s *DiscriminatedUnionSchema) ParseFn {
 			discVal = v
 		} else {
 			// Absent key ≡ Zod undefined (Missing sentinel).
-			discVal = Missing
+			discVal = missingSentinel
 		}
 
 		if opt, found := s.discMap[discVal]; found {
