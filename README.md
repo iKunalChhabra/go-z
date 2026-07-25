@@ -28,10 +28,10 @@ Existing Zod-inspired Go libraries are thinly maintained. go-zod ports Zod v4's 
 
 ## Documentation
 
-Thorough docs (Cream Soda theme — Bun-inspired cream + pink) live in [`docs/`](./docs) and are meant for **GitHub Pages**:
+Full documentation — every schema type, guides, cookbook, and API cheat sheet — lives in [`docs/`](./docs) and is published with **GitHub Pages**:
 
-- Local: `cd docs && python3 -m http.server 5173` → http://127.0.0.1:5173
-- After enabling Pages: `https://<user>.github.io/go-zod/`
+- Online: <https://ikunalchhabra.github.io/go-zod/>
+- Local: `cd docs && python3 -m http.server 5173` → <http://127.0.0.1:5173>
 
 See [docs/README.md](./docs/README.md) for publish steps.
 
@@ -195,6 +195,12 @@ Ports Zod v4 (`colinhacks/zod` @ `912f0f5`). Covered: primitives, formats (incl.
 
 Roadmap (not in v0): `fromJSONSchema`, `z.function`/`z.promise`/`z.file`/`z.symbol`, remaining ~47 locales.
 
+## Author
+
+Built and maintained by **Kunal Chhabra** ([@iKunalChhabra](https://github.com/iKunalChhabra)).
+
+Contributions are welcome — open an issue or a pull request. Please run `go test -race ./...` and `gofmt -l .` before submitting.
+
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT — Copyright (c) 2026 Kunal Chhabra. See [LICENSE](./LICENSE).

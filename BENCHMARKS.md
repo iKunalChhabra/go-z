@@ -12,7 +12,7 @@ cd bench && go test -bench=. -benchmem -count=3
 
 | | |
 |---|---|
-| OS / kernel | `Linux cursor 6.12.94+ #1 SMP PREEMPT_DYNAMIC Wed Jul 22 16:29:09 UTC 2026 x86_64` |
+| OS / kernel | `Linux 6.12.94+ #1 SMP PREEMPT_DYNAMIC Wed Jul 22 16:29:09 UTC 2026 x86_64` |
 | Go | `go1.22.2 linux/amd64` (bench module toolchain may auto-select) |
 | `GOMAXPROCS` | unset → defaults to **4** (`nproc` = 4) |
 | CPU | Intel(R) Xeon(R) Processor · 4 cores / 4 siblings |

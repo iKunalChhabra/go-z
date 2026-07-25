@@ -259,10 +259,16 @@ func applyStringChecks(out map[string]any, in *Internals) {
 			out["format"] = f
 		}
 	}
-	if n, ok := asFloat(in.Bag["minLength"]); ok {
+	// String length checks record their bounds as minimum/maximum, the same
+	// keys the numeric checks use; JSON Schema spells them minLength/maxLength.
+	if n, ok := asFloat(in.Bag["minimum"]); ok {
+		out["minLength"] = int(n)
+	} else if n, ok := asFloat(in.Bag["minLength"]); ok {
 		out["minLength"] = int(n)
 	}
-	if n, ok := asFloat(in.Bag["maxLength"]); ok {
+	if n, ok := asFloat(in.Bag["maximum"]); ok {
+		out["maxLength"] = int(n)
+	} else if n, ok := asFloat(in.Bag["maxLength"]); ok {
 		out["maxLength"] = int(n)
 	}
 	if pat := in.Pattern; pat != nil {

@@ -51,11 +51,20 @@ window.DOCS_NAV = [
       { title: "Optional & Nullable", path: "/api/optional" },
       { title: "Default, Prefault & Catch", path: "/api/defaults" },
       { title: "Union", path: "/api/union" },
+      { title: "Xor (exclusive union)", path: "/api/xor" },
       { title: "Discriminated union", path: "/api/discriminated-union" },
       { title: "Intersection", path: "/api/intersection" },
       { title: "Lazy & recursive", path: "/api/lazy" },
       { title: "Pipe & Transform", path: "/api/pipe-transform" },
+      { title: "Codec (encode/decode)", path: "/api/codec" },
+      { title: "Template literal", path: "/api/template-literal" },
       { title: "Refine & Custom", path: "/api/refine" },
+    ],
+  },
+  {
+    title: "Interop",
+    items: [
+      { title: "JSON Schema export", path: "/api/json-schema" },
     ],
   },
   {

@@ -1,6 +1,7 @@
 # go-zod documentation site
 
-Static docs site (Bun-inspired cream + pink theme) for GitHub Pages.
+Static, dependency-free docs site for GitHub Pages: a hash router over Markdown
+in `content/`, rendered client-side.
 
 ## Local preview
 
@@ -38,3 +39,8 @@ body
 ```
 
 Supported types: `tip`, `info`, `warn`, `danger`.
+
+- Every page you add must also be listed in `DOCS_NAV`, which drives the sidebar,
+  the prev/next pager, and the search index.
+- Examples that appear on API pages are executed by `docs_claims_test.go` in the
+  repository root. Change one and the other must follow.
