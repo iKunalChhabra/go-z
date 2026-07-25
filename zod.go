@@ -12,8 +12,13 @@
 //     invalid_format, not_multiple_of, unrecognized_keys, invalid_union,
 //     invalid_key, invalid_element, invalid_value, custom) and error-map
 //     resolution chain (per-check → per-parse → global custom → locale);
-//   - the classic fluent API: zod.String().Min(5).Email().Optional().
+//   - the classic fluent API: zod.String().Min(5).Email(), plus wrappers
+//     like Optional(schema) / Default(schema, v)
+//
+// # Concurrency
 //
 // Schemas are immutable after construction and safe for concurrent use from
-// any number of goroutines without locking.
+// any number of goroutines without locking — share one schema and call
+// Parse/SafeParse freely. See concurrent.go for the safety model and helpers
+// (Share, ConcurrentBatch, ConcurrentParseAny, ParseParallelSlice).
 package zod
