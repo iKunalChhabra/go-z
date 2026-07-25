@@ -1,0 +1,114 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Go ${{ matrix.go }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.26"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          check-latest: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -count=1 ./...
+
+      - name: Test with race detector
+        run: go test -race -count=1 ./...
+
+      # A floor rather than a target: it exists so a refactor cannot quietly drop
+      # a tested path, not to chase a number.
+      - name: Coverage floor
+        run: |
+          go test -count=1 -coverprofile=cover.out ./... >/dev/null
+          pct=$(go tool cover -func=cover.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
+          echo "core coverage: $pct%"
+          awk -v p="$pct" 'BEGIN { exit (p+0 >= 75) ? 0 : 1 }' || {
+            echo "core coverage $pct% is below the 75% floor"
+            exit 1
+          }
+
+      # A short run of each target: enough to catch a target that no longer
+      # builds or that the seed corpus already breaks, without spending CI time
+      # on a search.
+      - name: Fuzz smoke run
+        run: |
+          for target in FuzzMatchersAgreeWithRegexes FuzzParseJSONNeverPanics FuzzNumericEdges; do
+            go test ./z/ -run '^$' -fuzz "$target" -fuzztime 20s
+          done
+
+  zgin:
+    name: Gin integration module
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          check-latest: true
+
+      # zgin is its own module so the core does not depend on Gin; it has to be
+      # built and tested from its own directory.
+      - name: Vet and test
+        working-directory: zgin
+        run: |
+          go vet ./...
+          go test -count=1 -coverprofile=cover.out ./...
+          go test -race -count=1 ./...
+          pct=$(go tool cover -func=cover.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
+          echo "zgin coverage: $pct%"
+          awk -v p="$pct" 'BEGIN { exit (p+0 >= 80) ? 0 : 1 }' || {
+            echo "zgin coverage $pct% is below the 80% floor"
+            exit 1
+          }
+
+  bench:
+    name: Benchmarks compile and run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          check-latest: true
+
+      # One iteration each: proves the comparative benchmarks still build and
+      # run without spending CI minutes on measurement, which a shared runner
+      # cannot do accurately anyway.
+      - name: Smoke-run benchmarks
+        working-directory: bench
+        run: go test -run '^$' -bench . -benchtime 1x ./...

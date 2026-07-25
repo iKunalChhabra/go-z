@@ -1,0 +1,482 @@
+package z
+
+import (
+	"regexp"
+	"strings"
+
+	"golang.org/x/text/unicode/norm"
+)
+
+// hasLength is the When gate for length checks (value not nullish and
+// has a .length property). Strings and slices/arrays qualify.
+func hasLength(p *Payload) bool {
+	switch v := p.Value.(type) {
+	case string:
+		return true
+	case []any:
+		_ = v
+		return true
+	default:
+		return false
+	}
+}
+
+// stringLen returns the JS-compatible length (UTF-16 code units).
+func stringLen(s string) int {
+	return utf16Len(s)
+}
+
+// utf16Len returns the number of UTF-16 code units (JS string.length).
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		if r > 0xFFFF {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+func lengthOf(v any) (int, bool) {
+	switch x := v.(type) {
+	case string:
+		return stringLen(x), true
+	case []any:
+		return len(x), true
+	default:
+		return 0, false
+	}
+}
+
+// MinLength implements the equivalent check with Origin="string".
+func MinLength(minimum int, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "min_length",
+		Error: p.Error,
+		Abort: p.Abort,
+		When:  hasLength,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				curr, _ := in.Bag["minimum"].(int)
+				if minimum > curr {
+					in.Bag["minimum"] = minimum
+				}
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		n, ok := lengthOf(payload.Value)
+		if !ok || n >= minimum {
+			return
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:      IssueTooSmall,
+			Origin:    "string",
+			Minimum:   minimum,
+			Inclusive: true,
+			Input:     payload.Value,
+		}))
+	}
+	return ch
+}
+
+// MaxLength implements the equivalent check with Origin="string".
+func MaxLength(maximum int, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "max_length",
+		Error: p.Error,
+		Abort: p.Abort,
+		When:  hasLength,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				if curr, ok := in.Bag["maximum"].(int); ok {
+					if maximum < curr {
+						in.Bag["maximum"] = maximum
+					}
+				} else {
+					in.Bag["maximum"] = maximum
+				}
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		n, ok := lengthOf(payload.Value)
+		if !ok || n <= maximum {
+			return
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:      IssueTooBig,
+			Origin:    "string",
+			Maximum:   maximum,
+			Inclusive: true,
+			Input:     payload.Value,
+		}))
+	}
+	return ch
+}
+
+// LengthEquals implements the equivalent check with Origin="string".
+func LengthEquals(length int, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "length_equals",
+		Error: p.Error,
+		Abort: p.Abort,
+		When:  hasLength,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["minimum"] = length
+				in.Bag["maximum"] = length
+				in.Bag["length"] = length
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		n, ok := lengthOf(payload.Value)
+		if !ok || n == length {
+			return
+		}
+		iss := Issue{
+			Origin:    "string",
+			Inclusive: true,
+			Exact:     true,
+			Input:     payload.Value,
+		}
+		if n > length {
+			iss.Code = IssueTooBig
+			iss.Maximum = length
+		} else {
+			iss.Code = IssueTooSmall
+			iss.Minimum = length
+		}
+		payload.AddIssue(ch.Issue(iss))
+	}
+	return ch
+}
+
+// attachPattern records a regexp equivalent of a check's validation on the
+// schema, so composite schemas that need one — template literals, JSON Schema
+// "pattern" — can see it. patternChecks counts the checks that contributed one;
+// TemplateLiteral compares that count against the number of attached checks to
+// tell whether a part is fully expressible as a pattern.
+func attachPattern(in *Internals, re *regexp.Regexp) {
+	if in.Bag == nil {
+		in.Bag = map[string]any{}
+	}
+	if re == nil {
+		return
+	}
+	if in.Pattern != nil {
+		// RE2 has no lookahead, so two independent patterns cannot be combined
+		// into one that means "both". Record the conflict instead of pretending.
+		in.Bag["patternConflict"] = true
+		return
+	}
+	in.Pattern = re
+	n, _ := in.Bag["patternChecks"].(int)
+	in.Bag["patternChecks"] = n + 1
+}
+
+// patternChecks reports how many of a schema's checks contributed a pattern.
+func patternChecks(in *Internals) int {
+	if in == nil || in.Bag == nil {
+		return 0
+	}
+	n, _ := in.Bag["patternChecks"].(int)
+	return n
+}
+
+// patternConflict reports whether two checks each defined a pattern, leaving the
+// schema without a single regexp equivalent.
+func patternConflict(in *Internals) bool {
+	if in == nil || in.Bag == nil {
+		return false
+	}
+	c, _ := in.Bag["patternConflict"].(bool)
+	return c
+}
+
+// Regex implements the equivalent check.
+func Regex(pattern *regexp.Regexp, params ...any) *Check {
+	p := normalizeParams(params)
+	patStr := jsPattern(pattern)
+	ch := &Check{
+		Name:  "string_format",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["format"] = "regex"
+				attachPattern(in, pattern)
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok {
+			return
+		}
+		if pattern.MatchString(s) {
+			return
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:    IssueInvalidFormat,
+			Origin:  "string",
+			Format:  "regex",
+			Pattern: patStr,
+			Input:   payload.Value,
+		}))
+	}
+	return ch
+}
+
+// Includes implements the equivalent check. An int among params sets the start position.
+func Includes(includes string, params ...any) *Check {
+	position := -1
+	filtered := make([]any, 0, len(params))
+	for _, x := range params {
+		if n, ok := x.(int); ok {
+			position = n
+			continue
+		}
+		filtered = append(filtered, x)
+	}
+	p := normalizeParams(filtered)
+	ch := &Check{
+		Name:  "string_format",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["format"] = "includes"
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok {
+			return
+		}
+		if position < 0 {
+			if strings.Contains(s, includes) {
+				return
+			}
+		} else {
+			if position <= len(s) && strings.Contains(s[position:], includes) {
+				return
+			}
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:     IssueInvalidFormat,
+			Origin:   "string",
+			Format:   "includes",
+			Includes: includes,
+			Input:    payload.Value,
+		}))
+	}
+	return ch
+}
+
+// StartsWith implements the equivalent check.
+func StartsWith(prefix string, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "string_format",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["format"] = "starts_with"
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok || strings.HasPrefix(s, prefix) {
+			return
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:   IssueInvalidFormat,
+			Origin: "string",
+			Format: "starts_with",
+			Prefix: prefix,
+			Input:  payload.Value,
+		}))
+	}
+	return ch
+}
+
+// EndsWith implements the equivalent check.
+func EndsWith(suffix string, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "string_format",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["format"] = "ends_with"
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok || strings.HasSuffix(s, suffix) {
+			return
+		}
+		payload.AddIssue(ch.Issue(Issue{
+			Code:   IssueInvalidFormat,
+			Origin: "string",
+			Format: "ends_with",
+			Suffix: suffix,
+			Input:  payload.Value,
+		}))
+	}
+	return ch
+}
+
+// LowerCase implements the equivalent check (format="lowercase").
+func LowerCase(params ...any) *Check {
+	return stringFormatPattern("lowercase", reLowercase, jsPattern(reLowercase), params...)
+}
+
+// UpperCase implements the equivalent check (format="uppercase").
+func UpperCase(params ...any) *Check {
+	return stringFormatPattern("uppercase", reUppercase, jsPattern(reUppercase), params...)
+}
+
+// Overwrite implements the equivalent check: mutates p.Value in place.
+func Overwrite(tx func(string) string) *Check {
+	ch := &Check{Name: "overwrite"}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok {
+			return
+		}
+		payload.Value = tx(s)
+	}
+	return ch
+}
+
+// Trim is an overwrite check (checks.trim).
+func Trim() *Check { return Overwrite(strings.TrimSpace) }
+
+// ToLowerCase is an overwrite check.
+func ToLowerCase() *Check {
+	return Overwrite(func(s string) string { return strings.ToLower(s) })
+}
+
+// ToUpperCase is an overwrite check.
+func ToUpperCase() *Check {
+	return Overwrite(func(s string) string { return strings.ToUpper(s) })
+}
+
+// NormalizeNFC is an overwrite check applying Unicode NFC normalization.
+func NormalizeNFC() *Check {
+	return Overwrite(func(s string) string { return norm.NFC.String(s) })
+}
+
+// stringFormatPattern builds a pattern-based invalid_format check.
+func stringFormatPattern(format string, re *regexp.Regexp, patternLiteral string, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "string_format",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["format"] = format
+				attachPattern(in, re)
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok {
+			return
+		}
+		if re != nil && re.MatchString(s) {
+			return
+		}
+		iss := Issue{
+			Code:   IssueInvalidFormat,
+			Origin: "string",
+			Format: format,
+			Input:  payload.Value,
+		}
+		if patternLiteral != "" {
+			iss.Pattern = patternLiteral
+		}
+		payload.AddIssue(ch.Issue(iss))
+	}
+	return ch
+}
+
+// stringFormatFn builds a predicate-based invalid_format check. equivalent is
+// the regexp form of the predicate when one exists — the hand-written matchers
+// are differential-tested against these regexes — and nil when it does not.
+func stringFormatFn(format, patternLiteral string, equivalent *regexp.Regexp, match func(string) bool, params ...any) *Check {
+	p := normalizeParams(params)
+	ch := &Check{
+		Name:  "string_format",
+		Error: p.Error,
+		Abort: p.Abort,
+		OnAttach: []func(in *Internals){
+			func(in *Internals) {
+				if in.Bag == nil {
+					in.Bag = map[string]any{}
+				}
+				in.Bag["format"] = format
+				attachPattern(in, equivalent)
+			},
+		},
+	}
+	ch.Fn = func(payload *Payload) {
+		s, ok := payload.Value.(string)
+		if !ok {
+			return
+		}
+		if match(s) {
+			return
+		}
+		iss := Issue{
+			Code:   IssueInvalidFormat,
+			Origin: "string",
+			Format: format,
+			Input:  payload.Value,
+		}
+		if patternLiteral != "" {
+			iss.Pattern = patternLiteral
+		}
+		payload.AddIssue(ch.Issue(iss))
+	}
+	return ch
+}
