@@ -1,6 +1,9 @@
 package zod
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
 
 // missingType is the internal sentinel for absent values (Zod's `undefined`),
 // distinct from nil (JSON null). Object parsing passes the sentinel to field
@@ -205,15 +208,30 @@ func parseTyped[T any](in *Internals, data any, ctx *ParseCtx) (T, error) {
 		var zero T
 		return zero, err
 	}
+	value := p.Value
 	out, ok := p.Value.(T)
 	ReleasePayload(p)
 	if !ok {
-		// p.Value == nil (typed nil) or an internal type mismatch: return the
-		// zero value. Concrete schemas guarantee the dynamic type of Value.
 		var zero T
-		return zero, nil
+		if value == nil || IsMissing(value) {
+			// JSON null or an absent value: the zero T is the answer.
+			return zero, nil
+		}
+		// A schema produced a value of a type its own edge does not declare.
+		// That is a bug in the schema, not invalid input — surface it instead
+		// of silently handing back a zero value.
+		return zero, &ZodError{Issues: []Issue{{
+			Code:    IssueCustom,
+			Path:    []any{},
+			Message: internalTypeMismatch(value, zero),
+		}}}
 	}
 	return out, nil
+}
+
+func internalTypeMismatch(got, want any) string {
+	return fmt.Sprintf("zod: internal error: schema produced %T but its typed edge is %T "+
+		"(please report at github.com/iKunalChhabra/go-zod/issues)", got, want)
 }
 
 // RunChild parses value with a child schema, scoping any child issues under
