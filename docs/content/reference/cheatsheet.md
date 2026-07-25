@@ -18,8 +18,10 @@ Dense reference for `github.com/iKunalChhabra/go-z`. Import: `import "github.com
 |---|---|---|
 | `String` | `string` | |
 | `Number` | `float64` | rejects NaN/Inf |
-| `Int` | `float64` | + safeint check |
-| `Int32` / `Uint32` / `Float32` / `Float64` | `float64` | format checks |
+| `Int` | `int` | whole number, JSON safe-integer range |
+| `Int64` | `int64` | full 64-bit range |
+| `Int32` / `Uint32` | `int32` / `uint32` | range-checked |
+| `Float32` / `Float64` | `float32` / `float64` | range-checked |
 | `Bool` | `bool` | |
 | `Time` | `time.Time` | |
 | `BigInt` | `*big.Int` | |
@@ -37,7 +39,7 @@ Formats: `Email` `URL` `UUID` `UUIDv4` `UUIDv6` `UUIDv7` `GUID` `NanoID` `CUID` 
 
 ### Number checks (fluent)
 
-`Gt` `Gte`/`Min` `Lt` `Lte`/`Max` `Positive` `Negative` `NonPositive` `NonNegative` `MultipleOf` `Step` `Int`/`Safe` `Finite`
+`Gt` `Gte`/`Min` `Lt` `Lte`/`Max` `Positive` `Negative` `NonPositive` `NonNegative` `MultipleOf` `Step` `Integer`/`Safe` `Finite`
 
 ## Coercion
 

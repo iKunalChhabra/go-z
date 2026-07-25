@@ -148,7 +148,7 @@ In go-z, `z.Missing` is `undefined` (key absent). Go’s `nil` is JSON `null`. C
 
 ```go
 n, err:= z.Coerce.Number.Parse("42")
-// n == float64(42)
+// n == float64(42) — use z.Int(z.Params{Coerce: true}) for an int
 
 b, err:= z.Coerce.Bool.Parse("true")
 // b == true

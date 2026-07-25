@@ -75,7 +75,7 @@ Gin path params → schema. All values are **strings**; use `z.Coerce.*` for num
 
 ```go
 var idParam = z.ToStruct[IDParam](z.Object(z.Shape{
-    "id": z.Coerce.Number.Int, // or String.UUID
+    "id": z.Int(z.Params{Coerce: true}), // or String.UUID
 }))
 
 r.GET("/users/:id", func(c *gin.Context) {

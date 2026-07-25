@@ -196,9 +196,10 @@ hundreds of thousands of random inputs. Building structured issues makes the
   null); every other wrapper yields `T`. Each wrapper has a type-erased constructor
   for heterogeneous containers (`Optional(anySchema)`) and a typed one (`OptionalOf`,
   `DefaultOf`, `RefineOf`, …) that works with every schema type.
-- **JSON model first.** Objects produce `map[string]any`, arrays `[]any`, and
-  `Int`/`Number` produce `float64`. Use `Int64` for a typed `int64` edge or
-  `ToStruct[T]` for structs.
+- **JSON model first.** Objects produce `map[string]any` and arrays `[]any`; use
+  `ToStruct[T]` when you want a struct. Numeric schemas produce the Go type they
+  are named after — `Int` an `int`, `Uint32` a `uint32`, `Number` a `float64` —
+  converting the incoming JSON number only when the conversion is exact.
 - **`Missing` is not `nil`.** `Missing` means an absent key (JS `undefined`); `nil`
   is JSON `null`. `Optional` accepts Missing, `Nullable` accepts nil, `Nullish` both.
 - **Params are checked at definition time.** An unsupported params type panics while

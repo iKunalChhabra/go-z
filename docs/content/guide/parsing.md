@@ -231,7 +231,7 @@ _ = json.Unmarshal(body, &input)
 out, err:= User.Parse(input)
 ```
 
-Numbers become `float64`. Prefer `z.Number` / `z.Coerce.Number` for JSON numbers, or `z.Int` when you need integer semantics after validation.
+JSON numbers arrive as `float64`, and each numeric schema converts them to its own output type: `z.Number()` keeps `float64`, `z.Int()` gives an `int`, `z.Int64()` an `int64`. The conversion must be exact, so `3.7` fails `z.Int()` instead of being truncated.
 
 ## Package-level type changers
 
