@@ -223,7 +223,7 @@ func makeObjectParse(s *ObjectSchema) ParseFn {
 			childOut, _ := RunChild(f.child, p, val, ctx, f.key)
 			// Zod handlePropertyResult: ignore failures on absent keys when the
 			// field is optional-in AND optional-out (pure Optional / Nullish).
-			if !present && f.child.OptIn && f.child.OptOut {
+			if childTraits := f.child.traits(); !present && childTraits.OptIn && childTraits.OptOut {
 				p.Issues = p.Issues[:startIssues]
 				continue
 			}

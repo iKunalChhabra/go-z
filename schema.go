@@ -73,6 +73,23 @@ type Internals struct {
 	// Bag is scratch metadata written by check OnAttach hooks (min/max/format
 	// hints), mirroring Zod's inst._zod.bag.
 	Bag map[string]any
+
+	// deferred, when set, resolves the internals that actually carry this
+	// schema's traits. Only Lazy sets it: its own OptIn/OptOut/Values are
+	// unknown until the getter runs, and mutating them later would race with
+	// concurrent parses. Set once at construction, never written again.
+	deferred func() *Internals
+}
+
+// traits returns the internals carrying optionality and value metadata,
+// resolving a deferred (lazy) schema on first use. Parse-time readers must go
+// through it; construction-time readers must not, because a recursive Lazy is
+// still being defined at that point.
+func (in *Internals) traits() *Internals {
+	if in == nil || in.deferred == nil {
+		return in
+	}
+	return in.deferred()
 }
 
 // buildInternals wires Def + ParseFn into Internals, porting the trait

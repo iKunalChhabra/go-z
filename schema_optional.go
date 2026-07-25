@@ -23,7 +23,7 @@ func newOptional(def *Def, inner AnySchemaLike) *OptionalSchema {
 		// Nested optional inners: always run them so their own logic applies,
 		// then restore Missing when the original input was absent (Zod's
 		// handleOptionalResult).
-		if innerIn.OptIn {
+		if innerIn.traits().OptIn {
 			input := p.Value
 			RunSelf(innerIn, p, ctx)
 			if IsMissing(input) && len(p.Issues) > 0 {

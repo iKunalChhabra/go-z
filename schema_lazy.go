@@ -8,6 +8,11 @@ type LazySchema struct {
 	schemaBase[any]
 	def   *Def
 	state *lazyState
+	// syncMeta guards the one-time copy of the inner schema's traits onto
+	// this schema's Internals. Without it every Inner/Unwrap call wrote to
+	// shared state, which races with a concurrent Parse of an object that has
+	// this Lazy as a field (object parsing reads child.OptIn/OptOut).
+	syncMeta sync.Once
 }
 
 type lazyState struct {
@@ -42,21 +47,31 @@ func newLazy(def *Def, state *lazyState) *LazySchema {
 	s.schemaBase = newBase[any](buildInternals(def, func(p *Payload, ctx *ParseCtx) {
 		RunSelf(state.get().Internals(), p, ctx)
 	}))
+	// Let parse-time trait lookups resolve through the memoized getter instead
+	// of reading fields that Inner() would have to write after construction.
+	s.in.deferred = func() *Internals { return state.get().Internals() }
 	return s
 }
 
 // Inner returns the memoized inner schema, resolving the getter if needed.
-// It also copies OptIn/OptOut/Values/PropValues onto this Lazy's Internals so
-// container schemas that inspect Internals() see the inner traits (Zod's
-// defineLazy getters on _zod).
+// The first call also copies OptIn/OptOut/Values/PropValues onto this Lazy's
+// Internals so container schemas that inspect Internals() see the inner traits
+// (Zod's defineLazy getters on _zod).
+//
+// The copy happens exactly once. Resolve a Lazy before sharing it across
+// goroutines — call Inner (or build the enclosing schema, which does) during
+// setup — because that first copy writes to Internals that a concurrent Parse
+// may be reading.
 func (s *LazySchema) Inner() AnySchemaLike {
 	inner := s.state.get()
-	iin := inner.Internals()
-	s.in.OptIn = iin.OptIn
-	s.in.OptOut = iin.OptOut
-	s.in.Values = iin.Values
-	s.in.PropValues = iin.PropValues
-	s.in.Pattern = iin.Pattern
+	s.syncMeta.Do(func() {
+		iin := inner.Internals()
+		s.in.OptIn = iin.OptIn
+		s.in.OptOut = iin.OptOut
+		s.in.Values = iin.Values
+		s.in.PropValues = iin.PropValues
+		s.in.Pattern = iin.Pattern
+	})
 	return inner
 }
 
