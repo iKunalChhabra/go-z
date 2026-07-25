@@ -1,9 +1,9 @@
 # Number & Int
 
-`zod.Number()` ports `z.number()`. Parsed values are always normalized to Go `float64`. Integer helpers (`Int`, `Int32`, …) are number schemas with an attached number-format check.
+`z.Number()` ports `z.number()`. Parsed values are always normalized to Go `float64`. Integer helpers (`Int`, `Int32`, …) are number schemas with an attached number-format check.
 
 ```go
-schema := zod.Number().Gte(0).Lte(100)
+schema := z.Number().Gte(0).Lte(100)
 
 n, err := schema.Parse(42)
 // n == 42.0 (float64)
@@ -14,7 +14,7 @@ n, err := schema.Parse(42)
 Accepted inputs (without coerce): `float64`, `float32`, and all Go integer types. Output is always `float64`.
 
 ```go
-schema := zod.Number()
+schema := z.Number()
 schema.MustParse(1234)
 schema.MustParse(42) // int → 42.0
 
@@ -29,7 +29,7 @@ Zod v4 treats `NaN` and `±Inf` as non-numbers:
 ```go
 import "math"
 
-schema := zod.Number()
+schema := z.Number()
 
 res := schema.SafeParse(math.NaN())
 // Message: "Invalid input: expected number, received NaN"
@@ -57,15 +57,15 @@ res = schema.SafeParse(math.Inf(-1)) // fail
 | `Float64()` | `float64` | full float64 range | `float64` |
 
 ```go
-n, _ := zod.Int().Parse(10)       // n is float64(10)
-i, _ := zod.Int64().Parse(10)     // i is int64(10)
+n, _ := z.Int().Parse(10)       // n is float64(10)
+i, _ := z.Int64().Parse(10)     // i is int64(10)
 
-res := zod.Int().SafeParse(1.5)
+res := z.Int().SafeParse(1.5)
 // Expected: "int"
 // Message: "Invalid input: expected int, received number"
 
-zod.Int32().MustParse(2147483647)
-_ = zod.Uint32().SafeParse(-1) // too_small
+z.Int32().MustParse(2147483647)
+_ = z.Uint32().SafeParse(-1) // too_small
 ```
 
 :::info Int vs Int64
@@ -75,8 +75,8 @@ _ = zod.Uint32().SafeParse(-1) // too_small
 Fluent equivalents on an existing number schema:
 
 ```go
-zod.Number().Int()  // same as attaching safeint
-zod.Number().Safe() // alias of Int() in Zod v4
+z.Number().Int()  // same as attaching safeint
+z.Number().Safe() // alias of Int() in Zod v4
 ```
 
 ## Comparisons
@@ -93,26 +93,26 @@ zod.Number().Safe() // alias of Int() in Zod v4
 | `NonNegative()` | `Gte(0)` | — | — |
 
 ```go
-schema := zod.Number().Gt(5)
+schema := z.Number().Gt(5)
 schema.MustParse(6)
 _ = schema.SafeParse(5) // fail — exclusive
 
-schema = zod.Number().Gte(5) // same as Min(5)
+schema = z.Number().Gte(5) // same as Min(5)
 schema.MustParse(5)
 
-schema = zod.Number().Lt(5)
+schema = z.Number().Lt(5)
 schema.MustParse(4)
 _ = schema.SafeParse(5)
 
-pos := zod.Number().Positive()
+pos := z.Number().Positive()
 pos.MustParse(1)
 _ = pos.SafeParse(0)
 _ = pos.SafeParse(-1)
 
-neg := zod.Number().Negative()
+neg := z.Number().Negative()
 neg.MustParse(-1)
 
-nn := zod.Number().NonNegative()
+nn := z.Number().NonNegative()
 nn.MustParse(0)
 nn.MustParse(1)
 ```
@@ -122,7 +122,7 @@ Issues use `Origin: "number"` (or `"int"` for integer-format type failures).
 ## MultipleOf / Step
 
 ```go
-schema := zod.Number().MultipleOf(5)
+schema := z.Number().MultipleOf(5)
 schema.MustParse(15)
 schema.MustParse(-15)
 res := schema.SafeParse(7.5)
@@ -131,7 +131,7 @@ res := schema.SafeParse(7.5)
 // Divisor: 5
 
 // Step is a deprecated alias of MultipleOf
-_ = zod.Number().Step(0.1)
+_ = z.Number().Step(0.1)
 ```
 
 Uses a float-safe remainder (Zod’s `floatSafeRemainder`) so values like `0.1` steps work more reliably than naive `%`.
@@ -139,8 +139,8 @@ Uses a float-safe remainder (Zod’s `floatSafeRemainder`) so values like `0.1` 
 ## Coercion
 
 ```go
-s := zod.Number(zod.Params{Coerce: true})
-// or: zod.Coerce.Number()
+s := z.Number(z.Params{Coerce: true})
+// or: z.Coerce.Number()
 
 s.MustParse("12.5")  // 12.5
 s.MustParse("")      // 0  (JS Number("") === 0)
@@ -156,7 +156,7 @@ Also accepts `*big.Int` when coerce is on. See [Coercion](/api/coerce).
 ## Custom messages
 
 ```go
-schema := zod.Number().Min(0, "must be ≥ 0").Max(100, "must be ≤ 100")
+schema := z.Number().Min(0, "must be ≥ 0").Max(100, "must be ≤ 100")
 res := schema.SafeParse(-1)
 // Message: "must be ≥ 0"
 ```

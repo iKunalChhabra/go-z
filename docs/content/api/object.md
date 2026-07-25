@@ -1,12 +1,12 @@
 # Object
 
-`zod.Object(shape)` ports `z.object(...)`. Output is `map[string]any` (JSON object model). Default unknown-key mode is **strip**.
+`z.Object(shape)` ports `z.object(...)`. Output is `map[string]any` (JSON object model). Default unknown-key mode is **strip**.
 
 ```go
-user := zod.Object(zod.Shape{
-    "name":  zod.String().Min(1),
-    "email": zod.String().Email(),
-    "age":   zod.Optional(zod.Int().Gte(0)),
+user := z.Object(z.Shape{
+    "name":  z.String().Min(1),
+    "email": z.String().Email(),
+    "age":   z.Optional(z.Int().Gte(0)),
 })
 
 out, err := user.Parse(map[string]any{
@@ -18,12 +18,12 @@ out, err := user.Parse(map[string]any{
 
 ## Shape
 
-`zod.Shape` is `map[string]AnySchemaLike`. Because Go maps are unordered, `Object(Shape)` validates keys in **sorted** order for stable issue ordering (not Zod's definition order).
+`z.Shape` is `map[string]AnySchemaLike`. Because Go maps are unordered, `Object(Shape)` validates keys in **sorted** order for stable issue ordering (not Zod's definition order).
 
 ```go
-schema := zod.Object(zod.Shape{
-    "id":   zod.String().UUID(),
-    "tags": zod.Array(zod.String()),
+schema := z.Object(z.Shape{
+    "id":   z.String().UUID(),
+    "tags": z.Array(z.String()),
 })
 
 schema.Shape() // defensive copy of the shape map
@@ -32,9 +32,9 @@ schema.Shape() // defensive copy of the shape map
 For form UX / Zod-like definition order, use `ObjectOrdered`:
 
 ```go
-schema := zod.ObjectOrdered([]zod.Field{
-    {Name: "name", Schema: zod.String().Min(1)},
-    {Name: "email", Schema: zod.String().Email()},
+schema := z.ObjectOrdered([]z.Field{
+    {Name: "name", Schema: z.String().Min(1)},
+    {Name: "email", Schema: z.String().Email()},
 })
 ```
 
@@ -50,7 +50,7 @@ Non-map inputs fail with `Expected: "object"`. Typed Go maps with string keys ar
 | Catchall | `Catchall(schema)` | Validate extras with `schema` |
 
 ```go
-base := zod.Object(zod.Shape{"points": zod.String()})
+base := z.Object(z.Shape{"points": z.String()})
 
 // Strip (default)
 got := base.MustParse(map[string]any{"points": "2314", "unknown": "asdf"})
@@ -66,13 +66,13 @@ got = base.Loose().MustParse(map[string]any{"points": "2314", "unknown": "asdf"}
 // got["unknown"] == "asdf"
 
 // Catchall
-schema := zod.Object(zod.Shape{"name": zod.String()}).Catchall(zod.String())
+schema := z.Object(z.Shape{"name": z.String()}).Catchall(z.String())
 schema.MustParse(map[string]any{"name": "Foo", "extra": "ok"})
 res = schema.SafeParse(map[string]any{"name": "Foo", "bad": 1})
 // path: ["bad"], invalid_type string
 
 // Catchall(Never) ≡ Strict
-_ = zod.Object(zod.Shape{"id": zod.String()}).Catchall(zod.Never())
+_ = z.Object(z.Shape{"id": z.String()}).Catchall(z.Never())
 ```
 
 :::tip Catchall overrides Strict
@@ -84,9 +84,9 @@ _ = zod.Object(zod.Shape{"id": zod.String()}).Catchall(zod.Never())
 Field issues are scoped under the property name:
 
 ```go
-schema := zod.Object(zod.Shape{
-    "user": zod.Object(zod.Shape{
-        "email": zod.String().Email(),
+schema := z.Object(z.Shape{
+    "user": z.Object(z.Shape{
+        "email": z.String().Email(),
     }),
 })
 
@@ -98,12 +98,12 @@ res := schema.SafeParse(map[string]any{
 
 ## Optionality & OptIn
 
-Wrap fields with `zod.Optional(...)` so absent keys are skipped (`Internals.OptIn`). Present-but-wrong values still error. `nil` is **not** optional — use `Nullable` / `Nullish`.
+Wrap fields with `z.Optional(...)` so absent keys are skipped (`Internals.OptIn`). Present-but-wrong values still error. `nil` is **not** optional — use `Nullable` / `Nullish`.
 
 ```go
-schema := zod.Object(zod.Shape{
-    "name": zod.String(),
-    "bio":  zod.Optional(zod.String()),
+schema := z.Object(z.Shape{
+    "name": z.String(),
+    "bio":  z.Optional(z.String()),
 })
 
 schema.MustParse(map[string]any{"name": "Ada"})
@@ -116,10 +116,10 @@ res := schema.SafeParse(map[string]any{})
 ## Pick / Omit / Partial / Required
 
 ```go
-full := zod.Object(zod.Shape{
-    "a": zod.String(),
-    "b": zod.Number(),
-    "c": zod.Bool(),
+full := z.Object(z.Shape{
+    "a": z.String(),
+    "b": z.Number(),
+    "c": z.Bool(),
 })
 
 full.Pick("a", "c")  // shape {a, c}
@@ -138,16 +138,16 @@ full.Partial().Required("a")
 ## Extend / Merge / Keyof
 
 ```go
-base := zod.Object(zod.Shape{"id": zod.String()})
-extended := base.Extend(zod.Shape{"name": zod.String()})
+base := z.Object(z.Shape{"id": z.String()})
+extended := base.Extend(z.Shape{"name": z.String()})
 // {id, name} — incoming keys win on conflict
 
-a := zod.Object(zod.Shape{"a": zod.String()}).Strict()
-b := zod.Object(zod.Shape{"b": zod.Number()}).Loose()
+a := z.Object(z.Shape{"a": z.String()}).Strict()
+b := z.Object(z.Shape{"b": z.Number()}).Loose()
 merged := a.Merge(b)
 // shape {a,b}; adopts b's loose mode + catchall
 
-keys := base.Extend(zod.Shape{"name": zod.String()}).Keyof()
+keys := base.Extend(z.Shape{"name": z.String()}).Keyof()
 // Enum of property names: "id" | "name"
 keys.MustParse("id")
 _ = keys.SafeParse("nope")
@@ -156,7 +156,7 @@ _ = keys.SafeParse("nope")
 ## Empty object
 
 ```go
-empty := zod.Object(zod.Shape{})
+empty := z.Object(z.Shape{})
 empty.MustParse(map[string]any{})
 empty.MustParse(map[string]any{"x": 1}) // strip → {}
 ```
@@ -164,11 +164,11 @@ empty.MustParse(map[string]any{"x": 1}) // strip → {}
 ## Custom messages
 
 ```go
-schema := zod.Object(zod.Shape{"n": zod.Number()}, "object required")
+schema := z.Object(z.Shape{"n": z.Number()}, "object required")
 res := schema.SafeParse("x")
 // Message: "object required"
 
-strict := zod.Object(zod.Shape{"n": zod.Number()}).Strict("no extras")
+strict := z.Object(z.Shape{"n": z.Number()}).Strict("no extras")
 res = strict.SafeParse(map[string]any{"n": 1, "x": 2})
 // Message: "no extras"
 ```

@@ -18,11 +18,11 @@ Tags couple validation to a Go type. Zod couples validation to a **schema value*
 
 ```go
 // Reusable schema value — not a tag string
-email := zod.String().Email()
+email := z.String().Email()
 
-user := zod.Object(zod.Shape{
+user := z.Object(z.Shape{
 	"email": email,
-	"backup": zod.Optional(email),
+	"backup": z.Optional(email),
 })
 ```
 
@@ -36,7 +36,7 @@ Parsing threads a `Payload{Value, Issues}` through the pipeline. Containers pref
 
 ```go
 // Conceptual flow (simplified)
-p := zod.AcquirePayload(input)
+p := z.AcquirePayload(input)
 schema.Internals().Run(p, ctx)
 if len(p.Issues) > 0 {
 	return newZodError(p.Issues, ctx)
@@ -108,7 +108,7 @@ Locales ship for `en es fr de ja pt zh`. See [Error maps & locales](#/guide/erro
                  typed T / map[string]any
 ```
 
-Schemas are **immutable after construction**. Sharing one `var User = zod.Object(...)` across thousands of goroutines is the intended usage pattern — see [Concurrency](#/guide/concurrency).
+Schemas are **immutable after construction**. Sharing one `var User = z.Object(...)` across thousands of goroutines is the intended usage pattern — see [Concurrency](#/guide/concurrency).
 
 ## Untyped core, typed edge
 
@@ -116,14 +116,14 @@ Like Zod’s TypeScript runtime (which is dynamically typed under `z.infer`), go
 
 ```go
 // Schema[T] — typed Parse surface
-var s zod.Schema[string] = zod.String().Min(1)
+var s z.Schema[string] = z.String().Min(1)
 
 out, err := s.Parse("hello") // out is string
 
 // Containers hold heterogeneous children via AnySchemaLike
-zod.Object(zod.Shape{
-	"a": zod.String(),
-	"b": zod.Int(),
+z.Object(z.Shape{
+	"a": z.String(),
+	"b": z.Int(),
 })
 ```
 

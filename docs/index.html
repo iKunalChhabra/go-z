@@ -8,7 +8,24 @@
       name="description"
       content="go-zod is a native Go port of Zod v4 — same patterns, same errors, fluent schemas, Gin-ready, and built for concurrency."
     />
-    <meta name="theme-color" content="#fbf0df" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF3E6" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#191512" />
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem("go-zod-theme");
+          const theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.dataset.theme = theme;
+        } catch (_) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,7 +35,7 @@
     <link rel="stylesheet" href="assets/css/theme.css" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f472b6'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' font-family='Arial Black,sans-serif' font-size='28' font-weight='900' fill='%2315151b'%3Ez%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f472b6'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' font-family='Arial Black,sans-serif' font-size='28' font-weight='900' fill='%231C1917'%3Ez%3C/text%3E%3C/svg%3E"
     />
   </head>
   <body>
@@ -36,6 +53,15 @@
         <input id="searchInput" type="search" placeholder="Search docs…" autocomplete="off" />
       </div>
       <div class="topbar-actions">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"></path>
+          </svg>
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+        </button>
         <a class="btn btn-ghost" href="https://github.com/iKunalChhabra/go-zod" target="_blank" rel="noreferrer">GitHub</a>
         <a class="btn btn-primary" href="#/guide/installation">Get started</a>
       </div>
@@ -52,10 +78,14 @@
       <aside class="toc" id="toc"></aside>
     </div>
 
-    <div class="search-modal" id="searchModal" role="dialog" aria-modal="true" aria-label="Search">
+    <div class="search-modal" id="searchModal" role="dialog" aria-modal="true" aria-label="Search" aria-hidden="true">
       <div class="search-panel">
         <input id="searchModalInput" type="search" placeholder="Search go-zod docs…" autocomplete="off" />
         <div class="search-results" id="searchResults"></div>
+        <div class="search-hints">
+          <span><kbd>⌘</kbd><kbd>K</kbd> open</span>
+          <span><kbd>esc</kbd> close</span>
+        </div>
       </div>
     </div>
 

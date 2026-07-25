@@ -2,6 +2,10 @@
 
 Build a real object schema, parse success and failure paths, use defaults, and peek at Gin. About ten minutes from zero to a validated request body.
 
+:::tip Docs import style
+These docs use `import z "github.com/iKunalChhabra/go-zod"` (alias `z`) to match Zod’s `z` convention.
+:::
+
 ## 1. Define an object schema
 
 ```go
@@ -10,14 +14,14 @@ package main
 import (
 	"fmt"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
-var User = zod.Object(zod.Shape{
-	"name":  zod.String().Min(2).Max(100),
-	"email": zod.String().Email(),
-	"age":   zod.Optional(zod.Int().Gte(0).Lt(150)),
-	"tags":  zod.Default(zod.Array(zod.String()).Max(10), []any{}),
+var User = z.Object(z.Shape{
+	"name":  z.String().Min(2).Max(100),
+	"email": z.String().Email(),
+	"age":   z.Optional(z.Int().Gte(0).Lt(150)),
+	"tags":  z.Default(z.Array(z.String()).Max(10), []any{}),
 })
 ```
 
@@ -45,8 +49,8 @@ func main() {
 
 	data, err := User.Parse(input)
 	if err != nil {
-		zerr := err.(*zod.ZodError)
-		fmt.Println(zod.Prettify(zerr))
+		zerr := err.(*z.ZodError)
+		fmt.Println(z.Prettify(zerr))
 		return
 	}
 
@@ -55,7 +59,7 @@ func main() {
 }
 ```
 
-`Parse` returns `(T, error)`. On failure the error is always `*zod.ZodError` with a slice of structured `Issue` values.
+`Parse` returns `(T, error)`. On failure the error is always `*z.ZodError` with a slice of structured `Issue` values.
 
 ## 3. SafeParse (no error value)
 
@@ -93,24 +97,24 @@ Use `Parse` when you’re writing `if err != nil` pipelines. Use `SafeParse` whe
 ```go
 data, err := User.Parse(badInput)
 if err != nil {
-	zerr, ok := err.(*zod.ZodError)
+	zerr, ok := err.(*z.ZodError)
 	if !ok {
 		panic(err) // should not happen for schema.Parse
 	}
 
 	// Human-readable CLI / logs
-	fmt.Println(zod.Prettify(zerr))
+	fmt.Println(z.Prettify(zerr))
 	// ✖ Too small: expected string to have >=2 characters
 	//   → at name
 	// ✖ Invalid email address
 	//   → at email
 
 	// Form / field maps for UIs
-	flat := zod.Flatten(zerr)
+	flat := z.Flatten(zerr)
 	_ = flat.FieldErrors["name"]
 
 	// Nested tree for complex forms
-	tree := zod.Treeify(zerr)
+	tree := z.Treeify(zerr)
 	_ = tree
 }
 ```
@@ -121,35 +125,35 @@ See [Issues & ZodError](#/guide/errors) for `Format`, `Treeify`, `ToDotPath`, an
 
 ```go
 // Absent key OK; JSON null (nil) is NOT OK
-opt := zod.Optional(zod.String())
+opt := z.Optional(z.String())
 
 // JSON null OK; absent key still fails on object fields unless also Optional
-nul := zod.Nullable(zod.String())
+nul := z.Nullable(z.String())
 
 // Absent OR null OR string
-both := zod.Nullish(zod.String())
+both := z.Nullish(z.String())
 
 // Absent → substitute without re-validating the default through the inner schema
-withDef := zod.Default(zod.String(), "anonymous")
+withDef := z.Default(z.String(), "anonymous")
 
 // On parse failure, catch and return a fallback
-caught := zod.Catch(zod.String().Email(), "fallback@example.com")
+caught := z.Catch(z.String().Email(), "fallback@example.com")
 ```
 
 :::warn Missing ≠ nil
-In go-zod, `zod.Missing` is Zod’s `undefined` (key absent). Go’s `nil` is JSON `null`. Choosing `Optional` vs `Nullable` vs `Nullish` matters — full guide: [Missing vs nil](#/guide/missing-nil).
+In go-zod, `z.Missing` is Zod’s `undefined` (key absent). Go’s `nil` is JSON `null`. Choosing `Optional` vs `Nullable` vs `Nullish` matters — full guide: [Missing vs nil](#/guide/missing-nil).
 :::
 
 ## 6. Coerce query/form strings
 
 ```go
-n, err := zod.Coerce.Number().Parse("42")
+n, err := z.Coerce.Number().Parse("42")
 // n == float64(42)
 
-b, err := zod.Coerce.Bool().Parse("true")
+b, err := z.Coerce.Bool().Parse("true")
 // b == true
 
-s, err := zod.Coerce.String().Parse(99)
+s, err := z.Coerce.String().Parse(99)
 // s == "99"
 ```
 
@@ -207,14 +211,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
 func main() {
-	schema := zod.Object(zod.Shape{
-		"name":  zod.String().Min(2),
-		"email": zod.String().Email(),
-		"role":  zod.Default(zod.String(), "user"),
+	schema := z.Object(z.Shape{
+		"name":  z.String().Min(2),
+		"email": z.String().Email(),
+		"role":  z.Default(z.String(), "user"),
 	})
 
 	raw := []byte(`{"name":"Ada","email":"ada@example.com"}`)
@@ -225,7 +229,7 @@ func main() {
 
 	out, err := schema.Parse(input)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, zod.Prettify(err.(*zod.ZodError)))
+		fmt.Fprintln(os.Stderr, z.Prettify(err.(*z.ZodError)))
 		os.Exit(1)
 	}
 

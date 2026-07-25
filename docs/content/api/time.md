@@ -1,11 +1,11 @@
 # Time
 
-`zod.Time()` ports Zod’s `z.date()`. The Go type is `time.Time` (not a calendar-date string — for those, see [`ISODate` / `ISODateTime`](/api/string-formats)).
+`z.Time()` ports Zod’s `z.date()`. The Go type is `time.Time` (not a calendar-date string — for those, see [`ISODate` / `ISODateTime`](/api/string-formats)).
 
 ```go
 import "time"
 
-schema := zod.Time()
+schema := z.Time()
 now := time.Now().UTC()
 
 got, err := schema.Parse(now)
@@ -19,7 +19,7 @@ got, err = schema.Parse(&now) // *time.Time also accepted
 Without coerce, only `time.Time` and non-nil `*time.Time` succeed:
 
 ```go
-res := zod.Time().SafeParse("not-a-date")
+res := z.Time().SafeParse("not-a-date")
 // Message: "Invalid input: expected date, received string"
 // Expected: "date"
 ```
@@ -33,8 +33,8 @@ benchmark := time.Date(2022, 11, 5, 0, 0, 0, 0, time.UTC)
 before := time.Date(2022, 11, 4, 0, 0, 0, 0, time.UTC)
 after := time.Date(2022, 11, 6, 0, 0, 0, 0, time.UTC)
 
-minCheck := zod.Time().Min(benchmark)
-maxCheck := zod.Time().Max(benchmark)
+minCheck := z.Time().Min(benchmark)
+maxCheck := z.Time().Max(benchmark)
 
 minCheck.MustParse(benchmark)
 minCheck.MustParse(after)
@@ -63,8 +63,8 @@ Always check `Issue.Origin == "date"` when rendering date-bound errors — the n
 With coerce, strings are parsed as `RFC3339Nano` then `RFC3339`. Numeric inputs are treated as **Unix milliseconds**.
 
 ```go
-s := zod.Time(zod.Params{Coerce: true})
-// or: zod.Coerce.Time()
+s := z.Time(z.Params{Coerce: true})
+// or: z.Coerce.Time()
 
 got := s.MustParse("2022-11-05T00:00:00Z")
 // time.Date(2022, 11, 5, 0, 0, 0, 0, time.UTC)
@@ -79,7 +79,7 @@ got = s.MustParse(int64(1667606400000))
 ## Custom messages
 
 ```go
-schema := zod.Time().Min(benchmark, "too early")
+schema := z.Time().Min(benchmark, "too early")
 res := schema.SafeParse(before)
 // Message: "too early"
 ```

@@ -1,6 +1,6 @@
 # API cheat sheet
 
-Dense reference for `github.com/iKunalChhabra/go-zod`. Import: `"github.com/iKunalChhabra/go-zod"`.
+Dense reference for `github.com/iKunalChhabra/go-zod`. Import: `import z "github.com/iKunalChhabra/go-zod"`.
 
 ## Parse surface
 
@@ -42,10 +42,10 @@ Formats: `Email` `URL` `UUID` `UUIDv4` `UUIDv6` `UUIDv7` `GUID` `NanoID` `CUID` 
 ## Coercion
 
 ```go
-zod.Coerce.String()
-zod.Coerce.Number()
-zod.Coerce.Bool()
-zod.Coerce.Time()
+z.Coerce.String()
+z.Coerce.Number()
+z.Coerce.Bool()
+z.Coerce.Time()
 ```
 
 ## Collections

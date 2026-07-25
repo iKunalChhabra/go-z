@@ -16,7 +16,7 @@ Build schemas once (package `var` or `init`), share the pointer everywhere, call
 ## Immutable fluent API
 
 ```go
-var BaseName = zod.String().Min(1)
+var BaseName = z.String().Min(1)
 
 func init() {
 	// These do not mutate BaseName
@@ -30,7 +30,7 @@ Because clones happen at construction time, extending a shared schema in one pac
 ```go
 package schemas
 
-var Password = zod.String().Min(8)
+var Password = z.String().Min(8)
 
 package admin
 
@@ -41,9 +41,9 @@ var AdminPassword = schemas.Password.Min(16)
 ## Concurrent Parse
 
 ```go
-var User = zod.Object(zod.Shape{
-	"email": zod.String().Email(),
-	"name":  zod.String().Min(1),
+var User = z.Object(z.Shape{
+	"email": z.String().Email(),
+	"name":  z.String().Min(1),
 })
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -67,11 +67,11 @@ Schemas themselves have no mutex. `-race` stays clean for concurrent parse of sh
 
 ## What about Configure?
 
-`zod.Configure` uses an atomic pointer swap — it is safe to call concurrently with parses. Still treat it as **process configuration**, not a per-request knob:
+`z.Configure` uses an atomic pointer swap — it is safe to call concurrently with parses. Still treat it as **process configuration**, not a per-request knob:
 
 ```go
 // Once at startup
-zod.Configure(zod.Config{LocaleError: zod.Locale("es")})
+z.Configure(z.Config{LocaleError: z.Locale("es")})
 ```
 
 For per-request locale or messages, use `ParseCtx.Error` instead of racing global config in handlers.
@@ -82,11 +82,11 @@ Large homogeneous slices can opt into a worker pool:
 
 ```go
 ctx := context.Background()
-item := zod.Object(zod.Shape{
-	"id": zod.String().UUID(),
+item := z.Object(z.Shape{
+	"id": z.String().UUID(),
 })
 
-out, err := zod.ParseParallelSlice(ctx, item, rows, zod.ParallelOpts{
+out, err := z.ParseParallelSlice(ctx, item, rows, z.ParallelOpts{
 	Workers:  runtime.GOMAXPROCS(0),
 	MinChunk: 64, // below this, runs sequential
 })
@@ -106,12 +106,12 @@ On multi-core machines, 10k-element arrays are roughly ~2.5× faster than sequen
 You do not manage the payload pool yourself. If you write custom schema internals or call `AcquirePayload` / `ReleasePayload` directly:
 
 ```go
-p := zod.AcquirePayload(value)
-defer zod.ReleasePayload(p)
+p := z.AcquirePayload(value)
+defer z.ReleasePayload(p)
 
 schema.Internals().Run(p, nil)
 // Copy anything you need from p before release
-issues := append([]zod.Issue(nil), p.Issues...)
+issues := append([]z.Issue(nil), p.Issues...)
 ```
 
 :::warn Do not retain pooled payloads
@@ -151,7 +151,7 @@ corrupt later parses by mutating the returned value. For custom pointer types,
 use `DefaultFunc` / `CatchFunc` and allocate fresh:
 
 ```go
-schema := zod.DefaultFunc(zod.Array(zod.String()), func() any {
+schema := z.DefaultFunc(z.Array(z.String()), func() any {
 	return []any{}
 })
 ```
@@ -163,14 +163,14 @@ Creating schemas inside a request is allowed but usually wasteful:
 ```go
 // Avoid in hot paths
 func bad(min int) (string, error) {
-	return zod.String().Min(min).Parse(input)
+	return z.String().Min(min).Parse(input)
 }
 ```
 
 Prefer:
 
 ```go
-var min8 = zod.String().Min(8)
+var min8 = z.String().Min(8)
 
 func good() (string, error) {
 	return min8.Parse(input)
@@ -190,8 +190,8 @@ go test -race ./...
 Safe check:
 
 ```go
-ch := &zod.Check{
-	Fn: func(p *zod.Payload) {
+ch := &z.Check{
+	Fn: func(p *z.Payload) {
 		// only reads p.Value — fine
 	},
 }
@@ -201,8 +201,8 @@ Unsafe check:
 
 ```go
 var counter int
-ch := &zod.Check{
-	Fn: func(p *zod.Payload) {
+ch := &z.Check{
+	Fn: func(p *z.Payload) {
 		counter++ // data race under parallel Parse
 	},
 }
@@ -224,7 +224,7 @@ Use atomics or don’t mutate shared state from `Check.Fn`.
 
 ```go
 func TestParallelParse(t *testing.T) {
-	schema := zod.String().Min(1).Email()
+	schema := z.String().Min(1).Email()
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 		wg.Add(1)

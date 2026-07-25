@@ -5,11 +5,11 @@ Defer schema construction for recursive and mutually-recursive types — Zod’s
 ## Lazy
 
 ```go
-var Category zod.AnySchemaLike
-Category = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "name":     zod.String().Min(1),
-        "children": zod.Default(zod.Array(Category), []any{}),
+var Category z.AnySchemaLike
+Category = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "name":     z.String().Min(1),
+        "children": z.Default(z.Array(Category), []any{}),
     })
 })
 
@@ -32,12 +32,12 @@ The getter runs **once** (`sync.Once`) and is memoized. Subsequent parses reuse 
 Typical pattern: declare a `var`, assign `Lazy`, close over the var inside the getter.
 
 ```go
-var Comment zod.AnySchemaLike
-Comment = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "id":      zod.String().UUID(),
-        "body":    zod.String().Min(1),
-        "replies": zod.Default(zod.Array(Comment), []any{}),
+var Comment z.AnySchemaLike
+Comment = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "id":      z.String().UUID(),
+        "body":    z.String().Min(1),
+        "replies": z.Default(z.Array(Comment), []any{}),
     })
 })
 ```
@@ -45,17 +45,17 @@ Comment = zod.Lazy(func() zod.AnySchemaLike {
 Mutual recursion:
 
 ```go
-var A, B zod.AnySchemaLike
-A = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "type": zod.Literal("a"),
-        "b":    zod.Optional(B),
+var A, B z.AnySchemaLike
+A = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "type": z.Literal("a"),
+        "b":    z.Optional(B),
     })
 })
-B = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "type": zod.Literal("b"),
-        "a":    zod.Optional(A),
+B = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "type": z.Literal("b"),
+        "a":    z.Optional(A),
     })
 })
 ```
@@ -63,7 +63,7 @@ B = zod.Lazy(func() zod.AnySchemaLike {
 ## Inner()
 
 ```go
-lazy := zod.Lazy(func() zod.AnySchemaLike { return zod.String().Min(1) })
+lazy := z.Lazy(func() z.AnySchemaLike { return z.String().Min(1) })
 inner := lazy.Inner() // resolves getter if needed; returns the memoized schema
 ```
 
@@ -76,7 +76,7 @@ Disc-union construction unwraps `*LazySchema` when collecting discriminator valu
 ## Check clones share state
 
 ```go
-base := zod.Lazy(func() zod.AnySchemaLike { return zod.String() })
+base := z.Lazy(func() z.AnySchemaLike { return z.String() })
 cloned := base.Check(myCheck)
 // base and cloned share the same memoized inner schema
 ```

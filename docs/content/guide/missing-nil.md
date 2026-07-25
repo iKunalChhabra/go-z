@@ -1,19 +1,19 @@
 # Missing vs nil
 
-JavaScript has two “empty” values: `undefined` (absent) and `null` (present, null). Go has one: `nil`. go-zod restores Zod’s distinction with an explicit sentinel — `zod.Missing` — so optional keys and nullable fields behave correctly.
+JavaScript has two “empty” values: `undefined` (absent) and `null` (present, null). Go has one: `nil`. go-zod restores Zod’s distinction with an explicit sentinel — `z.Missing` — so optional keys and nullable fields behave correctly.
 
 ## The two empties
 
 | Concept | Zod / JS | go-zod | Typical JSON |
 |---|---|---|---|
-| Absent | `undefined` | `zod.Missing` | key omitted from object |
+| Absent | `undefined` | `z.Missing` | key omitted from object |
 | Null | `null` | `nil` | `"field": null` |
 | Present value | `"ada"` / `42` | same | normal JSON value |
 
 ```go
-zod.IsMissing(zod.Missing) // true
-zod.IsMissing(nil)         // false
-zod.IsMissing("")          // false
+z.IsMissing(z.Missing) // true
+z.IsMissing(nil)         // false
+z.IsMissing("")          // false
 ```
 
 :::warn Never use nil for “key omitted”
@@ -24,13 +24,13 @@ If you pass `nil` into a field schema, that means JSON `null`, not absence. Obje
 
 ```go
 // Optional — accepts Missing; rejects nil
-opt := zod.Optional(zod.String())
+opt := z.Optional(z.String())
 
 // Nullable — accepts nil; rejects Missing (as invalid for the inner type)
-nul := zod.Nullable(zod.String())
+nul := z.Nullable(z.String())
 
 // Nullish — Optional(Nullable(...)) — accepts Missing OR nil OR string
-both := zod.Nullish(zod.String())
+both := z.Nullish(z.String())
 ```
 
 ### Behavior table (standalone parse)
@@ -43,14 +43,14 @@ both := zod.Nullish(zod.String())
 | `42` | ❌ | ❌ | ❌ | ❌ |
 
 ```go
-fmt.Println(zod.Optional(zod.String()).SafeParse(zod.Missing).Success) // true
-fmt.Println(zod.Optional(zod.String()).SafeParse(nil).Success)         // false
+fmt.Println(z.Optional(z.String()).SafeParse(z.Missing).Success) // true
+fmt.Println(z.Optional(z.String()).SafeParse(nil).Success)         // false
 
-fmt.Println(zod.Nullable(zod.String()).SafeParse(nil).Success)         // true
-fmt.Println(zod.Nullable(zod.String()).SafeParse(zod.Missing).Success) // false
+fmt.Println(z.Nullable(z.String()).SafeParse(nil).Success)         // true
+fmt.Println(z.Nullable(z.String()).SafeParse(z.Missing).Success) // false
 
-fmt.Println(zod.Nullish(zod.String()).SafeParse(zod.Missing).Success)  // true
-fmt.Println(zod.Nullish(zod.String()).SafeParse(nil).Success)          // true
+fmt.Println(z.Nullish(z.String()).SafeParse(z.Missing).Success)  // true
+fmt.Println(z.Nullish(z.String()).SafeParse(nil).Success)          // true
 ```
 
 ## Object absent keys
@@ -58,9 +58,9 @@ fmt.Println(zod.Nullish(zod.String()).SafeParse(nil).Success)          // true
 When an object schema parses a `map[string]any`, **missing keys** are passed to field schemas as `Missing` (not as Go’s zero value, not as `nil`).
 
 ```go
-schema := zod.Object(zod.Shape{
-	"name":  zod.String(),
-	"nickname": zod.Optional(zod.String()),
+schema := z.Object(z.Shape{
+	"name":  z.String(),
+	"nickname": z.Optional(z.String()),
 })
 
 out, err := schema.Parse(map[string]any{
@@ -85,9 +85,9 @@ _, err := schema.Parse(map[string]any{
 Allow both omit and null:
 
 ```go
-schema := zod.Object(zod.Shape{
-	"name":     zod.String(),
-	"nickname": zod.Nullish(zod.String()),
+schema := z.Object(z.Shape{
+	"name":     z.String(),
+	"nickname": z.Nullish(z.String()),
 })
 
 schema.MustParse(map[string]any{"name": "Ada"})
@@ -112,8 +112,8 @@ Optional wrappers set `OptIn` / `OptOut` on schema internals so object parsing k
 ### Default — fill Missing
 
 ```go
-schema := zod.Object(zod.Shape{
-	"role": zod.Default(zod.String(), "user"),
+schema := z.Object(z.Shape{
+	"role": z.Default(z.String(), "user"),
 })
 
 out, _ := schema.Parse(map[string]any{})
@@ -127,7 +127,7 @@ fmt.Println(out["role"]) // "user"
 ### Catch — recover from failures
 
 ```go
-schema := zod.Catch(zod.String().Email(), "fallback@example.com")
+schema := z.Catch(z.String().Email(), "fallback@example.com")
 
 out, err := schema.Parse("not-an-email")
 // err == nil, out == "fallback@example.com"
@@ -165,10 +165,10 @@ After `json.Unmarshal`, omitted keys are simply not in the map — object schema
 Strip optionality — reject `Missing` after the inner schema runs:
 
 ```go
-inner := zod.Optional(zod.String())
-req := zod.NonOptional(inner)
+inner := z.Optional(z.String())
+req := z.NonOptional(inner)
 
-_, err := req.Parse(zod.Missing)
+_, err := req.Parse(z.Missing)
 // invalid_type, expected "nonoptional"
 ```
 
@@ -198,15 +198,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
 func main() {
-	schema := zod.Object(zod.Shape{
-		"email": zod.String().Email(),
-		"age":   zod.Optional(zod.Int().Gte(0)),
-		"note":  zod.Nullish(zod.String().Max(200)),
-		"role":  zod.Default(zod.String(), "member"),
+	schema := z.Object(z.Shape{
+		"email": z.String().Email(),
+		"age":   z.Optional(z.Int().Gte(0)),
+		"note":  z.Nullish(z.String().Max(200)),
+		"role":  z.Default(z.String(), "member"),
 	})
 
 	cases := []string{
@@ -222,7 +222,7 @@ func main() {
 		_ = json.Unmarshal([]byte(raw), &input)
 		out, err := schema.Parse(input)
 		if err != nil {
-			fmt.Println(raw, "→", zod.Prettify(err.(*zod.ZodError)))
+			fmt.Println(raw, "→", z.Prettify(err.(*z.ZodError)))
 			continue
 		}
 		b, _ := json.Marshal(out)

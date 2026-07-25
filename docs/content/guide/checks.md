@@ -57,13 +57,13 @@ func MinLength(minimum int, params ...any) *Check {
 			},
 		},
 	}
-	ch.Fn = func(payload *zod.Payload) {
+	ch.Fn = func(payload *z.Payload) {
 		n, ok := lengthOf(payload.Value)
 		if !ok || n >= minimum {
 			return
 		}
-		payload.AddIssue(ch.Issue(zod.Issue{
-			Code:      zod.IssueTooSmall,
+		payload.AddIssue(ch.Issue(z.Issue{
+			Code:      z.IssueTooSmall,
 			Origin:    "string",
 			Minimum:   minimum,
 			Inclusive: true,
@@ -83,12 +83,12 @@ func MinLength(minimum int, params ...any) *Check {
 Every schema type that supports composition exposes `.Check(...)`:
 
 ```go
-onlyHello := zod.String().Check(&zod.Check{
+onlyHello := z.String().Check(&z.Check{
 	Name: "only_hello",
-	Fn: func(p *zod.Payload) {
+	Fn: func(p *z.Payload) {
 		if p.Value != "hello" {
-			p.AddIssue(zod.Issue{
-				Code:    zod.IssueCustom,
+			p.AddIssue(z.Issue{
+				Code:    z.IssueCustom,
 				Message: "say hello",
 				Input:   p.Value,
 			})
@@ -107,7 +107,7 @@ Prefer high-level helpers (`Min`, `Email`, `Refine`, …) when they exist; use r
 Without abort, multiple failing checks can all contribute issues (subject to the continue flags):
 
 ```go
-schema := zod.String().Min(10).Email()
+schema := z.String().Min(10).Email()
 
 res := schema.SafeParse("x")
 // typically too_small; email may or may not also run depending on abort state
@@ -117,12 +117,12 @@ res := schema.SafeParse("x")
 Force a hard stop after a specific check:
 
 ```go
-schema := zod.String().
-	Min(5, zod.Params{Abort: true, Error: zod.MessageFromString("too short")}).
+schema := z.String().
+	Min(5, z.Params{Abort: true, Error: z.MessageFromString("too short")}).
 	Email() // skipped if Min fails with Abort
 
 _, err := schema.Parse("x")
-zerr := err.(*zod.ZodError)
+zerr := err.(*z.ZodError)
 fmt.Println(len(zerr.Issues)) // 1 — email not evaluated
 fmt.Println(zerr.Issues[0].Message) // too short
 ```
@@ -132,21 +132,21 @@ fmt.Println(zerr.Issues[0].Message) // too short
 `When` decides whether the check runs. Length checks use a gate so they don’t fire on wrong types (the type parse already reported `invalid_type`):
 
 ```go
-ch := &zod.Check{
+ch := &z.Check{
 	Name: "even_length",
-	When: func(p *zod.Payload) bool {
+	When: func(p *z.Payload) bool {
 		_, ok := p.Value.(string)
 		return ok
 	},
-	Fn: func(p *zod.Payload) {
+	Fn: func(p *z.Payload) {
 		s := p.Value.(string)
 		if len(s)%2 != 0 {
-			p.AddIssue(zod.Issue{Code: zod.IssueCustom, Message: "length must be even"})
+			p.AddIssue(z.Issue{Code: z.IssueCustom, Message: "length must be even"})
 		}
 	},
 }
 
-schema := zod.String().Check(ch)
+schema := z.String().Check(ch)
 ```
 
 ### Continue vs When
@@ -182,20 +182,20 @@ for _, ch := range checks {
 Hooks for schema metadata at attach time:
 
 ```go
-ch := &zod.Check{
+ch := &z.Check{
 	Name: "brand_min",
-	OnAttach: []func(in *zod.Internals){
-		func(in *zod.Internals) {
+	OnAttach: []func(in *z.Internals){
+		func(in *z.Internals) {
 			if in.Bag == nil {
 				in.Bag = map[string]any{}
 			}
 			in.Bag["brand"] = "acme"
 		},
 	},
-	Fn: func(p *zod.Payload) { /* ... */ },
+	Fn: func(p *z.Payload) { /* ... */ },
 }
 
-s := zod.String().Check(ch)
+s := z.String().Check(ch)
 fmt.Println(s.Internals().Bag["brand"]) // acme
 ```
 
@@ -203,11 +203,11 @@ Multiple checks may write the same bag keys; helpers like `MinLength` keep the *
 
 ## Zero-check fast path
 
-Schemas with no checks set `Run == Parse`. Adding the first check composes `parse → runChecks`. That’s why a bare `zod.String()` stays cheap, and why you should build schemas once rather than re-fluent them inside hot loops.
+Schemas with no checks set `Run == Parse`. Adding the first check composes `parse → runChecks`. That’s why a bare `z.String()` stays cheap, and why you should build schemas once rather than re-fluent them inside hot loops.
 
 ```go
 // Construction (once)
-schema := zod.String().Min(1).Email()
+schema := z.String().Min(1).Email()
 
 // Hot path — no cloning, no OnAttach
 for _, item := range requests {
@@ -220,16 +220,16 @@ for _, item := range requests {
 A check may mutate `p.Value` (Zod “overwrite” checks — trim, normalize, etc.). Later checks see the new value:
 
 ```go
-trim := &zod.Check{
+trim := &z.Check{
 	Name: "trim",
-	Fn: func(p *zod.Payload) {
+	Fn: func(p *z.Payload) {
 		if s, ok := p.Value.(string); ok {
 			p.Value = strings.TrimSpace(s)
 		}
 	},
 }
 
-schema := zod.String().Check(trim).Min(3)
+schema := z.String().Check(trim).Min(3)
 out, err := schema.Parse("  hi  ")
 // after trim, length is 2 → too_small
 _ = out
@@ -243,16 +243,16 @@ _ = err
 For value-level predicates, use the package refine helpers (see API pages) or a custom check with `IssueCustom`:
 
 ```go
-func MultipleOfThree() *zod.Check {
-	ch := &zod.Check{Name: "multiple_of_three"}
-	ch.Fn = func(p *zod.Payload) {
+func MultipleOfThree() *z.Check {
+	ch := &z.Check{Name: "multiple_of_three"}
+	ch.Fn = func(p *z.Payload) {
 		n, ok := p.Value.(float64)
 		if !ok {
 			return
 		}
 		if int(n)%3 != 0 {
-			p.AddIssue(ch.Issue(zod.Issue{
-				Code:   zod.IssueCustom,
+			p.AddIssue(ch.Issue(z.Issue{
+				Code:   z.IssueCustom,
 				Params: map[string]any{"rule": "multiple_of_three"},
 				Input:  p.Value,
 			}))
@@ -261,14 +261,14 @@ func MultipleOfThree() *zod.Check {
 	return ch
 }
 
-schema := zod.Number().Check(MultipleOfThree())
+schema := z.Number().Check(MultipleOfThree())
 ```
 
 Pair with an error map for a friendly message:
 
 ```go
 ch := MultipleOfThree()
-ch.Error = zod.MessageFromString("must be a multiple of 3")
+ch.Error = z.MessageFromString("must be a multiple of 3")
 ```
 
 ## Putting it together
@@ -279,12 +279,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
 func main() {
-	schema := zod.String().
-		Min(3, zod.Params{Abort: true}).
+	schema := z.String().
+		Min(3, z.Params{Abort: true}).
 		Email()
 
 	for _, in := range []any{"x", "not-an-email", "ada@example.com"} {

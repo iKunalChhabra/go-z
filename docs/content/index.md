@@ -17,14 +17,14 @@ package main
 import (
 	"fmt"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
 func main() {
-	user := zod.Object(zod.Shape{
-		"name":  zod.String().Min(2).Max(100),
-		"email": zod.String().Email(),
-		"age":   zod.Optional(zod.Int().Gte(0).Lt(150)),
+	user := z.Object(z.Shape{
+		"name":  z.String().Min(2).Max(100),
+		"email": z.String().Email(),
+		"age":   z.Optional(z.Int().Gte(0).Lt(150)),
 	})
 
 	data, err := user.Parse(map[string]any{
@@ -32,7 +32,7 @@ func main() {
 		"email": "ada@example.com",
 	})
 	if err != nil {
-		fmt.Println(zod.Prettify(err.(*zod.ZodError)))
+		fmt.Println(z.Prettify(err.(*z.ZodError)))
 		return
 	}
 	fmt.Println(data)
@@ -80,10 +80,10 @@ Requires **Go 1.22+**. Gin users also pull in `github.com/iKunalChhabra/go-zod/z
 ## A taste of the fluent API
 
 ```go
-schema := zod.String().Min(5).Email()
+schema := z.String().Min(5).Email()
 
 s, err := schema.Parse("hi@example.com")
-// err is *zod.ZodError when validation fails
+// err is *z.ZodError when validation fails
 
 res := schema.SafeParse("nope")
 if !res.Success {
@@ -94,7 +94,7 @@ if !res.Success {
 Objects produce `map[string]any`; arrays produce `[]any`. That is intentional — go-zod is **JSON-model first**, then typed at the edges with generics (`Schema[T]`) and optional `ToStruct[T]`.
 
 ```go
-parsed, err := zod.ToStruct[User](userSchema).Parse(input)
+parsed, err := z.ToStruct[User](userSchema).Parse(input)
 ```
 
 ## Gin in one breath

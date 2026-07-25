@@ -6,10 +6,10 @@ Compose schemas and value transforms. Because Go methods cannot introduce new ty
 
 ```go
 // string → trimmed string → non-empty
-trimmed := zod.Transform(zod.String(), func(v any, _ *zod.RefinementCtx) (any, error) {
+trimmed := z.Transform(z.String(), func(v any, _ *z.RefinementCtx) (any, error) {
     return strings.TrimSpace(v.(string)), nil
 })
-schema := zod.Pipe(trimmed, zod.String().Min(1))
+schema := z.Pipe(trimmed, z.String().Min(1))
 ```
 
 Runs schema **A**, then schema **B** on A’s output. If A produces any issues, B is skipped and the payload is aborted.
@@ -21,7 +21,7 @@ Runs schema **A**, then schema **B** on A’s output. If A produces any issues, 
 | Values / PropValues | copied from A |
 
 ```go
-p := zod.Pipe(a, b)
+p := z.Pipe(a, b)
 p.In()  // a
 p.Out() // b
 ```
@@ -29,7 +29,7 @@ p.Out() // b
 ## Transform
 
 ```go
-schema := zod.Transform(zod.String(), func(v any, ctx *zod.RefinementCtx) (any, error) {
+schema := z.Transform(z.String(), func(v any, ctx *z.RefinementCtx) (any, error) {
     s := v.(string)
     if s == "" {
         ctx.AddMessage("empty")
@@ -51,7 +51,7 @@ If the inner schema already has issues, the transform is skipped (`Aborted`).
 Typed convenience when the output type is known:
 
 ```go
-schema := zod.TransformTo[int](zod.String(), func(v any) (int, error) {
+schema := z.TransformTo[int](z.String(), func(v any) (int, error) {
     return strconv.Atoi(v.(string))
 })
 
@@ -63,12 +63,12 @@ Returns `Schema[Out]`. Prefer this over untyped `Transform` at API boundaries.
 ## Preprocess
 
 ```go
-schema := zod.Preprocess(func(v any) any {
+schema := z.Preprocess(func(v any) any {
     if s, ok := v.(string); ok {
         return strings.TrimSpace(s)
     }
     return v
-}, zod.String().Email())
+}, z.String().Email())
 ```
 
 Applies `fn` to the **input**, then parses with `schema`. Ports `$ZodPreprocess` (implemented as a pipe subtype in Zod). OptIn/OptOut follow the target schema.
@@ -78,7 +78,7 @@ Applies `fn` to the **input**, then parses with `schema`. Ports `$ZodPreprocess`
 In-place value rewrite that keeps the same schema “slot” (Zod’s `.overwrite()` / `$ZodCheckOverwrite`):
 
 ```go
-schema := zod.OverwriteSchema(zod.String(), func(v any) any {
+schema := z.OverwriteSchema(z.String(), func(v any) any {
     return strings.TrimSpace(v.(string))
 })
 ```

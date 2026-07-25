@@ -14,11 +14,11 @@ type ErrorMap func(iss *Issue) string
 Shorthand for a fixed message — Zod’s `z.string().min(5, "too short")`:
 
 ```go
-msg := zod.MessageFromString("too short")
+msg := z.MessageFromString("too short")
 
-schema := zod.String().Min(5, msg)
+schema := z.String().Min(5, msg)
 // or simply:
-schema = zod.String().Min(5, "too short")
+schema = z.String().Min(5, "too short")
 ```
 
 Empty string → `nil` map (no override).
@@ -28,12 +28,12 @@ Empty string → `nil` map (no override).
 Fluent methods accept a string, an `ErrorMap`, or `Params`:
 
 ```go
-zod.String().Min(8, zod.Params{
-	Error: zod.MessageFromString("password too short"),
+z.String().Min(8, z.Params{
+	Error: z.MessageFromString("password too short"),
 })
 
-zod.String().Email(zod.Params{
-	Error: func(iss *zod.Issue) string {
+z.String().Email(z.Params{
+	Error: func(iss *z.Issue) string {
 		if iss.Format == "email" {
 			return "That doesn't look like an email"
 		}
@@ -47,8 +47,8 @@ The map is attached to issues **produced by that check/schema**. Returning `""` 
 Schema-level maps (on constructors) cover type errors from that schema’s own parse:
 
 ```go
-zod.String(zod.Params{
-	Error: zod.MessageFromString("expected a string value"),
+z.String(z.Params{
+	Error: z.MessageFromString("expected a string value"),
 })
 ```
 
@@ -57,12 +57,12 @@ zod.String(zod.Params{
 Override messages for a single call without changing the schema:
 
 ```go
-ctx := &zod.ParseCtx{
-	Error: func(iss *zod.Issue) string {
+ctx := &z.ParseCtx{
+	Error: func(iss *z.Issue) string {
 		switch iss.Code {
-		case zod.IssueTooSmall:
+		case z.IssueTooSmall:
 			return "Please write a bit more"
-		case zod.IssueInvalidFormat:
+		case z.IssueInvalidFormat:
 			return "Format check failed"
 		default:
 			return ""
@@ -70,8 +70,8 @@ ctx := &zod.ParseCtx{
 	},
 }
 
-_, err := zod.String().Min(5).Email().ParseCtx("x", ctx)
-fmt.Println(err.(*zod.ZodError).Issues[0].Message)
+_, err := z.String().Min(5).Email().ParseCtx("x", ctx)
+fmt.Println(err.(*z.ZodError).Issues[0].Message)
 // Please write a bit more
 ```
 
@@ -87,18 +87,18 @@ type Config struct {
 `Configure` atomically replaces the global config and returns the previous one. Safe for concurrent use.
 
 ```go
-prev := zod.Configure(zod.Config{
-	CustomError: func(iss *zod.Issue) string {
-		if iss.Code == zod.IssueUnrecognizedKeys {
+prev := z.Configure(z.Config{
+	CustomError: func(iss *z.Issue) string {
+		if iss.Code == z.IssueUnrecognizedKeys {
 			return "Please remove unknown fields"
 		}
 		return ""
 	},
-	LocaleError: zod.Locale("es"),
+	LocaleError: z.Locale("es"),
 })
 
 // ... later, restore
-zod.Configure(prev)
+z.Configure(prev)
 ```
 
 :::warn Global = process-wide
@@ -118,15 +118,15 @@ For each raw issue, `FinalizeIssue` does:
 
 ```go
 // Demonstration of deferral
-zod.Configure(zod.Config{
-	CustomError: func(iss *zod.Issue) string {
+z.Configure(z.Config{
+	CustomError: func(iss *z.Issue) string {
 		// Only handle custom codes; defer everything else
-		if iss.Code == zod.IssueCustom {
+		if iss.Code == z.IssueCustom {
 			return "Business rule failed"
 		}
 		return ""
 	},
-	LocaleError: zod.EsLocale,
+	LocaleError: z.EsLocale,
 })
 ```
 
@@ -147,19 +147,19 @@ Unknown names fall back to `EnLocale`.
 ### Locale(name)
 
 ```go
-zod.Configure(zod.Config{
-	LocaleError: zod.Locale("ja"),
+z.Configure(z.Config{
+	LocaleError: z.Locale("ja"),
 })
 
-_, err := zod.String().Min(5).Parse("hi")
-fmt.Println(err.(*zod.ZodError).Issues[0].Message)
+_, err := z.String().Min(5).Parse("hi")
+fmt.Println(err.(*z.ZodError).Issues[0].Message)
 // Japanese too_small message
 ```
 
 Or pick a function directly:
 
 ```go
-zod.Configure(zod.Config{LocaleError: zod.FrLocale})
+z.Configure(z.Config{LocaleError: z.FrLocale})
 ```
 
 ### Side-by-side messages
@@ -167,22 +167,22 @@ zod.Configure(zod.Config{LocaleError: zod.FrLocale})
 Same issue, different locales:
 
 ```go
-iss := &zod.Issue{
-	Code:      zod.IssueTooSmall,
+iss := &z.Issue{
+	Code:      z.IssueTooSmall,
 	Origin:    "string",
 	Minimum:   5,
 	Inclusive: true,
 	Input:     "hi",
 }
 
-fmt.Println(zod.EnLocale(iss))
+fmt.Println(z.EnLocale(iss))
 // Too small: expected string to have >=5 characters
 
-fmt.Println(zod.EsLocale(iss))
+fmt.Println(z.EsLocale(iss))
 // Demasiado pequeño: se esperaba que la cadena tuviera >=5 caracteres
 // (wording follows the Spanish locale templates)
 
-fmt.Println(zod.Locale("de")(iss))
+fmt.Println(z.Locale("de")(iss))
 // German template
 ```
 
@@ -195,7 +195,7 @@ In HTTP handlers, map the first supported tag to `Locale` and pass it via `Parse
 ### Field-level product copy
 
 ```go
-password := zod.String().
+password := z.String().
 	Min(8, "Use at least 8 characters").
 	Max(128, "Password is too long")
 ```
@@ -203,11 +203,11 @@ password := zod.String().
 ### Shared brand voice via CustomError
 
 ```go
-zod.Configure(zod.Config{
-	LocaleError: zod.EnLocale,
-	CustomError: func(iss *zod.Issue) string {
+z.Configure(z.Config{
+	LocaleError: z.EnLocale,
+	CustomError: func(iss *z.Issue) string {
 		switch iss.Code {
-		case zod.IssueInvalidType:
+		case z.IssueInvalidType:
 			return "We couldn't read this field — check the type"
 		default:
 			return "" // keep locale messages for too_small, email, etc.
@@ -219,19 +219,19 @@ zod.Configure(zod.Config{
 ### Per-request locale without global mutation
 
 ```go
-func parseWithLocale(schema zod.AnySchemaLike, data any, lang string) (any, error)
+func parseWithLocale(schema z.AnySchemaLike, data any, lang string) (any, error)
 {
-	locale := zod.Locale(lang)
+	locale := z.Locale(lang)
 	// Wrap as ParseCtx.Error — runs before global locale
-	ctx := &zod.ParseCtx{
-		Error: func(iss *zod.Issue) string {
+	ctx := &z.ParseCtx{
+		Error: func(iss *z.Issue) string {
 			return locale(iss)
 		},
 	}
 	// Concrete schemas expose ParseCtx; for AnySchemaLike run via a typed helper
 	// or call the concrete schema you already have:
 	return schema.(interface {
-		ParseCtx(any, *zod.ParseCtx) (any, error)
+		ParseCtx(any, *z.ParseCtx) (any, error)
 	}).ParseCtx(data, ctx)
 }
 ```
@@ -239,18 +239,18 @@ func parseWithLocale(schema zod.AnySchemaLike, data any, lang string) (any, erro
 Simpler when you already hold a concrete schema:
 
 ```go
-out, err := userSchema.ParseCtx(input, &zod.ParseCtx{
-	Error: zod.Locale("pt"),
+out, err := userSchema.ParseCtx(input, &z.ParseCtx{
+	Error: z.Locale("pt"),
 })
 ```
 
 Because a per-parse map that always returns a string **short-circuits** the chain, this replaces locale messages for that call. To only override some codes, return `""` for the rest:
 
 ```go
-lang := zod.Locale("pt")
-ctx := &zod.ParseCtx{
-	Error: func(iss *zod.Issue) string {
-		if iss.Code == zod.IssueCustom {
+lang := z.Locale("pt")
+ctx := &z.ParseCtx{
+	Error: func(iss *z.Issue) string {
+		if iss.Code == z.IssueCustom {
 			return "Regra de negócio falhou"
 		}
 		return lang(iss) // or "" to fall through to global locale
@@ -262,10 +262,10 @@ ctx := &zod.ParseCtx{
 
 ```go
 func TestSpanish(t *testing.T) {
-	prev := zod.Configure(zod.Config{LocaleError: zod.EsLocale})
-	t.Cleanup(func() { zod.Configure(prev) })
+	prev := z.Configure(z.Config{LocaleError: z.EsLocale})
+	t.Cleanup(func() { z.Configure(prev) })
 
-	_, err := zod.String().Min(5).Parse("x")
+	_, err := z.String().Min(5).Parse("x")
 	if err == nil {
 		t.Fatal("expected error")
 	}

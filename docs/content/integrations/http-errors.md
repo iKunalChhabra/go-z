@@ -1,6 +1,6 @@
 # HTTP error shapes
 
-How `*zod.ZodError` is rendered for APIs — used by `zgin.AbortWithError` and available as pure helpers.
+How `*z.ZodError` is rendered for APIs — used by `zgin.AbortWithError` and available as pure helpers.
 
 ## Issues (default)
 
@@ -29,7 +29,7 @@ How `*zod.ZodError` is rendered for APIs — used by `zgin.AbortWithError` and a
 ## Flatten
 
 ```go
-flat := zod.Flatten(zerr)
+flat := z.Flatten(zerr)
 // zgin.Options{Format: zgin.FormatFlatten}
 ```
 
@@ -51,7 +51,7 @@ flat := zod.Flatten(zerr)
 | `formErrors` | Issues with empty `path` |
 | `fieldErrors` | Grouped by **first** path segment (string key) |
 
-Custom mapper: `zod.FlattenMap(err, func(iss Issue) U)`.
+Custom mapper: `z.FlattenMap(err, func(iss Issue) U)`.
 
 :::tip Forms
 Flatten is ideal for HTML / SPA forms that bind errors to top-level field names.
@@ -60,7 +60,7 @@ Flatten is ideal for HTML / SPA forms that bind errors to top-level field names.
 ## Tree
 
 ```go
-tree := zod.Treeify(zerr)
+tree := z.Treeify(zerr)
 // zgin.Options{Format: zgin.FormatTree}
 ```
 
@@ -92,12 +92,12 @@ tree := zod.Treeify(zerr)
 
 String keys → `properties`; numeric segments → `items` (sparse array). Nested `invalid_union` / `invalid_key` / `invalid_element` issues are traversed like Zod.
 
-Custom mapper: `zod.TreeifyMap`.
+Custom mapper: `z.TreeifyMap`.
 
 ## Pretty
 
 ```go
-s := zod.Prettify(zerr)
+s := z.Prettify(zerr)
 // zgin.Options{Format: zgin.FormatPretty}
 ```
 
@@ -117,14 +117,14 @@ Issues are sorted by path length, then formatted as:
   → at <dotPath>
 ```
 
-`zod.ToDotPath(path)` produces paths like `address.zip`, `tags[1]`, `["weird.key"]`.
+`z.ToDotPath(path)` produces paths like `address.zip`, `tags[1]`, `["weird.key"]`.
 
 ## Format (nested `_errors`)
 
 Also available (not a zgin format constant):
 
 ```go
-m := zod.Format(zerr)
+m := z.Format(zerr)
 ```
 
 ```json

@@ -28,17 +28,15 @@ That adds a `require` line similar to:
 require github.com/iKunalChhabra/go-zod v0.x.x
 ```
 
-Import it as:
+Import it with the `z` alias (Zod convention — used throughout these docs):
 
 ```go
-import "github.com/iKunalChhabra/go-zod"
+import z "github.com/iKunalChhabra/go-zod"
 ```
 
-Common alias (optional, Zod-flavored):
-
-```go
-import zod "github.com/iKunalChhabra/go-zod"
-```
+:::tip Docs import style
+Examples in this documentation use `import z "github.com/iKunalChhabra/go-zod"` so the API reads like Zod’s `z` (`z.String()`, `z.Object`, …). The Go package name is still `zod` if you import without an alias.
+:::
 
 ## Optional: Gin integration
 
@@ -52,7 +50,7 @@ go get github.com/iKunalChhabra/go-zod
 ```go
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 	"github.com/iKunalChhabra/go-zod/zgin"
 )
 ```
@@ -70,15 +68,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
 func main() {
-	schema := zod.String().Min(5).Email()
+	schema := z.String().Min(5).Email()
 
 	out, err := schema.Parse("ada@example.com")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, zod.Prettify(err.(*zod.ZodError)))
+		fmt.Fprintln(os.Stderr, z.Prettify(err.(*z.ZodError)))
 		os.Exit(1)
 	}
 	fmt.Println("ok:", out)
@@ -103,7 +101,7 @@ Try a failing input to confirm errors work:
 
 ```go
 _, err := schema.Parse("nope")
-fmt.Println(err.(*zod.ZodError).Issues[0].Code) // invalid_format
+fmt.Println(err.(*z.ZodError).Issues[0].Code) // invalid_format
 ```
 
 ## Module layout tips
@@ -114,7 +112,7 @@ Keep schemas next to the HTTP boundary or in a dedicated package:
 myapp/
   go.mod
   cmd/api/main.go
-  internal/schemas/user.go   // zod.Object(...) definitions
+  internal/schemas/user.go   // z.Object(...) definitions
   internal/http/handlers.go  // Parse / zgin.Validate
 ```
 
@@ -123,11 +121,11 @@ Schemas are plain Go values. Share them as package-level variables — they are 
 ```go
 package schemas
 
-import "github.com/iKunalChhabra/go-zod"
+import z "github.com/iKunalChhabra/go-zod"
 
-var CreateUser = zod.Object(zod.Shape{
-	"name":  zod.String().Min(2),
-	"email": zod.String().Email(),
+var CreateUser = z.Object(z.Shape{
+	"name":  z.String().Min(2),
+	"email": z.String().Email(),
 })
 ```
 

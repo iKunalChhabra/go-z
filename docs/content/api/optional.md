@@ -1,6 +1,6 @@
 # Optional, Nullable & friends
 
-Wrappers that change whether a value may be **absent** (`zod.Missing`, Zod’s `undefined`) or **null** (`nil`, JSON `null`).
+Wrappers that change whether a value may be **absent** (`z.Missing`, Zod’s `undefined`) or **null** (`nil`, JSON `null`).
 
 :::info Missing vs nil
 `Missing` means the key was omitted. `nil` means the key was present with JSON `null`. They are not interchangeable — see [Missing vs nil](#/guide/missing-nil).
@@ -9,18 +9,18 @@ Wrappers that change whether a value may be **absent** (`zod.Missing`, Zod’s `
 ## Optional
 
 ```go
-schema := zod.Optional(zod.String())
+schema := z.Optional(z.String())
 
 schema.Parse("hello")       // "hello", nil
-schema.Parse(zod.Missing)   // Missing, nil  — accepted
+schema.Parse(z.Missing)   // Missing, nil  — accepted
 schema.SafeParse(nil)       // fails: null is not optional
 ```
 
 `Optional` sets **OptIn** and **OptOut** so object fields may omit the key. On success with an absent key, the value stays `Missing` and object parsers omit it from the output map.
 
 ```go
-user := zod.Object(zod.Shape{
-    "nickname": zod.Optional(zod.String()),
+user := z.Object(z.Shape{
+    "nickname": z.Optional(z.String()),
 })
 
 user.Parse(map[string]any{}) // map[string]any{}, nil — key omitted
@@ -33,19 +33,19 @@ Nested `Optional` wrappers still run the inner optional’s logic, then restore 
 ### Unwrap
 
 ```go
-inner := zod.String()
-opt := zod.Optional(inner)
+inner := z.String()
+opt := z.Optional(inner)
 opt.Unwrap() // == inner
 ```
 
 ## Nullable
 
 ```go
-schema := zod.Nullable(zod.String())
+schema := z.Nullable(z.String())
 
 schema.Parse("hi") // "hi"
 schema.Parse(nil)  // nil — accepted
-schema.SafeParse(zod.Missing) // fails unless inner is also optional
+schema.SafeParse(z.Missing) // fails unless inner is also optional
 ```
 
 `Nullable` accepts JSON `null` (`nil`) in addition to the inner type. OptIn/OptOut are **inherited** from the inner schema (unlike `Optional`, which always sets them).
@@ -53,9 +53,9 @@ schema.SafeParse(zod.Missing) // fails unless inner is also optional
 ## Nullish
 
 ```go
-schema := zod.Nullish(zod.String())
+schema := z.Nullish(z.String())
 // equivalent to:
-// zod.Optional(zod.Nullable(zod.String()))
+// z.Optional(z.Nullable(z.String()))
 ```
 
 Accepts `Missing`, `nil`, or the inner type. Returns `*OptionalSchema`.
@@ -63,9 +63,9 @@ Accepts `Missing`, `nil`, or the inner type. Returns `*OptionalSchema`.
 ## NonOptional
 
 ```go
-schema := zod.NonOptional(zod.Optional(zod.String()))
+schema := z.NonOptional(z.Optional(z.String()))
 
-schema.SafeParse(zod.Missing) // fails: invalid_type, expected "nonoptional"
+schema.SafeParse(z.Missing) // fails: invalid_type, expected "nonoptional"
 schema.Parse("ok")            // "ok"
 ```
 
@@ -78,7 +78,7 @@ Use after wrappers or object `.Partial()` when a field must be present in the ou
 ## Readonly
 
 ```go
-schema := zod.Readonly(zod.String())
+schema := z.Readonly(z.String())
 schema.Parse("x") // same as String() — no behavior change
 ```
 
@@ -109,5 +109,5 @@ func Readonly(inner AnySchemaLike, params ...any) *ReadonlySchema
 Optional params follow the usual pattern: string message, `ErrorMap`, or `Params`.
 
 :::warn Package functions, not methods
-In TypeScript Zod you write `z.string().optional()`. In go-zod use **package-level** wrappers: `zod.Optional(zod.String())`. Go methods cannot return a new type parameter for wrappers that change the output shape.
+In TypeScript Zod you write `z.string().optional()`. In go-zod use **package-level** wrappers: `z.Optional(z.String())`. Go methods cannot return a new type parameter for wrappers that change the output shape.
 :::

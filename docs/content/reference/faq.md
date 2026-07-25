@@ -2,7 +2,7 @@
 
 ## 1. Why isn’t there `.Optional()` on schemas?
 
-Go methods cannot introduce new type parameters. Wrappers that change optionality or output type are package functions: `zod.Optional(zod.String())`, not `zod.String().Optional()`.
+Go methods cannot introduce new type parameters. Wrappers that change optionality or output type are package functions: `z.Optional(z.String())`, not `z.String().Optional()`.
 
 ## 2. What’s the difference between `Missing` and `nil`?
 
@@ -10,7 +10,7 @@ Go methods cannot introduce new type parameters. Wrappers that change optionalit
 
 ## 3. Why do objects return `map[string]any`?
 
-go-zod follows Zod’s untyped JSON core. Use `zod.ToStruct[T](objectSchema)` when you want a Go struct. There is no compile-time `z.infer`.
+go-zod follows Zod’s untyped JSON core. Use `z.ToStruct[T](objectSchema)` when you want a Go struct. There is no compile-time `z.infer`.
 
 ## 4. Are schemas safe for concurrent use?
 
@@ -30,7 +30,7 @@ Use `DiscriminatedUnion` for object variants that share a literal tag — O(1) d
 
 ## 8. How do I validate Gin query / path params that are strings?
 
-Use `zod.Coerce.Number()` / `Bool()` / `Time()` with `zgin.BindQuery` / `BindURI`. Query values are unwrapped by `CoerceQueryValues`.
+Use `z.Coerce.Number()` / `Bool()` / `Time()` with `zgin.BindQuery` / `BindURI`. Query values are unwrapped by `CoerceQueryValues`.
 
 ## 9. How do I customize HTTP error JSON?
 
@@ -45,7 +45,7 @@ Default is `FormatIssues`. Details: [HTTP error shapes](#/integrations/http-erro
 
 ## 10. Can I parse large arrays faster?
 
-Yes — `zod.ParseParallelSlice(ctx, elemSchema, data, zod.ParallelOpts{})`. Defaults: `Workers=GOMAXPROCS`, `MinChunk=64`. Measured ~**2.5×** at 10k elements on 4 cores. See [Parallel](#/guide/parallel) and [Benchmarks](#/guide/benchmarks).
+Yes — `z.ParseParallelSlice(ctx, elemSchema, data, z.ParallelOpts{})`. Defaults: `Workers=GOMAXPROCS`, `MinChunk=64`. Measured ~**2.5×** at 10k elements on 4 cores. See [Parallel](#/guide/parallel) and [Benchmarks](#/guide/benchmarks).
 
 ## 11. Where is `.encode()` / `.decode()` / codecs?
 
@@ -54,10 +54,10 @@ Not in v0. Use one-way `Pipe`, `Transform`, `Preprocess`, or `ToStruct`. Codecs 
 ## 12. How do I do recursive types?
 
 ```go
-var Node zod.AnySchemaLike
-Node = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "children": zod.Array(Node),
+var Node z.AnySchemaLike
+Node = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "children": z.Array(Node),
     })
 })
 ```
@@ -71,8 +71,8 @@ go-zod finalizes Zod-shaped issues (error-map chain, locales, rich JSON). Tag va
 ## 14. How do I set a locale?
 
 ```go
-cfg := zod.GetConfig()
-cfg.LocaleError = zod.EsLocale // FrLocale, DeLocale, JaLocale, PtLocale, ZhLocale
+cfg := z.GetConfig()
+cfg.LocaleError = z.EsLocale // FrLocale, DeLocale, JaLocale, PtLocale, ZhLocale
 ```
 
 Or pass a per-parse `ParseCtx{Error: myMap}`.
@@ -84,7 +84,7 @@ No — `T` must be a non-pointer struct. Pointer **fields** inside the struct ar
 ## 16. How do I abort refinements early?
 
 ```go
-zod.Refine(schema, pred, zod.RefineOpts{Abort: true})
+z.Refine(schema, pred, z.RefineOpts{Abort: true})
 // or
 ctx.AddIssue(iss.WithAbort())
 ```
@@ -98,7 +98,7 @@ API parity with Zod. It’s a documented no-op in Go (no `Object.freeze` for map
 ## 18. Module / import paths?
 
 ```go
-import "github.com/iKunalChhabra/go-zod"           // package zod
+import z "github.com/iKunalChhabra/go-zod"         // alias z (Zod convention)
 import "github.com/iKunalChhabra/go-zod/zgin"      // Gin helpers
 ```
 

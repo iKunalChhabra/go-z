@@ -51,9 +51,9 @@ type User struct {
 
 ```go
 // go-zod equivalent (JSON-first)
-user := zod.Object(zod.Shape{
-	"name":  zod.String().Min(2),
-	"email": zod.String().Email(),
+user := z.Object(z.Shape{
+	"name":  z.String().Min(2),
+	"email": z.String().Email(),
 })
 data, err := user.Parse(input) // map[string]any
 
@@ -62,7 +62,7 @@ type User struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
-u, err := zod.ToStruct[User](user).Parse(input)
+u, err := z.ToStruct[User](user).Parse(input)
 ```
 
 ## vs ozzo-validation
@@ -108,14 +108,14 @@ This is the emotional home of go-zod.
 
 | Concern | TypeScript Zod | go-zod |
 |---|---|---|
-| Fluent API | `z.string().min(5).email()` | `zod.String().Min(5).Email()` |
-| Objects | `z.object({ ... })` | `zod.Object(zod.Shape{ ... })` |
+| Fluent API | `z.string().min(5).email()` | `z.String().Min(5).Email()` |
+| Objects | `z.object({ ... })` | `z.Object(z.Shape{ ... })` |
 | Safe parse | `safeParse` | `SafeParse` |
 | Issues | `ZodError.issues` | `ZodError.Issues` |
 | Infer types | `z.infer<typeof s>` | **Not available** — declare Go types separately |
 | Runtime | JS / TS | Go `any` core + `Schema[T]` edge |
 | Defaults / catch | `default`, `catch` | `Default`, `Catch` |
-| Coercion | `z.coerce.string()` | `zod.Coerce.String()` |
+| Coercion | `z.coerce.string()` | `z.Coerce.String()` |
 
 ### The hard honesty: no schema→type inference
 
@@ -132,9 +132,9 @@ type User = z.infer<typeof User>; // free
 In Go, the type system cannot infer a struct type from a runtime `Object` value. You write both:
 
 ```go
-var UserSchema = zod.Object(zod.Shape{
-	"name":  zod.String(),
-	"email": zod.String().Email(),
+var UserSchema = z.Object(z.Shape{
+	"name":  z.String(),
+	"email": z.String().Email(),
 })
 
 type User struct {
@@ -142,7 +142,7 @@ type User struct {
 	Email string `json:"email"`
 }
 
-parsed, err := zod.ToStruct[User](UserSchema).Parse(input)
+parsed, err := z.ToStruct[User](UserSchema).Parse(input)
 ```
 
 :::warn This is a language limit, not a backlog item

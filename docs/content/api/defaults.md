@@ -5,9 +5,9 @@ Wrappers that supply a fallback when input is absent or when parsing fails.
 ## Default
 
 ```go
-schema := zod.Default(zod.String(), "anonymous")
+schema := z.Default(z.String(), "anonymous")
 
-schema.Parse(zod.Missing) // "anonymous" — default applied, inner NOT re-parsed
+schema.Parse(z.Missing) // "anonymous" — default applied, inner NOT re-parsed
 schema.Parse("hi")        // "hi"
 ```
 
@@ -27,12 +27,12 @@ A default that would fail the inner schema still succeeds when input is `Missing
 
 ```go
 n := 0
-schema := zod.DefaultFunc(zod.String(), func() any {
+schema := z.DefaultFunc(z.String(), func() any {
     n++
     return fmt.Sprintf("user-%d", n)
 })
-schema.MustParse(zod.Missing) // "user-1"
-schema.MustParse(zod.Missing) // "user-2"
+schema.MustParse(z.Missing) // "user-1"
+schema.MustParse(z.Missing) // "user-2"
 ```
 
 The function is called **each time** the default is needed. Prefer this for mutable / unique defaults (UUIDs, timestamps).
@@ -40,16 +40,16 @@ The function is called **each time** the default is needed. Prefer this for muta
 ## Prefault
 
 ```go
-inner := zod.Refine(zod.String(), func(v any) bool {
+inner := z.Refine(z.String(), func(v any) bool {
     s, _ := v.(string)
     return len(s) > 0 && s[0] == 'c'
 }, "must start with c")
 
-ok := zod.Prefault(inner, "c")
-ok.Parse(zod.Missing) // "c" — prefault runs through inner + refine
+ok := z.Prefault(inner, "c")
+ok.Parse(z.Missing) // "c" — prefault runs through inner + refine
 
-bad := zod.Prefault(inner, "z")
-bad.SafeParse(zod.Missing) // fails — "z" fails refine
+bad := z.Prefault(inner, "z")
+bad.SafeParse(z.Missing) // fails — "z" fails refine
 ```
 
 **Behavior:** if input is `Missing`, substitute the prefault value, then **always** parse through the inner schema.
@@ -57,7 +57,7 @@ bad.SafeParse(zod.Missing) // fails — "z" fails refine
 ### PrefaultFunc
 
 ```go
-schema := zod.PrefaultFunc(zod.String().Min(1), func() any {
+schema := z.PrefaultFunc(z.String().Min(1), func() any {
     return "fallback"
 })
 ```
@@ -67,7 +67,7 @@ Same as `Prefault`, but the fallback is produced by a function each time.
 ## Catch
 
 ```go
-schema := zod.Catch(zod.String().Email(), "nobody@example.com")
+schema := z.Catch(z.String().Email(), "nobody@example.com")
 
 schema.Parse("not-an-email") // "nobody@example.com" — always succeeds
 schema.Parse("a@b.co")       // "a@b.co"
@@ -80,7 +80,7 @@ Sets OptIn so Missing input can be caught (inner may fail on Missing → catch f
 ### CatchFunc
 
 ```go
-schema := zod.CatchFunc(zod.String().Email(), func(ctx zod.CatchCtx) any {
+schema := z.CatchFunc(z.String().Email(), func(ctx z.CatchCtx) any {
     // ctx.Issues — finalized issues that caused the failure
     // ctx.Input  — value under parse when catch fired
     return "invalid@" + fmt.Sprint(len(ctx.Issues)) + ".example"
@@ -104,10 +104,10 @@ schema := zod.CatchFunc(zod.String().Email(), func(ctx zod.CatchCtx) any {
 
 ```go
 // Object field patterns
-zod.Object(zod.Shape{
-    "tags":    zod.Default(zod.Array(zod.String()), []any{}),
-    "role":    zod.Prefault(zod.Enum("user", "admin"), "user"),
-    "avatar":  zod.Catch(zod.String().URL(), ""),
+z.Object(z.Shape{
+    "tags":    z.Default(z.Array(z.String()), []any{}),
+    "role":    z.Prefault(z.Enum("user", "admin"), "user"),
+    "avatar":  z.Catch(z.String().URL(), ""),
 })
 ```
 
@@ -128,7 +128,7 @@ All expose `.Unwrap()` to recover the inner schema.
 Outer defaults win for Missing input:
 
 ```go
-zod.Default(zod.Default(zod.String(), "inner"), "outer")
+z.Default(z.Default(z.String(), "inner"), "outer")
 // Missing → "outer"
 ```
 :::

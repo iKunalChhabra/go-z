@@ -4,10 +4,10 @@ Catch-alls and bottom types: `Any`, `Unknown`, `Never`, `Nil`/`Null`, and `Nan`.
 
 ## Any
 
-`zod.Any()` accepts every input and returns it unchanged (`schemaBase[any]`).
+`z.Any()` accepts every input and returns it unchanged (`schemaBase[any]`).
 
 ```go
-schema := zod.Any()
+schema := z.Any()
 schema.MustParse("x")
 schema.MustParse(42)
 schema.MustParse(nil)
@@ -18,10 +18,10 @@ Use when a field is intentionally untyped, or as a temporary placeholder.
 
 ## Unknown
 
-`zod.Unknown()` is identical to `Any` at runtime (`Def.Type` is `"unknown"`). Prefer it when you want the Zod “must narrow before use” intent in documentation/APIs.
+`z.Unknown()` is identical to `Any` at runtime (`Def.Type` is `"unknown"`). Prefer it when you want the Zod “must narrow before use” intent in documentation/APIs.
 
 ```go
-schema := zod.Unknown()
+schema := z.Unknown()
 schema.MustParse([]any{1, 2, 3})
 ```
 
@@ -31,25 +31,25 @@ Runtime behavior matches Zod: both accept everything. Choose `Unknown` for reada
 
 ## Never
 
-`zod.Never()` rejects **every** input, including `nil`. Useful as an object [catchall](/api/object) to forbid extra keys (same effect as `.Strict()`).
+`z.Never()` rejects **every** input, including `nil`. Useful as an object [catchall](/api/object) to forbid extra keys (same effect as `.Strict()`).
 
 ```go
-res := zod.Never().SafeParse("x")
+res := z.Never().SafeParse("x")
 // Expected: "never"
 // Message: "Invalid input: expected never, received string"
 
-_ = zod.Never().SafeParse(nil) // also fails
+_ = z.Never().SafeParse(nil) // also fails
 
 // Forbid unknown keys:
-schema := zod.Object(zod.Shape{"id": zod.String()}).Catchall(zod.Never())
+schema := z.Object(z.Shape{"id": z.String()}).Catchall(z.Never())
 ```
 
 ## Nil / Null
 
-`zod.Nil()` and `zod.Null()` are aliases — both accept only Go `nil` (JSON `null`). Expected type in issues is `"null"`.
+`z.Nil()` and `z.Null()` are aliases — both accept only Go `nil` (JSON `null`). Expected type in issues is `"null"`.
 
 ```go
-for _, s := range []*zod.NilSchema{zod.Nil(), zod.Null()} {
+for _, s := range []*z.NilSchema{z.Nil(), z.Null()} {
     got, err := s.Parse(nil)
     // got == nil, err == nil
 
@@ -62,21 +62,21 @@ for _, s := range []*zod.NilSchema{zod.Nil(), zod.Null()} {
 `Internals().Values` contains `nil`, so null can participate in discriminant sets:
 
 ```go
-_, ok := zod.Null().Internals().Values[nil] // true
+_, ok := z.Null().Internals().Values[nil] // true
 ```
 
 :::info Missing vs nil
-`nil` is JSON null. Absent object keys use the `zod.Missing` sentinel — see [Missing vs nil](/guide/missing-nil). `Nil()` does **not** accept `Missing`.
+`nil` is JSON null. Absent object keys use the `z.Missing` sentinel — see [Missing vs nil](/guide/missing-nil). `Nil()` does **not** accept `Missing`.
 :::
 
 ## Nan
 
-`zod.Nan()` accepts only floating NaN. Regular `Number()` **rejects** NaN; use `Nan()` when you need the opposite.
+`z.Nan()` accepts only floating NaN. Regular `Number()` **rejects** NaN; use `Nan()` when you need the opposite.
 
 ```go
 import "math"
 
-s := zod.Nan()
+s := z.Nan()
 got := s.MustParse(math.NaN())
 // math.IsNaN(got) == true
 

@@ -13,7 +13,7 @@ type ZodError struct {
 `Error()` returns pretty-printed JSON of the issues (Zod’s `ZodError.message` behavior):
 
 ```go
-_, err := zod.String().Min(5).Parse("hi")
+_, err := z.String().Min(5).Parse("hi")
 fmt.Println(err)
 ```
 
@@ -33,7 +33,7 @@ fmt.Println(err)
 Always type-assert when you need structured data:
 
 ```go
-zerr, ok := err.(*zod.ZodError)
+zerr, ok := err.(*z.ZodError)
 if !ok {
 	// unexpected — schema.Parse should only return *ZodError
 }
@@ -94,7 +94,7 @@ Paths are `[]any` segments — strings for object keys, ints for array indices:
 // Issue at user.addresses[1].zip
 iss.Path // []any{"user", "addresses", 1, "zip"}
 
-fmt.Println(zod.ToDotPath(iss.Path))
+fmt.Println(z.ToDotPath(iss.Path))
 // user.addresses[1].zip
 ```
 
@@ -115,7 +115,7 @@ fmt.Println(zod.ToDotPath(iss.Path))
 | `custom` | `IssueCustom` | Refine / custom checks |
 
 ```go
-res := zod.String().Email().SafeParse("nope")
+res := z.String().Email().SafeParse("nope")
 fmt.Println(res.Error.Issues[0].Code)    // invalid_format
 fmt.Println(res.Error.Issues[0].Format)  // email
 ```
@@ -129,16 +129,16 @@ All helpers accept `*ZodError`. They are pure functions — safe to call from an
 Human-readable multi-line string. Issues sorted by path length; each line is `✖ message` plus optional `→ at path`.
 
 ```go
-schema := zod.Object(zod.Shape{
-	"name":  zod.String().Min(2),
-	"email": zod.String().Email(),
+schema := z.Object(z.Shape{
+	"name":  z.String().Min(2),
+	"email": z.String().Email(),
 })
 
 _, err := schema.Parse(map[string]any{
 	"name":  "A",
 	"email": "bad",
 })
-fmt.Println(zod.Prettify(err.(*zod.ZodError)))
+fmt.Println(z.Prettify(err.(*z.ZodError)))
 ```
 
 ```text
@@ -155,7 +155,7 @@ Great for CLI tools and server logs.
 Splits root-level issues (`formErrors`) from first-segment field errors (`fieldErrors`) — classic form UX.
 
 ```go
-flat := zod.Flatten(zerr)
+flat := z.Flatten(zerr)
 // flat.FormErrors  []string
 // flat.FieldErrors map[string][]string
 ```
@@ -163,12 +163,12 @@ flat := zod.Flatten(zerr)
 Example:
 
 ```go
-err := &zod.ZodError{Issues: []zod.Issue{
-	{Code: zod.IssueCustom, Message: "Must be equal", Path: []any{}},
-	{Code: zod.IssueTooSmall, Message: "Too small", Path: []any{"name"}},
+err := &z.ZodError{Issues: []z.Issue{
+	{Code: z.IssueCustom, Message: "Must be equal", Path: []any{}},
+	{Code: z.IssueTooSmall, Message: "Too small", Path: []any{"name"}},
 }}
 
-flat := zod.Flatten(err)
+flat := z.Flatten(err)
 fmt.Println(flat.FormErrors)           // [Must be equal]
 fmt.Println(flat.FieldErrors["name"])  // [Too small]
 ```
@@ -176,7 +176,7 @@ fmt.Println(flat.FieldErrors["name"])  // [Too small]
 Use `FlattenMap` when you want custom mapped values instead of messages:
 
 ```go
-codes := zod.FlattenMap(zerr, func(iss zod.Issue) string {
+codes := z.FlattenMap(zerr, func(iss z.Issue) string {
 	return string(iss.Code)
 })
 ```
@@ -186,20 +186,20 @@ codes := zod.FlattenMap(zerr, func(iss zod.Issue) string {
 Nested map with `"_errors"` arrays at each node — Zod’s `formatError`.
 
 ```go
-formatted := zod.Format(zerr)
+formatted := z.Format(zerr)
 ```
 
 Example shape:
 
 ```go
-zerr := &zod.ZodError{Issues: []zod.Issue{
-	{Code: zod.IssueUnrecognizedKeys, Path: []any{}, Message: `Unrecognized key: "extra"`},
-	{Code: zod.IssueInvalidType, Path: []any{"username"}, Message: "expected string"},
-	{Code: zod.IssueInvalidType, Path: []any{"favoriteNumbers", 1}, Message: "expected number"},
-	{Code: zod.IssueInvalidType, Path: []any{"nesting", "a"}, Message: "expected string"},
+zerr := &z.ZodError{Issues: []z.Issue{
+	{Code: z.IssueUnrecognizedKeys, Path: []any{}, Message: `Unrecognized key: "extra"`},
+	{Code: z.IssueInvalidType, Path: []any{"username"}, Message: "expected string"},
+	{Code: z.IssueInvalidType, Path: []any{"favoriteNumbers", 1}, Message: "expected number"},
+	{Code: z.IssueInvalidType, Path: []any{"nesting", "a"}, Message: "expected string"},
 }}
 
-fmt.Printf("%#v\n", zod.Format(zerr))
+fmt.Printf("%#v\n", z.Format(zerr))
 ```
 
 Conceptual JSON:
@@ -232,7 +232,7 @@ type ErrorTree struct {
 	Items      []*ErrorTree
 }
 
-tree := zod.Treeify(zerr)
+tree := z.Treeify(zerr)
 if tree.Properties["username"] != nil {
 	fmt.Println(tree.Properties["username"].Errors)
 }
@@ -249,10 +249,10 @@ Array indices land in `Items`:
 Converts a path slice to a JS-like path string:
 
 ```go
-zod.ToDotPath([]any{"user", "emails", 0, "address"})
+z.ToDotPath([]any{"user", "emails", 0, "address"})
 // "user.emails[0].address"
 
-zod.ToDotPath([]any{"weird.key"})
+z.ToDotPath([]any{"weird.key"})
 // `["weird.key"]`
 ```
 
@@ -276,30 +276,30 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/iKunalChhabra/go-zod"
+	z "github.com/iKunalChhabra/go-zod"
 )
 
 func main() {
-	schema := zod.Object(zod.Shape{
-		"name": zod.String().Min(2),
-		"tags": zod.Array(zod.String().Min(1)).Min(1),
+	schema := z.Object(z.Shape{
+		"name": z.String().Min(2),
+		"tags": z.Array(z.String().Min(1)).Min(1),
 	})
 
 	_, err := schema.Parse(map[string]any{
 		"name": "A",
 		"tags": []any{"", "ok"},
 	})
-	zerr := err.(*zod.ZodError)
+	zerr := err.(*z.ZodError)
 
 	fmt.Println("--- Prettify ---")
-	fmt.Println(zod.Prettify(zerr))
+	fmt.Println(z.Prettify(zerr))
 
 	fmt.Println("--- Flatten ---")
-	b, _ := json.MarshalIndent(zod.Flatten(zerr), "", "  ")
+	b, _ := json.MarshalIndent(z.Flatten(zerr), "", "  ")
 	fmt.Println(string(b))
 
 	fmt.Println("--- Format ---")
-	b, _ = json.MarshalIndent(zod.Format(zerr), "", "  ")
+	b, _ = json.MarshalIndent(z.Format(zerr), "", "  ")
 	fmt.Println(string(b))
 }
 ```
@@ -318,9 +318,9 @@ Possible Prettify output:
 By default finalized issues omit `Input`. Opt in per parse:
 
 ```go
-out, err := schema.ParseCtx(input, &zod.ParseCtx{ReportInput: true})
+out, err := schema.ParseCtx(input, &z.ParseCtx{ReportInput: true})
 if err != nil {
-	iss := err.(*zod.ZodError).Issues[0]
+	iss := err.(*z.ZodError).Issues[0]
 	fmt.Printf("bad value: %#v\n", iss.Input)
 }
 ```

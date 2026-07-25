@@ -3,14 +3,14 @@
 A **native Go port of [Zod v4](https://zod.dev)** — same patterns, same issue taxonomy, same fluent API — built for high-concurrency use in [Gin](https://gin-gonic.com) and beyond.
 
 ```go
-user := zod.Object(zod.Shape{
-    "name":  zod.String().Min(2).Max(100),
-    "email": zod.String().Email(),
-    "age":   zod.Optional(zod.Int().Gte(0).Lt(150)),
-    "tags":  zod.Default(zod.Array(zod.String()).Max(10), []any{}),
+user := z.Object(z.Shape{
+    "name":  z.String().Min(2).Max(100),
+    "email": z.String().Email(),
+    "age":   z.Optional(z.Int().Gte(0).Lt(150)),
+    "tags":  z.Default(z.Array(z.String()).Max(10), []any{}),
 })
 
-data, err := user.Parse(input) // map[string]any, or *zod.ZodError
+data, err := user.Parse(input) // map[string]any, or *z.ZodError
 ```
 
 ## Why
@@ -28,7 +28,7 @@ Existing Zod-inspired Go libraries are thinly maintained. go-zod ports Zod v4's 
 
 ## Documentation
 
-Thorough docs (Bun-inspired cream + pink theme) live in [`docs/`](./docs) and are meant for **GitHub Pages**:
+Thorough docs (Cream Soda theme — Bun-inspired cream + pink) live in [`docs/`](./docs) and are meant for **GitHub Pages**:
 
 - Local: `cd docs && python3 -m http.server 5173` → http://127.0.0.1:5173
 - After enabling Pages: `https://<user>.github.io/go-zod/`
@@ -43,17 +43,23 @@ go get github.com/iKunalChhabra/go-zod
 
 Requires Go 1.22+.
 
+Docs and examples use the import alias `z` (Zod convention):
+
+```go
+import z "github.com/iKunalChhabra/go-zod"
+```
+
 ## Quick start
 
 ```go
-import "github.com/iKunalChhabra/go-zod"
+import z "github.com/iKunalChhabra/go-zod"
 
-schema := zod.String().Min(5).Email()
+schema := z.String().Min(5).Email()
 
 s, err := schema.Parse("hi@example.com")
 if err != nil {
-    zerr := err.(*zod.ZodError)
-    fmt.Println(zod.Prettify(zerr))
+    zerr := err.(*z.ZodError)
+    fmt.Println(z.Prettify(zerr))
     // ✖ Too small: expected string to have >=5 characters
     //   → at
 }
@@ -67,17 +73,17 @@ if !res.Success {
 ### Objects, unions, recursion
 
 ```go
-var Category zod.AnySchemaLike
-Category = zod.Lazy(func() zod.AnySchemaLike {
-    return zod.Object(zod.Shape{
-        "name":     zod.String().Min(1),
-        "children": zod.Default(zod.Array(Category), []any{}),
+var Category z.AnySchemaLike
+Category = z.Lazy(func() z.AnySchemaLike {
+    return z.Object(z.Shape{
+        "name":     z.String().Min(1),
+        "children": z.Default(z.Array(Category), []any{}),
     })
 })
 
-userOrGuest := zod.DiscriminatedUnion("role", []zod.AnySchemaLike{
-    zod.Object(zod.Shape{"role": zod.Literal("admin"), "perms": zod.Array(zod.String())}),
-    zod.Object(zod.Shape{"role": zod.Literal("guest"), "session": zod.String().UUID()}),
+userOrGuest := z.DiscriminatedUnion("role", []z.AnySchemaLike{
+    z.Object(z.Shape{"role": z.Literal("admin"), "perms": z.Array(z.String())}),
+    z.Object(z.Shape{"role": z.Literal("guest"), "session": z.String().UUID()}),
 })
 ```
 
@@ -114,13 +120,13 @@ type User struct {
     Name  string `json:"name"`
     Email string `json:"email"`
 }
-parsed, err := zod.ToStruct[User](user).Parse(input)
+parsed, err := z.ToStruct[User](user).Parse(input)
 ```
 
 ### Parallel validation
 
 ```go
-out, err := zod.ParseParallelSlice(ctx, itemSchema, items, zod.ParallelOpts{})
+out, err := z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
 ```
 
 On 10k-element arrays this is ~2.5× faster than sequential on a 4-core machine — see [BENCHMARKS.md](./BENCHMARKS.md).
@@ -144,7 +150,7 @@ Schemas are immutable and lock-free — `b.RunParallel` / `-race` clean under co
 - **JSON model first.** Objects produce `map[string]any`, arrays `[]any`, and `Int()`/`Number()` output `float64`. Use `Int64()` for a typed `int64` edge, or `ToStruct[T]` for structs.
 - **`Missing` ≠ `nil`.** `Missing` is Zod's `undefined` (absent key); `nil` is JSON `null`. `Optional` accepts Missing; `Nullable` accepts nil.
 - **Object field order.** `Object(Shape)` reports issues in sorted key order (Go maps are unordered). Use `ObjectOrdered([]Field{...})` for definition order.
-- **Coercion.** `zod.Coerce.String()/Number()/Bool()/Time()` for query/form pipelines.
+- **Coercion.** `z.Coerce.String()/Number()/Bool()/Time()` for query/form pipelines.
 - **Parse context.** `ParseCtx.Context` threads `context.Context` into `SuperRefine` via `RefinementCtx.Context()`.
 
 ## Package map

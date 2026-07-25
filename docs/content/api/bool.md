@@ -1,9 +1,9 @@
 # Bool
 
-`zod.Bool()` ports `z.boolean()`. Output type is Go `bool`.
+`z.Bool()` ports `z.boolean()`. Output type is Go `bool`.
 
 ```go
-schema := zod.Bool()
+schema := z.Bool()
 
 schema.MustParse(true)
 schema.MustParse(false)
@@ -15,7 +15,7 @@ res := schema.SafeParse("true")
 
 ## Coercion table
 
-Enable with `zod.Params{Coerce: true}` or [`zod.Coerce.Bool()`](/api/coerce).
+Enable with `z.Params{Coerce: true}` or [`z.Coerce.Bool()`](/api/coerce).
 
 | Input | Coerced to |
 |-------|------------|
@@ -27,7 +27,7 @@ Enable with `zod.Params{Coerce: true}` or [`zod.Coerce.Bool()`](/api/coerce).
 | `"yes"`, `"no"`, `2`, `""`, other strings | **rejected** |
 
 ```go
-s := zod.Bool(zod.Params{Coerce: true})
+s := z.Bool(z.Params{Coerce: true})
 
 s.MustParse(true)
 s.MustParse("true")
@@ -45,7 +45,7 @@ _ = s.SafeParse(2)     // fail
 ## Custom messages
 
 ```go
-schema := zod.Bool("flag required")
+schema := z.Bool("flag required")
 res := schema.SafeParse("true")
 // Message: "flag required" (still wrong type without coerce)
 ```

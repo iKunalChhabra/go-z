@@ -6,39 +6,39 @@ go-zod ports Zod v4’s architecture and issue taxonomy. The biggest differences
 
 | TypeScript Zod | go-zod |
 |---|---|
-| `import { z } from "zod"` | `import "github.com/iKunalChhabra/go-zod"` as `zod` |
-| `z.string()` | `zod.String()` |
-| `z.number()` / `z.int()` | `zod.Number()` / `zod.Int()` |
-| `z.boolean()` | `zod.Bool()` |
-| `z.date()` | `zod.Time()` |
-| `z.bigint()` | `zod.BigInt()` |
-| `z.literal("x")` | `zod.Literal("x")` |
-| `z.enum(["a","b"])` | `zod.Enum("a", "b")` |
-| `z.object({ name: z.string() })` | `zod.Object(zod.Shape{"name": zod.String()})` |
-| `z.array(z.string())` | `zod.Array(zod.String())` |
-| `z.tuple([a,b])` | `zod.Tuple(a, b)` |
-| `z.record(z.string(), z.number())` | `zod.Record(zod.String(), zod.Number())` |
-| `z.union([a,b])` | `zod.Union([]zod.AnySchemaLike{a,b})` or `zod.UnionOf(a,b)` |
-| `z.discriminatedUnion("t", […])` | `zod.DiscriminatedUnion("t", []zod.AnySchemaLike{…})` |
-| `z.intersection(a,b)` | `zod.Intersection(a,b)` |
-| `z.lazy(() => …)` | `zod.Lazy(func() zod.AnySchemaLike { … })` |
-| `z.string().optional()` | `zod.Optional(zod.String())` |
-| `z.string().nullable()` | `zod.Nullable(zod.String())` |
-| `z.string().nullish()` | `zod.Nullish(zod.String())` |
-| `z.string().default("x")` | `zod.Default(zod.String(), "x")` |
-| `z.string().catch("x")` | `zod.Catch(zod.String(), "x")` |
-| `z.string().prefault("x")` | `zod.Prefault(zod.String(), "x")` |
-| `a.pipe(b)` | `zod.Pipe(a, b)` |
-| `.transform(fn)` | `zod.Transform` / `zod.TransformTo[T]` |
-| `z.preprocess(fn, s)` | `zod.Preprocess(fn, s)` |
-| `.refine(fn)` | `zod.Refine(schema, fn, …)` |
-| `.superRefine(fn)` | `zod.SuperRefine(schema, fn)` |
-| `z.custom<T>(fn)` | `zod.Custom(fn)` |
-| `z.coerce.string()` | `zod.Coerce.String()` |
+| `import { z } from "zod"` | `import z "github.com/iKunalChhabra/go-zod"` |
+| `z.string()` | `z.String()` |
+| `z.number()` / `z.int()` | `z.Number()` / `z.Int()` |
+| `z.boolean()` | `z.Bool()` |
+| `z.date()` | `z.Time()` |
+| `z.bigint()` | `z.BigInt()` |
+| `z.literal("x")` | `z.Literal("x")` |
+| `z.enum(["a","b"])` | `z.Enum("a", "b")` |
+| `z.object({ name: z.string() })` | `z.Object(z.Shape{"name": z.String()})` |
+| `z.array(z.string())` | `z.Array(z.String())` |
+| `z.tuple([a,b])` | `z.Tuple(a, b)` |
+| `z.record(z.string(), z.number())` | `z.Record(z.String(), z.Number())` |
+| `z.union([a,b])` | `z.Union([]z.AnySchemaLike{a,b})` or `z.UnionOf(a,b)` |
+| `z.discriminatedUnion("t", […])` | `z.DiscriminatedUnion("t", []z.AnySchemaLike{…})` |
+| `z.intersection(a,b)` | `z.Intersection(a,b)` |
+| `z.lazy(() => …)` | `z.Lazy(func() z.AnySchemaLike { … })` |
+| `z.string().optional()` | `z.Optional(z.String())` |
+| `z.string().nullable()` | `z.Nullable(z.String())` |
+| `z.string().nullish()` | `z.Nullish(z.String())` |
+| `z.string().default("x")` | `z.Default(z.String(), "x")` |
+| `z.string().catch("x")` | `z.Catch(z.String(), "x")` |
+| `z.string().prefault("x")` | `z.Prefault(z.String(), "x")` |
+| `a.pipe(b)` | `z.Pipe(a, b)` |
+| `.transform(fn)` | `z.Transform` / `z.TransformTo[T]` |
+| `z.preprocess(fn, s)` | `z.Preprocess(fn, s)` |
+| `.refine(fn)` | `z.Refine(schema, fn, …)` |
+| `.superRefine(fn)` | `z.SuperRefine(schema, fn)` |
+| `z.custom<T>(fn)` | `z.Custom(fn)` |
+| `z.coerce.string()` | `z.Coerce.String()` |
 | `schema.parse(data)` | `schema.Parse(data)` → `(T, error)` |
 | `schema.safeParse(data)` | `schema.SafeParse(data)` |
 | `z.infer<typeof schema>` | see below |
-| `flattenError` / `treeifyError` / `prettifyError` | `zod.Flatten` / `Treeify` / `Prettify` |
+| `flattenError` / `treeifyError` / `prettifyError` | `z.Flatten` / `Treeify` / `Prettify` |
 
 ## Wrappers are package functions
 
@@ -49,7 +49,7 @@ z.string().min(5).optional().default("x")
 
 ```go
 // Go — wrap outward
-zod.Default(zod.Optional(zod.String().Min(5)), "x")
+z.Default(z.Optional(z.String().Min(5)), "x")
 ```
 
 Go methods cannot introduce new type parameters, so `Optional`, `Default`, `Pipe`, `Transform`, `ToStruct`, etc. are top-level functions.
@@ -62,7 +62,7 @@ type User = z.infer<typeof UserSchema> // { name: string, … }
 
 ```go
 data, err := userSchema.Parse(input) // map[string]any
-user, err := zod.ToStruct[User](userSchema).Parse(input)
+user, err := z.ToStruct[User](userSchema).Parse(input)
 ```
 
 :::info z.infer limitations
@@ -75,7 +75,7 @@ Generics give you `Schema[T]` at the edges (`String` → `string`, `Object` → 
 
 | Zod / JSON | go-zod |
 |---|---|
-| `undefined` / omitted key | `zod.Missing` |
+| `undefined` / omitted key | `z.Missing` |
 | `null` | `nil` |
 
 `Optional` ≠ `Nullable`. See [Missing vs nil](#/guide/missing-nil).
@@ -91,7 +91,7 @@ try { schema.parse(x) } catch (e) {
 ```go
 _, err := schema.Parse(x)
 if err != nil {
-    zerr := err.(*zod.ZodError)
+    zerr := err.(*z.ZodError)
     _ = zerr.Issues // same codes / JSON fields as Zod v4
 }
 ```
