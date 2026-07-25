@@ -2,6 +2,7 @@ package z
 
 import (
 	"reflect"
+	"slices"
 	"time"
 )
 
@@ -34,20 +35,50 @@ func newIntersection(def *Def, left, right AnySchemaLike) *IntersectionSchema {
 }
 
 func makeIntersectionParse(def *Def, left, right AnySchemaLike) ParseFn {
+	// When both sides are plain objects the intersection's recognized shape is
+	// the union of theirs, resolved once here.
+	recognized := intersectionShapeUnion(left, right)
 	return func(p *Payload, ctx *ParseCtx) {
 		lp := AcquirePayload(p.Value)
 		rp := AcquirePayload(p.Value)
 		left.Internals().Run(lp, ctx)
 		right.Internals().Run(rp, ctx)
-		handleIntersectionResults(p, lp, rp, def)
+		handleIntersectionResults(p, lp, rp, def, recognized)
 		ReleasePayload(lp)
 		ReleasePayload(rp)
 	}
 }
 
-func handleIntersectionResults(result, left, right *Payload, def *Def) {
-	// Track unrecognized_keys reported by either side; only keys unrecognized
-	// by BOTH sides are re-emitted (intersection merge of strip/strict).
+// intersectionShapeUnion returns the union of both sides' keys when both sides
+// are object schemas, and nil otherwise. A key inside the union is recognized by
+// the intersection even though one side alone does not know it, which is what
+// makes intersecting two strict objects usable.
+func intersectionShapeUnion(left, right AnySchemaLike) map[string]struct{} {
+	lo, lok := left.(*ObjectSchema)
+	ro, rok := right.(*ObjectSchema)
+	if !lok || !rok {
+		return nil
+	}
+	union := make(map[string]struct{}, len(lo.shape)+len(ro.shape))
+	for k := range lo.shape {
+		union[k] = struct{}{}
+	}
+	for k := range ro.shape {
+		union[k] = struct{}{}
+	}
+	return union
+}
+
+// handleIntersectionResults merges both sides' issues and values.
+//
+// Unrecognized keys need care. Each side only knows its own shape, so a strict
+// object inside an intersection reports the other side's keys as unrecognized
+// even though the intersection accepts them. When both sides are objects, the
+// intersection's recognized set is the union of their shapes and only keys
+// outside that union are reported — so `Intersection(Strict{a}, Loose{b})` still
+// rejects an unknown `c`. When a side is not a plain object its shape is unknown,
+// and the fallback is to report only keys both sides flagged.
+func handleIntersectionResults(result, left, right *Payload, def *Def, recognized map[string]struct{}) {
 	type flags struct{ l, r bool }
 	unrecKeys := map[string]*flags{}
 	var unrecIssue *Issue
@@ -89,15 +120,22 @@ func handleIntersectionResults(result, left, right *Payload, def *Def) {
 		result.Issues = append(result.Issues, iss)
 	}
 
-	both := make([]string, 0)
+	report := make([]string, 0, len(unrecKeys))
 	for k, f := range unrecKeys {
+		if recognized != nil {
+			if _, ok := recognized[k]; !ok {
+				report = append(report, k)
+			}
+			continue
+		}
 		if f.l && f.r {
-			both = append(both, k)
+			report = append(report, k)
 		}
 	}
-	if len(both) > 0 && unrecIssue != nil {
+	if len(report) > 0 && unrecIssue != nil {
+		slices.Sort(report)
 		iss := *unrecIssue
-		iss.Keys = both
+		iss.Keys = report
 		result.Issues = append(result.Issues, iss)
 	}
 

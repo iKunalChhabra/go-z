@@ -9,6 +9,7 @@ var ptSizable = map[string]localeSizing{
 	"file":   {"bytes", "ter"},
 	"array":  {"itens", "ter"},
 	"set":    {"itens", "ter"},
+	"map":    {"entradas", "ter"},
 }
 
 var ptFormatDictionary = map[string]string{
@@ -31,6 +32,7 @@ var ptFormatDictionary = map[string]string{
 	"time":             "hora ISO",
 	"duration":         "duração ISO",
 	"ipv4":             "endereço IPv4",
+	"mac":              "endereço MAC",
 	"ipv6":             "endereço IPv6",
 	"cidrv4":           "faixa de IPv4",
 	"cidrv6":           "faixa de IPv6",

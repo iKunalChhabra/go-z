@@ -244,3 +244,71 @@ func TestToDotPath(t *testing.T) {
 		}
 	}
 }
+
+// A path index is a slot in a slice, so reaching a huge one used to allocate one
+// pointer per skipped index. An index that cannot be dense — there are not enough
+// issues to fill it — is recorded as a property instead.
+func TestTreeifyBoundsSparseIndexAllocation(t *testing.T) {
+	err := &Error{Issues: []Issue{{
+		Code:    IssueCustom,
+		Path:    []any{"items", 1 << 40},
+		Message: "far out",
+	}}}
+
+	tree := Treeify(err)
+	items := tree.Properties["items"]
+	if items == nil {
+		t.Fatal("missing items node")
+	}
+	if len(items.Items) != 0 {
+		t.Fatalf("Items was grown to %d entries", len(items.Items))
+	}
+	node := items.Properties["1099511627776"]
+	if node == nil || len(node.Errors) != 1 || node.Errors[0] != "far out" {
+		t.Fatalf("issue was lost: %#v", items.Properties)
+	}
+}
+
+// Indices that can be dense still land in Items.
+func TestTreeifyKeepsRealisticIndicesInItems(t *testing.T) {
+	err := &Error{Issues: []Issue{
+		{Code: IssueCustom, Path: []any{"tags", 0}, Message: "first"},
+		{Code: IssueCustom, Path: []any{"tags", 3}, Message: "fourth"},
+	}}
+	tree := Treeify(err)
+	tags := tree.Properties["tags"]
+	if tags == nil || len(tags.Items) != 4 {
+		t.Fatalf("Items = %#v", tags)
+	}
+	if tags.Items[0].Errors[0] != "first" || tags.Items[3].Errors[0] != "fourth" {
+		t.Fatalf("wrong placement: %#v", tags.Items)
+	}
+	if tags.Items[1] != nil || tags.Items[2] != nil {
+		t.Error("gaps should stay nil")
+	}
+}
+
+// TreeifyMap shares its implementation with Treeify, so a mapper sees the same
+// structure with its own leaf type.
+func TestTreeifyMapStructureMatchesTreeify(t *testing.T) {
+	res := Object(Shape{
+		"name": String().Min(3),
+		"tags": Array(String()).Min(2),
+	}).SafeParse(map[string]any{"name": "ab", "tags": []any{"x"}})
+	if res.Success {
+		t.Fatal("expected failures")
+	}
+
+	codes := TreeifyMap(res.Error, func(iss Issue) IssueCode { return iss.Code })
+	strings := Treeify(res.Error)
+
+	if len(codes.Properties) != len(strings.Properties) {
+		t.Fatalf("shape differs: %d vs %d", len(codes.Properties), len(strings.Properties))
+	}
+	if got := codes.Properties["name"].Errors; len(got) != 1 || got[0] != IssueTooSmall {
+		t.Fatalf("name errors = %#v", got)
+	}
+	if got := strings.Properties["name"].Errors; len(got) != 1 || got[0] == "" {
+		t.Fatalf("name messages = %#v", got)
+	}
+}

@@ -9,6 +9,7 @@ var zhSizable = map[string]localeSizing{
 	"file":   {"字节", "包含"},
 	"array":  {"项", "包含"},
 	"set":    {"项", "包含"},
+	"map":    {"项", "包含"},
 }
 
 var zhFormatDictionary = map[string]string{
@@ -31,6 +32,7 @@ var zhFormatDictionary = map[string]string{
 	"time":             "ISO时间",
 	"duration":         "ISO时长",
 	"ipv4":             "IPv4地址",
+	"mac":              "MAC地址",
 	"ipv6":             "IPv6地址",
 	"cidrv4":           "IPv4网段",
 	"cidrv6":           "IPv6网段",

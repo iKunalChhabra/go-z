@@ -1,6 +1,8 @@
 package z
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -104,5 +106,37 @@ func TestGlobalRegistryDistinctSchemas(t *testing.T) {
 	}
 	if GetDescription(a2) != "only a2" {
 		t.Fatal("a2 description missing")
+	}
+}
+
+// Describe and Meta used to read with Get and write with Add, so two goroutines
+// could read the same metadata and each discard the other's field.
+func TestConcurrentMetadataMergesDoNotLoseFields(t *testing.T) {
+	schema := String()
+	const n = 50
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			Meta(schema, map[string]any{fmt.Sprintf("key%d", i): i})
+		})
+	}
+	wg.Go(func() { Describe(schema, "described") })
+	wg.Wait()
+
+	meta, ok := GlobalRegistry.Get(schema)
+	if !ok {
+		t.Fatal("no metadata registered")
+	}
+	missing := 0
+	for i := range n {
+		if _, ok := meta[fmt.Sprintf("key%d", i)]; !ok {
+			missing++
+		}
+	}
+	if missing > 0 {
+		t.Errorf("%d of %d merged fields were lost", missing, n)
+	}
+	if meta["description"] != "described" {
+		t.Errorf("description = %#v", meta["description"])
 	}
 }

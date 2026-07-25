@@ -16,7 +16,11 @@ const (
 
 // ToJSONSchemaOpts configures ToJSONSchema (subset of toJSONSchema params).
 type ToJSONSchemaOpts struct {
-	// Target defaults to draft-2020-12.
+	// Target defaults to draft-2020-12. Older dialects are produced by
+	// rewriting the 2020-12 document: draft-07 gets the array form of tuple
+	// items, and openapi-3.0 gets nullable, single-value enums and boolean
+	// exclusive bounds. Constructs the target cannot express (a tuple or a
+	// bare null in OpenAPI 3.0) follow the Unrepresentable policy.
 	Target JSONSchemaTarget
 	// Metadata registry for id/title/description (defaults to GlobalRegistry).
 	Metadata *Registry[map[string]any]
@@ -47,6 +51,10 @@ func ToJSONSchema(schema AnySchemaLike, opts ...ToJSONSchemaOpts) (map[string]an
 	}
 	seen := map[*Internals]bool{}
 	out, err := emitJSONSchema(schema, o, seen)
+	if err != nil {
+		return nil, err
+	}
+	out, err = applyDialect(out, o)
 	if err != nil {
 		return nil, err
 	}

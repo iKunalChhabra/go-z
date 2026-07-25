@@ -40,9 +40,15 @@ func (r *Registry[M]) Add(schema AnySchemaLike, meta M) *Registry[M] {
 	if schema == nil {
 		return r
 	}
-	in := schema.Internals()
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.addLocked(schema, meta)
+	return r
+}
+
+// addLocked stores meta for schema. The caller holds the write lock.
+func (r *Registry[M]) addLocked(schema AnySchemaLike, meta M) {
+	in := schema.Internals()
 	if prev, ok := r.meta[in]; ok {
 		if id, ok := extractMetaID(prev); ok {
 			if existing, exists := r.idmap[id]; exists && existing.Internals() == in {
@@ -54,7 +60,20 @@ func (r *Registry[M]) Add(schema AnySchemaLike, meta M) *Registry[M] {
 	if id, ok := extractMetaID(meta); ok {
 		r.idmap[id] = schema
 	}
-	return r
+}
+
+// mergeMeta applies fn to a copy of schema's metadata while holding the write
+// lock. Reading with Get and then writing with Add would let two concurrent
+// Describe or Meta calls read the same metadata and discard each other's change.
+func mergeMeta(r *Registry[map[string]any], schema AnySchemaLike, fn func(meta map[string]any)) {
+	if r == nil || schema == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	merged := copyStringAnyMap(r.meta[schema.Internals()])
+	fn(merged)
+	r.addLocked(schema, merged)
 }
 
 // Get returns the metadata for schema, if registered.
@@ -120,12 +139,9 @@ func Describe(schema AnySchemaLike, description string) AnySchemaLike {
 	if schema == nil {
 		return nil
 	}
-	meta := copyStringAnyMap(nil)
-	if existing, ok := GlobalRegistry.Get(schema); ok {
-		meta = copyStringAnyMap(existing)
-	}
-	meta["description"] = description
-	GlobalRegistry.Add(schema, meta)
+	mergeMeta(GlobalRegistry, schema, func(meta map[string]any) {
+		meta["description"] = description
+	})
 	return schema
 }
 
@@ -135,14 +151,11 @@ func Meta(schema AnySchemaLike, meta map[string]any) AnySchemaLike {
 	if schema == nil {
 		return nil
 	}
-	merged := copyStringAnyMap(nil)
-	if existing, ok := GlobalRegistry.Get(schema); ok {
-		merged = copyStringAnyMap(existing)
-	}
-	for k, v := range meta {
-		merged[k] = v
-	}
-	GlobalRegistry.Add(schema, merged)
+	mergeMeta(GlobalRegistry, schema, func(merged map[string]any) {
+		for k, v := range meta {
+			merged[k] = v
+		}
+	})
 	return schema
 }
 

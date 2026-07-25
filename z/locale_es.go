@@ -14,6 +14,7 @@ var esSizable = map[string]localeSizing{
 	"file":   {"bytes", "tener"},
 	"array":  {"elementos", "tener"},
 	"set":    {"elementos", "tener"},
+	"map":    {"entradas", "tener"},
 }
 
 var esFormatDictionary = map[string]string{
@@ -36,6 +37,7 @@ var esFormatDictionary = map[string]string{
 	"time":             "hora ISO",
 	"duration":         "duración ISO",
 	"ipv4":             "dirección IPv4",
+	"mac":              "dirección MAC",
 	"ipv6":             "dirección IPv6",
 	"cidrv4":           "rango IPv4",
 	"cidrv6":           "rango IPv6",

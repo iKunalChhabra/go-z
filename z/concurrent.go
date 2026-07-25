@@ -75,6 +75,7 @@ func (s Shared[T]) ParseAll(ctx context.Context, inputs []any, workers int) (out
 // outs/errs matches inputs. Safe with a single shared schema — no per-call
 // cloning is required.
 func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any, workers int) ([]T, []error, error) {
+	const op = "ConcurrentBatch"
 	n := len(inputs)
 	outs := make([]T, n)
 	errs := make([]error, n)
@@ -93,16 +94,21 @@ func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any,
 
 	jobs := make(chan int, n)
 	var wg sync.WaitGroup
+	var panics panicRecord
 	for range workers {
 		wg.Go(func() {
 			for i := range jobs {
+				if panics.stop() {
+					return
+				}
 				if ctx.Err() != nil {
 					errs[i] = ctx.Err()
 					continue
 				}
-				v, e := schema.Parse(inputs[i])
-				outs[i] = v
-				errs[i] = e
+				func() {
+					defer panics.capture(i)
+					outs[i], errs[i] = schema.Parse(inputs[i])
+				}()
 			}
 		})
 	}
@@ -111,12 +117,14 @@ func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any,
 		case <-ctx.Done():
 			close(jobs)
 			wg.Wait()
+			panics.rethrow(op)
 			return outs, errs, ctx.Err()
 		case jobs <- i:
 		}
 	}
 	close(jobs)
 	wg.Wait()
+	panics.rethrow(op)
 	if err := ctx.Err(); err != nil {
 		return outs, errs, err
 	}
@@ -133,6 +141,7 @@ func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any,
 // ConcurrentParseAny is like ConcurrentBatch for type-erased AnySchemaLike
 // schemas (Object, Union, …). Outputs are []any.
 func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any, workers int) ([]any, []error, error) {
+	const op = "ConcurrentParseAny"
 	n := len(inputs)
 	outs := make([]any, n)
 	errs := make([]error, n)
@@ -155,16 +164,21 @@ func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any,
 	in := schema.Internals()
 	jobs := make(chan int, n)
 	var wg sync.WaitGroup
+	var panics panicRecord
 	for range workers {
 		wg.Go(func() {
 			for i := range jobs {
+				if panics.stop() {
+					return
+				}
 				if ctx.Err() != nil {
 					errs[i] = ctx.Err()
 					continue
 				}
-				v, e := parseTyped[any](in, inputs[i], nil)
-				outs[i] = v
-				errs[i] = e
+				func() {
+					defer panics.capture(i)
+					outs[i], errs[i] = parseTyped[any](in, inputs[i], nil)
+				}()
 			}
 		})
 	}
@@ -173,12 +187,14 @@ func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any,
 		case <-ctx.Done():
 			close(jobs)
 			wg.Wait()
+			panics.rethrow(op)
 			return outs, errs, ctx.Err()
 		case jobs <- i:
 		}
 	}
 	close(jobs)
 	wg.Wait()
+	panics.rethrow(op)
 	if err := ctx.Err(); err != nil {
 		return outs, errs, err
 	}

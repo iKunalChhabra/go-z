@@ -9,6 +9,7 @@ var deSizable = map[string]localeSizing{
 	"file":   {"Bytes", "zu haben"},
 	"array":  {"Elemente", "zu haben"},
 	"set":    {"Elemente", "zu haben"},
+	"map":    {"Einträge", "zu haben"},
 }
 
 var deFormatDictionary = map[string]string{
@@ -31,6 +32,7 @@ var deFormatDictionary = map[string]string{
 	"time":             "ISO-Uhrzeit",
 	"duration":         "ISO-Dauer",
 	"ipv4":             "IPv4-Adresse",
+	"mac":              "MAC-Adresse",
 	"ipv6":             "IPv6-Adresse",
 	"cidrv4":           "IPv4-Bereich",
 	"cidrv6":           "IPv6-Bereich",

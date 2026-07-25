@@ -171,3 +171,47 @@ func TestIntersectionSamePrimitive(t *testing.T) {
 		t.Fatalf("got %v, %v", got, err)
 	}
 }
+
+// Each side of an intersection only knows its own shape, so a strict object
+// flags the other side's keys. The intersection's recognized set is the union of
+// both shapes, which keeps two strict objects usable without letting a key that
+// neither side declares slip through a strict side.
+func TestIntersectionUnrecognizedKeys(t *testing.T) {
+	l := Object(Shape{"a": String()}).Strict()
+	r := Object(Shape{"b": String()}).Strict()
+	both := Intersection(l, r)
+
+	if _, err := both.Parse(map[string]any{"a": "x", "b": "y"}); err != nil {
+		t.Fatalf("keys declared by either side must be accepted: %v", err)
+	}
+
+	res := both.SafeParse(map[string]any{"a": "x", "b": "y", "c": "z"})
+	if res.Success {
+		t.Fatal("a key neither side declares must be rejected")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueUnrecognizedKeys || len(iss.Keys) != 1 || iss.Keys[0] != "c" {
+		t.Fatalf("got %+v", iss)
+	}
+
+	// A strict side still rejects unknown keys when the other side is loose:
+	// the loose side never flags them, so the "both sides flagged it" rule alone
+	// would have accepted this.
+	mixed := Intersection(Object(Shape{"a": String()}).Strict(), Object(Shape{"b": String()}).Loose())
+	if mixed.SafeParse(map[string]any{"a": "x", "b": "y", "c": "z"}).Success {
+		t.Fatal("the strict side must still reject an undeclared key")
+	}
+	if _, err := mixed.Parse(map[string]any{"a": "x", "b": "y"}); err != nil {
+		t.Fatalf("declared keys must pass: %v", err)
+	}
+
+	// Non-object sides have no shape to union, so the fallback applies: only
+	// keys both sides flag are reported.
+	withUnion := Intersection(
+		UnionOf(Object(Shape{"a": String()}).Strict(), Object(Shape{"a": String(), "b": String()}).Strict()),
+		Object(Shape{"b": String()}).Strict(),
+	)
+	if _, err := withUnion.Parse(map[string]any{"a": "x", "b": "y"}); err != nil {
+		t.Fatalf("union side: %v", err)
+	}
+}

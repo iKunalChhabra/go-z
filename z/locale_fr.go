@@ -9,6 +9,7 @@ var frSizable = map[string]localeSizing{
 	"file":   {"octets", "avoir"},
 	"array":  {"éléments", "avoir"},
 	"set":    {"éléments", "avoir"},
+	"map":    {"entrées", "avoir"},
 }
 
 var frFormatDictionary = map[string]string{
@@ -31,6 +32,7 @@ var frFormatDictionary = map[string]string{
 	"time":             "heure ISO",
 	"duration":         "durée ISO",
 	"ipv4":             "adresse IPv4",
+	"mac":              "adresse MAC",
 	"ipv6":             "adresse IPv6",
 	"cidrv4":           "plage IPv4",
 	"cidrv6":           "plage IPv6",

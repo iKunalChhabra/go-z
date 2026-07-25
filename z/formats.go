@@ -9,7 +9,7 @@ import (
 
 // FormatEmail attaches email format check.
 func FormatEmail(params ...any) *Check {
-	return stringFormatFn("email", patternEmail, isEmail, params...)
+	return stringFormatFn("email", patternEmail, reEmailBody, isEmail, params...)
 }
 
 // FormatURL attaches URL format check (trims; optionally normalizes).
@@ -222,7 +222,7 @@ func customStringFormat(name string, matcher any, params ...any) *Check {
 	case *regexp.Regexp:
 		return stringFormatPattern(name, m, jsPattern(m), params...)
 	case func(string) bool:
-		return stringFormatFn(name, "", m, params...)
+		return stringFormatFn(name, "", nil, m, params...)
 	default:
 		panic(fmt.Sprintf("go-z: StringFormat matcher must be *regexp.Regexp or func(string) bool, got %T", matcher))
 	}
@@ -230,7 +230,7 @@ func customStringFormat(name string, matcher any, params ...any) *Check {
 
 // FormatHostname attaches hostname format check.
 func FormatHostname(params ...any) *Check {
-	return stringFormatFn("hostname", patternHostname, isHostname, params...)
+	return stringFormatFn("hostname", patternHostname, reHostnameBody, isHostname, params...)
 }
 
 var hashHexLengths = map[string]int{
@@ -254,33 +254,33 @@ func FormatHash(alg string, params ...any) *Check {
 
 // FormatUUID attaches uuid format check (all versions).
 func FormatUUID(params ...any) *Check {
-	return stringFormatFn("uuid", jsPattern(reUUID), isUUID, params...)
+	return stringFormatFn("uuid", jsPattern(reUUID), reUUID, isUUID, params...)
 }
 
 // FormatUUIDv4 attaches uuid version 4 (issue format remains "uuid").
 func FormatUUIDv4(params ...any) *Check {
-	return stringFormatFn("uuid", jsPattern(reUUIDv4), func(s string) bool {
+	return stringFormatFn("uuid", jsPattern(reUUIDv4), reUUIDv4, func(s string) bool {
 		return isUUIDVersion(s, '4')
 	}, params...)
 }
 
 // FormatUUIDv6 attaches uuid version 6.
 func FormatUUIDv6(params ...any) *Check {
-	return stringFormatFn("uuid", jsPattern(reUUIDv6), func(s string) bool {
+	return stringFormatFn("uuid", jsPattern(reUUIDv6), reUUIDv6, func(s string) bool {
 		return isUUIDVersion(s, '6')
 	}, params...)
 }
 
 // FormatUUIDv7 attaches uuid version 7.
 func FormatUUIDv7(params ...any) *Check {
-	return stringFormatFn("uuid", jsPattern(reUUIDv7), func(s string) bool {
+	return stringFormatFn("uuid", jsPattern(reUUIDv7), reUUIDv7, func(s string) bool {
 		return isUUIDVersion(s, '7')
 	}, params...)
 }
 
 // FormatGUID attaches guid format check.
 func FormatGUID(params ...any) *Check {
-	return stringFormatFn("guid", jsPattern(reGUID), isGUID, params...)
+	return stringFormatFn("guid", jsPattern(reGUID), reGUID, isGUID, params...)
 }
 
 // FormatNanoID attaches nanoid format check.
@@ -430,12 +430,12 @@ func FormatE164(params ...any) *Check {
 
 // FormatEmoji attaches emoji format check.
 func FormatEmoji(params ...any) *Check {
-	return stringFormatFn("emoji", patternEmoji, isEmoji, params...)
+	return stringFormatFn("emoji", patternEmoji, nil, isEmoji, params...)
 }
 
 // FormatIPv4 attaches ipv4 format check.
 func FormatIPv4(params ...any) *Check {
-	return stringFormatFn("ipv4", jsPattern(reIPv4), isIPv4, params...)
+	return stringFormatFn("ipv4", jsPattern(reIPv4), reIPv4, isIPv4, params...)
 }
 
 // FormatIPv6 attaches an ipv6 format check (URL-based).
@@ -533,7 +533,7 @@ func FormatMAC(params ...any) *Check {
 
 // FormatISODate attaches ISO date format check.
 func FormatISODate(params ...any) *Check {
-	return stringFormatFn("date", jsPattern(reDate), isISODate, params...)
+	return stringFormatFn("date", jsPattern(reDate), reDate, isISODate, params...)
 }
 
 // ISOTimeOpts customizes time precision (nil = default).
@@ -556,7 +556,7 @@ func FormatISOTime(params ...any) *Check {
 	var ch *Check
 	if precision == nil {
 		// Default precision is the common case and has a fast matcher.
-		ch = stringFormatFn("time", jsPattern(re), isISOTimeDefault)
+		ch = stringFormatFn("time", jsPattern(re), re, isISOTimeDefault)
 	} else {
 		ch = stringFormatPattern("time", re, jsPattern(re))
 	}
@@ -588,7 +588,7 @@ func FormatISODateTime(params ...any) *Check {
 	var ch *Check
 	if precision == nil && !offset && !local {
 		// Default settings are the common case and have a fast matcher.
-		ch = stringFormatFn("datetime", jsPattern(re), isISODateTimeDefault)
+		ch = stringFormatFn("datetime", jsPattern(re), re, isISODateTimeDefault)
 	} else {
 		ch = stringFormatPattern("datetime", re, jsPattern(re))
 	}
@@ -599,5 +599,5 @@ func FormatISODateTime(params ...any) *Check {
 
 // FormatISODuration attaches ISO duration format check.
 func FormatISODuration(params ...any) *Check {
-	return stringFormatFn("duration", patternDuration, isISODuration, params...)
+	return stringFormatFn("duration", patternDuration, nil, isISODuration, params...)
 }

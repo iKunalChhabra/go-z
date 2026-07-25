@@ -120,3 +120,83 @@ func TestDecodeStructJSONTagSkip(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+// ToStruct claims to honour json tags, and encoding/json promotes the fields of
+// an embedded struct to the outer level. It used to skip them, so an embedded
+// field silently stayed at its zero value.
+func TestToStructPromotesEmbeddedFields(t *testing.T) {
+	type Timestamps struct {
+		CreatedAt string `json:"created_at"`
+		UpdatedAt string `json:"updated_at"`
+	}
+	type Identity struct {
+		ID string `json:"id"`
+	}
+	type User struct {
+		Identity
+		Timestamps
+		Name string `json:"name"`
+	}
+
+	schema := z.ToStruct[User](z.Object(z.Shape{
+		"id":         z.String(),
+		"name":       z.String(),
+		"created_at": z.String(),
+		"updated_at": z.String(),
+	}))
+
+	got, err := schema.Parse(map[string]any{
+		"id":         "u_1",
+		"name":       "Ada",
+		"created_at": "2026-01-01T00:00:00Z",
+		"updated_at": "2026-01-02T00:00:00Z",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "u_1" || got.Name != "Ada" {
+		t.Fatalf("got %+v", got)
+	}
+	if got.CreatedAt != "2026-01-01T00:00:00Z" || got.UpdatedAt != "2026-01-02T00:00:00Z" {
+		t.Fatalf("embedded fields not populated: %+v", got)
+	}
+}
+
+// A field declared on the outer struct wins over a promoted one, and an embedded
+// struct with a json tag stays a nested object.
+func TestToStructEmbeddedPrecedence(t *testing.T) {
+	type Base struct {
+		Name string `json:"name"`
+		Kind string `json:"kind"`
+	}
+	type Outer struct {
+		Base
+		Name string `json:"name"` // shadows Base.Name
+	}
+	out, err := z.ToStruct[Outer](z.Object(z.Shape{
+		"name": z.String(),
+		"kind": z.String(),
+	})).Parse(map[string]any{"name": "outer", "kind": "k"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Name != "outer" || out.Base.Name != "" {
+		t.Fatalf("shallower field must win: %+v", out)
+	}
+	if out.Kind != "k" {
+		t.Fatalf("other promoted fields still decode: %+v", out)
+	}
+
+	type Tagged struct {
+		Base `json:"base"`
+	}
+	tagged, err := z.ToStruct[Tagged](z.Object(z.Shape{
+		"base": z.Object(z.Shape{"name": z.String(), "kind": z.String()}),
+	})).Parse(map[string]any{"base": map[string]any{"name": "n", "kind": "k"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tagged.Base.Name != "n" {
+		t.Fatalf("a tagged embed is a nested object: %+v", tagged)
+	}
+}

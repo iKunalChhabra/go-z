@@ -21,6 +21,22 @@ const (
 	IssueCustom           IssueCode = "custom"
 )
 
+// AllIssueCodes is every issue code, in taxonomy order. Useful for exhaustive
+// switches over the taxonomy and for locale coverage checks.
+var AllIssueCodes = []IssueCode{
+	IssueInvalidType,
+	IssueTooBig,
+	IssueTooSmall,
+	IssueInvalidFormat,
+	IssueNotMultipleOf,
+	IssueUnrecognizedKeys,
+	IssueInvalidUnion,
+	IssueInvalidKey,
+	IssueInvalidElement,
+	IssueInvalidValue,
+	IssueCustom,
+}
+
 // continueMode mirrors tri-state `continue` flag on raw issues:
 // unset ⇒ issue aborts subsequent checks, true ⇒ checks continue,
 // false ⇒ explicit abort (respected even by `when`-gated checks).

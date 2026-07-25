@@ -5,19 +5,12 @@ import (
 	"reflect"
 	"sync"
 	"time"
-	"unsafe"
 )
 
-// toStructCache keys cached decode plans by (schema Internals pointer, target type).
-type toStructCacheKey struct {
-	in  uintptr
-	typ reflect.Type
-}
-
-var (
-	toStructPlans sync.Map // toStructCacheKey → *structPlan
-	decodePlans   sync.Map // reflect.Type → *structPlan
-)
+// decodePlans caches decode plans. A plan depends only on the target type, so
+// the type is the whole key: keying it by schema as well would add an entry per
+// schema instance and never release one.
+var decodePlans sync.Map // reflect.Type → *structPlan
 
 // structPlan is a build-once reflection plan for decoding map[string]any → T.
 // Hot-path decode walks this plan only — no per-parse type walks.
@@ -41,8 +34,8 @@ type fieldPlan struct {
 }
 
 // ToStruct wraps schema (expecting map[string]any output) and decodes into T
-// using a cached reflection plan keyed by (schema Internals pointer, typeof(T)).
-// Honors `json` struct tags.
+// using a reflection plan cached per target type. Honors `json` struct tags,
+// including promotion of embedded struct fields.
 func ToStruct[T any](schema AnySchemaLike) Schema[T] {
 	if schema == nil {
 		panic("go-z: ToStruct: schema is nil")
@@ -60,19 +53,8 @@ func ToStruct[T any](schema AnySchemaLike) Schema[T] {
 		panic(fmt.Sprintf("go-z: ToStruct: T must be a struct, got %s", typ.Kind()))
 	}
 
-	in := schema.Internals()
-	key := toStructCacheKey{in: uintptr(unsafe.Pointer(in)), typ: typ}
-	planAny, ok := toStructPlans.Load(key)
-	var plan *structPlan
-	if ok {
-		plan = planAny.(*structPlan)
-	} else {
-		plan = buildStructPlan(typ)
-		toStructPlans.Store(key, plan)
-		decodePlans.LoadOrStore(typ, plan)
-	}
-
-	innerIn := in
+	plan := planFor(typ)
+	innerIn := schema.Internals()
 	s := &toStructSchema[T]{inner: schema, plan: plan}
 	parse := func(p *Payload, ctx *ParseCtx) {
 		RunSelf(innerIn, p, ctx)
@@ -135,6 +117,16 @@ func DecodeStruct[T any](data map[string]any) (T, error) {
 	return decodeWithPlan[T](plan, data)
 }
 
+// planFor returns the cached decode plan for typ, building it once.
+func planFor(typ reflect.Type) *structPlan {
+	if plan, ok := decodePlans.Load(typ); ok {
+		return plan.(*structPlan)
+	}
+	plan := buildStructPlan(typ)
+	actual, _ := decodePlans.LoadOrStore(typ, plan)
+	return actual.(*structPlan)
+}
+
 func buildStructPlan(typ reflect.Type) *structPlan {
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
@@ -142,45 +134,90 @@ func buildStructPlan(typ reflect.Type) *structPlan {
 	plan := &structPlan{typ: typ}
 	n := typ.NumField()
 	plan.fields = make([]fieldPlan, 0, n)
-	for i := 0; i < n; i++ {
+	seen := make(map[string]bool, n)
+
+	// Direct fields first: a field at this level wins over one promoted from an
+	// embedded struct, the way encoding/json resolves the same conflict.
+	var embedded []reflect.StructField
+	for i := range n {
 		sf := typ.Field(i)
 		if sf.PkgPath != "" && !sf.Anonymous {
 			continue // unexported
 		}
-		name, omit, skip := parseJSONTag(sf.Tag.Get("json"), sf.Name)
-		if skip {
+		if isPromotableEmbed(sf) {
+			embedded = append(embedded, sf)
 			continue
 		}
-		fp := fieldPlan{
-			jsonName:  name,
-			index:     sf.Index,
-			typ:       sf.Type,
-			omitEmpty: omit,
+		name, omit, skip := parseJSONTag(sf.Tag.Get("json"), sf.Name)
+		if skip || seen[name] {
+			continue
 		}
-		t := sf.Type
-		if t.Kind() == reflect.Ptr {
-			fp.isPtr = true
-			t = t.Elem()
+		seen[name] = true
+		plan.fields = append(plan.fields, buildFieldPlan(sf, name, omit))
+	}
+
+	// Then the fields of embedded structs, flattened into this level.
+	for _, sf := range embedded {
+		et := sf.Type
+		if et.Kind() == reflect.Ptr {
+			et = et.Elem()
 		}
-		fp.kind = t.Kind()
-		switch t.Kind() {
-		case reflect.Struct:
-			if t != reflect.TypeOf(time.Time{}) {
-				fp.nested = buildStructPlan(t)
+		for _, ef := range buildStructPlan(et).fields {
+			if seen[ef.jsonName] {
+				continue
 			}
-		case reflect.Slice, reflect.Array:
-			fp.isSlice = true
-			et := t.Elem()
-			if et.Kind() == reflect.Ptr {
-				et = et.Elem()
-			}
-			if et.Kind() == reflect.Struct && et != reflect.TypeOf(time.Time{}) {
-				fp.elem = buildStructPlan(et)
-			}
+			seen[ef.jsonName] = true
+			promoted := ef
+			promoted.index = append(append(make([]int, 0, len(sf.Index)+len(ef.index)), sf.Index...), ef.index...)
+			plan.fields = append(plan.fields, promoted)
 		}
-		plan.fields = append(plan.fields, fp)
 	}
 	return plan
+}
+
+// isPromotableEmbed reports whether sf is an embedded struct whose fields belong
+// at the parent level. An embedded field with a json tag is a named field like
+// any other, and time.Time is a value, not a shape to flatten.
+func isPromotableEmbed(sf reflect.StructField) bool {
+	if !sf.Anonymous || sf.Tag.Get("json") != "" {
+		return false
+	}
+	t := sf.Type
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.Kind() == reflect.Struct && t != reflect.TypeOf(time.Time{})
+}
+
+func buildFieldPlan(sf reflect.StructField, name string, omitEmpty bool) fieldPlan {
+	fp := fieldPlan{
+		jsonName:  name,
+		index:     sf.Index,
+		typ:       sf.Type,
+		omitEmpty: omitEmpty,
+	}
+	t := sf.Type
+	if t.Kind() == reflect.Ptr {
+		fp.isPtr = true
+		t = t.Elem()
+	}
+	fp.kind = t.Kind()
+	switch t.Kind() {
+	case reflect.Struct:
+		if t != reflect.TypeOf(time.Time{}) {
+			fp.nested = buildStructPlan(t)
+		}
+	case reflect.Slice, reflect.Array:
+		fp.isSlice = true
+		et := t.Elem()
+		if et.Kind() == reflect.Ptr {
+			et = et.Elem()
+		}
+		if et.Kind() == reflect.Struct && et != reflect.TypeOf(time.Time{}) {
+			fp.elem = buildStructPlan(et)
+		}
+	}
+	return fp
 }
 
 func parseJSONTag(tag, fieldName string) (name string, omitEmpty bool, skip bool) {

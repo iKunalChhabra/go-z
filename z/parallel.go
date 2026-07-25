@@ -124,14 +124,21 @@ func parseSliceParallel(ctx context.Context, child *Internals, data []any, opts 
 	close(jobsCh)
 
 	var wg sync.WaitGroup
+	var panics panicRecord
 	for range workers {
 		wg.Go(func() {
 			for j := range jobsCh {
-				results[j.id] = runParallelChunk(ctx, child, data, j)
+				if panics.stop() {
+					return
+				}
+				results[j.id] = runParallelChunk(ctx, child, data, j, &panics)
 			}
 		})
 	}
 	wg.Wait()
+	// A panicking Refine or Transform would otherwise kill the process from a
+	// goroutine the caller cannot recover in; raise it here instead.
+	panics.rethrow("ParseParallelSlice")
 
 	out := make([]any, n)
 	var issues []Issue
@@ -149,20 +156,28 @@ func parseSliceParallel(ctx context.Context, child *Internals, data []any, opts 
 	return out, nil
 }
 
-func runParallelChunk(ctx context.Context, child *Internals, data []any, j parallelJob) parallelChunk {
+func runParallelChunk(ctx context.Context, child *Internals, data []any, j parallelJob, panics *panicRecord) parallelChunk {
 	values := make([]any, j.end-j.start)
 	var issues []Issue
 	for i := j.start; i < j.end; i++ {
 		if err := ctx.Err(); err != nil {
 			return parallelChunk{start: j.start, values: values, issues: issues, err: err}
 		}
-		p := AcquirePayload(data[i])
-		child.Run(p, nil)
-		values[i-j.start] = p.Value
-		if len(p.Issues) > 0 {
-			issues = appendIssuesWithIndex(issues, p.Issues, i)
+		if panics.stop() {
+			return parallelChunk{start: j.start, values: values, issues: issues}
 		}
-		ReleasePayload(p)
+		func() {
+			p := AcquirePayload(data[i])
+			// The payload is released even when the element's checks panic, so a
+			// panicking closure cannot poison the pool.
+			defer ReleasePayload(p)
+			defer panics.capture(i)
+			child.Run(p, nil)
+			values[i-j.start] = p.Value
+			if len(p.Issues) > 0 {
+				issues = appendIssuesWithIndex(issues, p.Issues, i)
+			}
+		}()
 	}
 	return parallelChunk{start: j.start, values: values, issues: issues}
 }

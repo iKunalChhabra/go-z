@@ -106,6 +106,53 @@ func templatePartFragment(part any) (string, error) {
 	}
 }
 
+// checkPatternCoverage rejects a part whose validation cannot be expressed in
+// the composed pattern. A template literal validates by matching one regexp, so
+// a check with no regexp equivalent — Min, Refine, a transform — would be
+// silently dropped, and the template would accept values the part rejects.
+// Failing at construction is the honest alternative.
+func checkPatternCoverage(in *Internals) error {
+	if in == nil || in.Def == nil {
+		return nil
+	}
+	total := len(in.Def.Checks)
+	if total == 0 {
+		return nil
+	}
+	if patternConflict(in) {
+		return fmt.Errorf("template literal part has two independent patterns, " +
+			"which cannot be combined into one; validate it outside the template")
+	}
+	if covered := patternChecks(in); covered < total {
+		return fmt.Errorf("template literal part has %d check(s) with no pattern equivalent (%s); "+
+			"a template validates by matching one pattern, so these would be ignored — "+
+			"validate the field with its own schema instead",
+			total-covered, strings.Join(uncoveredCheckNames(in), ", "))
+	}
+	return nil
+}
+
+// uncoveredCheckNames lists the checks that contributed no pattern, for the
+// error message. Pattern-bearing checks are string and number formats.
+func uncoveredCheckNames(in *Internals) []string {
+	names := make([]string, 0, len(in.Def.Checks))
+	for _, ch := range in.Def.Checks {
+		if ch == nil {
+			continue
+		}
+		switch ch.Name {
+		case "string_format", "number_format":
+			continue
+		}
+		name := ch.Name
+		if name == "" {
+			name = "custom"
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
 func schemaPatternFragment(schema AnySchemaLike) (string, error) {
 	if schema == nil {
 		return "", fmt.Errorf("nil schema part")
@@ -131,6 +178,10 @@ func schemaPatternFragment(schema AnySchemaLike) (string, error) {
 		case "lazy":
 			return schemaPatternFragment(w.Unwrap())
 		}
+	}
+
+	if err := checkPatternCoverage(in); err != nil {
+		return "", err
 	}
 
 	if in.Pattern != nil {

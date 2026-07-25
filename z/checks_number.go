@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -419,6 +420,22 @@ func MultipleOfBigInt(divisor *big.Int, params ...any) *Check {
 	return ch
 }
 
+// numberFormatPattern returns the regexp shape of a number format, used when a
+// numeric schema appears inside a template literal. It describes the digits, not
+// the range: the range is enforced by the check itself.
+func numberFormatPattern(format string) *regexp.Regexp {
+	switch format {
+	case "safeint", "int32", "int64":
+		return reIntegerText
+	case "uint32", "uint64":
+		return reUnsignedIntegerText
+	case "float32", "float64":
+		return reNumberText
+	default:
+		return nil
+	}
+}
+
 // NumberFormat implements the equivalent check ("int32"|"uint32"|"float32"|"float64"|"safeint").
 func NumberFormat(format string, params ...any) *Check {
 	p := normalizeParams(params)
@@ -444,6 +461,7 @@ func NumberFormat(format string, params ...any) *Check {
 				in.Bag["format"] = format
 				in.Bag["minimum"] = minimum
 				in.Bag["maximum"] = maximum
+				attachPattern(in, numberFormatPattern(format))
 			},
 		},
 	}

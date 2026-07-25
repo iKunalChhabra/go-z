@@ -167,6 +167,48 @@ func LengthEquals(length int, params ...any) *Check {
 	return ch
 }
 
+// attachPattern records a regexp equivalent of a check's validation on the
+// schema, so composite schemas that need one — template literals, JSON Schema
+// "pattern" — can see it. patternChecks counts the checks that contributed one;
+// TemplateLiteral compares that count against the number of attached checks to
+// tell whether a part is fully expressible as a pattern.
+func attachPattern(in *Internals, re *regexp.Regexp) {
+	if in.Bag == nil {
+		in.Bag = map[string]any{}
+	}
+	if re == nil {
+		return
+	}
+	if in.Pattern != nil {
+		// RE2 has no lookahead, so two independent patterns cannot be combined
+		// into one that means "both". Record the conflict instead of pretending.
+		in.Bag["patternConflict"] = true
+		return
+	}
+	in.Pattern = re
+	n, _ := in.Bag["patternChecks"].(int)
+	in.Bag["patternChecks"] = n + 1
+}
+
+// patternChecks reports how many of a schema's checks contributed a pattern.
+func patternChecks(in *Internals) int {
+	if in == nil || in.Bag == nil {
+		return 0
+	}
+	n, _ := in.Bag["patternChecks"].(int)
+	return n
+}
+
+// patternConflict reports whether two checks each defined a pattern, leaving the
+// schema without a single regexp equivalent.
+func patternConflict(in *Internals) bool {
+	if in == nil || in.Bag == nil {
+		return false
+	}
+	c, _ := in.Bag["patternConflict"].(bool)
+	return c
+}
+
 // Regex implements the equivalent check.
 func Regex(pattern *regexp.Regexp, params ...any) *Check {
 	p := normalizeParams(params)
@@ -181,6 +223,7 @@ func Regex(pattern *regexp.Regexp, params ...any) *Check {
 					in.Bag = map[string]any{}
 				}
 				in.Bag["format"] = "regex"
+				attachPattern(in, pattern)
 			},
 		},
 	}
@@ -371,6 +414,7 @@ func stringFormatPattern(format string, re *regexp.Regexp, patternLiteral string
 					in.Bag = map[string]any{}
 				}
 				in.Bag["format"] = format
+				attachPattern(in, re)
 			},
 		},
 	}
@@ -396,8 +440,10 @@ func stringFormatPattern(format string, re *regexp.Regexp, patternLiteral string
 	return ch
 }
 
-// stringFormatFn builds a predicate-based invalid_format check.
-func stringFormatFn(format, patternLiteral string, match func(string) bool, params ...any) *Check {
+// stringFormatFn builds a predicate-based invalid_format check. equivalent is
+// the regexp form of the predicate when one exists — the hand-written matchers
+// are differential-tested against these regexes — and nil when it does not.
+func stringFormatFn(format, patternLiteral string, equivalent *regexp.Regexp, match func(string) bool, params ...any) *Check {
 	p := normalizeParams(params)
 	ch := &Check{
 		Name:  "string_format",
@@ -409,6 +455,7 @@ func stringFormatFn(format, patternLiteral string, match func(string) bool, para
 					in.Bag = map[string]any{}
 				}
 				in.Bag["format"] = format
+				attachPattern(in, equivalent)
 			},
 		},
 	}

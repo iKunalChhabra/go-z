@@ -9,6 +9,7 @@ var jaSizable = map[string]localeSizing{
 	"file":   {"バイト", "である"},
 	"array":  {"要素", "である"},
 	"set":    {"要素", "である"},
+	"map":    {"要素", "である"},
 }
 
 var jaFormatDictionary = map[string]string{
@@ -31,6 +32,7 @@ var jaFormatDictionary = map[string]string{
 	"time":             "ISO時刻",
 	"duration":         "ISO期間",
 	"ipv4":             "IPv4アドレス",
+	"mac":              "MACアドレス",
 	"ipv6":             "IPv6アドレス",
 	"cidrv4":           "IPv4範囲",
 	"cidrv6":           "IPv6範囲",

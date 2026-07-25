@@ -309,9 +309,16 @@ func parsePtr[T any](in *Internals, data any, ctx *ParseCtx) (*T, error) {
 	}
 	tv, ok := v.(T)
 	if !ok {
-		// Inner schema produced a different dynamic type than the declared
-		// edge (only reachable through the type-erased constructors).
-		return nil, nil
+		// The inner schema produced a value of a type this edge does not
+		// declare — a schema bug, reachable through the type-erased
+		// constructors. Report it the same way parseTyped does rather than
+		// handing back a nil that reads as "absent".
+		var zero T
+		return nil, &Error{Issues: []Issue{{
+			Code:    IssueCustom,
+			Path:    []any{},
+			Message: internalTypeMismatch(v, zero),
+		}}}
 	}
 	return new(tv), nil
 }

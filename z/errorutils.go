@@ -22,13 +22,10 @@ type FlattenedErrorU[U any] struct {
 }
 
 // ErrorTree mirrors treeifyError output (string messages).
-type ErrorTree struct {
-	Errors     []string              `json:"errors"`
-	Properties map[string]*ErrorTree `json:"properties,omitempty"`
-	Items      []*ErrorTree          `json:"items,omitempty"`
-}
+type ErrorTree = ErrorTreeU[string]
 
-// ErrorTreeU is treeifyError with a custom mapped issue type.
+// ErrorTreeU is a treeified error with a custom mapped issue type. ErrorTree is
+// the string form of it, so both share one implementation.
 type ErrorTreeU[U any] struct {
 	Errors     []U                       `json:"errors"`
 	Properties map[string]*ErrorTreeU[U] `json:"properties,omitempty"`
@@ -112,88 +109,55 @@ func FormatMap[U any](err *Error, mapper func(Issue) U) map[string]any {
 	return fieldErrors
 }
 
-// Treeify ports treeifyError into a typed error tree (string messages).
+// Treeify turns an error into a tree of messages shaped like the input.
 func Treeify(err *Error) *ErrorTree {
-	result := &ErrorTree{Errors: []string{}}
-	if err == nil {
-		return result
-	}
-	processTree(err.Issues, nil, result, func(iss Issue) string { return iss.Message })
-	return result
+	return TreeifyMap(err, func(iss Issue) string { return iss.Message })
 }
 
-// TreeifyMap ports treeifyError with a custom mapper.
+// TreeifyMap is Treeify with a custom mapper.
 func TreeifyMap[U any](err *Error, mapper func(Issue) U) *ErrorTreeU[U] {
 	result := &ErrorTreeU[U]{Errors: []U{}}
 	if err == nil {
 		return result
 	}
-	processTreeU(err.Issues, nil, result, mapper)
+	processTreeU(err.Issues, nil, result, mapper, treeItemLimit(err.Issues))
 	return result
 }
 
-func processTree(issues []Issue, path []any, result *ErrorTree, mapper func(Issue) string) {
-	for _, issue := range issues {
-		switch {
-		case issue.Code == IssueInvalidUnion && len(issue.Errors) > 0:
-			base := appendPath(path, issue.Path)
-			for _, nested := range issue.Errors {
-				processTree(nested, base, result, mapper)
-			}
-		case issue.Code == IssueInvalidKey:
-			processTree(issue.Issues, appendPath(path, issue.Path), result, mapper)
-		case issue.Code == IssueInvalidElement:
-			processTree(issue.Issues, appendPath(path, issue.Path), result, mapper)
-		default:
-			fullpath := appendPath(path, issue.Path)
-			if len(fullpath) == 0 {
-				result.Errors = append(result.Errors, mapper(issue))
-				continue
-			}
-			curr := result
-			for i, el := range fullpath {
-				terminal := i == len(fullpath)-1
-				if idx := pathSegIndex(el); idx >= 0 {
-					if curr.Items == nil {
-						curr.Items = []*ErrorTree{}
-					}
-					for len(curr.Items) <= idx {
-						curr.Items = append(curr.Items, nil)
-					}
-					if curr.Items[idx] == nil {
-						curr.Items[idx] = &ErrorTree{Errors: []string{}}
-					}
-					curr = curr.Items[idx]
-				} else {
-					if curr.Properties == nil {
-						curr.Properties = map[string]*ErrorTree{}
-					}
-					key := pathSegString(el)
-					if curr.Properties[key] == nil {
-						curr.Properties[key] = &ErrorTree{Errors: []string{}}
-					}
-					curr = curr.Properties[key]
-				}
-				if terminal {
-					curr.Errors = append(curr.Errors, mapper(issue))
-				}
-			}
-		}
-	}
+// treeItemLimit bounds how far Items is grown to reach an index. A tree cannot
+// hold more leaves than there are issues, so an index beyond that (a hand-built
+// issue, or a custom check writing an arbitrary path segment) has to be sparse —
+// growing the slice to reach it would allocate one pointer per skipped index and
+// can exhaust memory. Such an index is recorded under Properties instead, keyed
+// by its decimal form, which keeps the issue without the allocation.
+func treeItemLimit(issues []Issue) int {
+	const slack = 1024 // room for genuinely sparse failures in a large array
+	return countIssuesDeep(issues) + slack
 }
 
-func processTreeU[U any](issues []Issue, path []any, result *ErrorTreeU[U], mapper func(Issue) U) {
+func countIssuesDeep(issues []Issue) int {
+	n := len(issues)
+	for i := range issues {
+		n += countIssuesDeep(issues[i].Issues)
+		for _, nested := range issues[i].Errors {
+			n += countIssuesDeep(nested)
+		}
+	}
+	return n
+}
+
+func processTreeU[U any](issues []Issue, path []any, result *ErrorTreeU[U], mapper func(Issue) U, itemLimit int) {
 	for _, issue := range issues {
 		switch {
 		case issue.Code == IssueInvalidUnion && len(issue.Errors) > 0:
 			base := appendPath(path, issue.Path)
 			for _, nested := range issue.Errors {
-				processTreeU(nested, base, result, mapper)
+				processTreeU(nested, base, result, mapper, itemLimit)
 			}
 		case issue.Code == IssueInvalidKey:
-			processTreeU(issue.Issues, appendPath(path, issue.Path), result, mapper)
+			processTreeU(issue.Issues, appendPath(path, issue.Path), result, mapper, itemLimit)
 		case issue.Code == IssueInvalidElement:
-			processTreeU(issue.Issues, appendPath(path, issue.Path), result, mapper)
+			processTreeU(issue.Issues, appendPath(path, issue.Path), result, mapper, itemLimit)
 		default:
 			fullpath := appendPath(path, issue.Path)
 			if len(fullpath) == 0 {
@@ -203,7 +167,7 @@ func processTreeU[U any](issues []Issue, path []any, result *ErrorTreeU[U], mapp
 			curr := result
 			for i, el := range fullpath {
 				terminal := i == len(fullpath)-1
-				if idx := pathSegIndex(el); idx >= 0 {
+				if idx := pathSegIndex(el); idx >= 0 && idx <= itemLimit {
 					if curr.Items == nil {
 						curr.Items = []*ErrorTreeU[U]{}
 					}
