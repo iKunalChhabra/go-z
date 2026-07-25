@@ -18,9 +18,9 @@ Tags couple validation to a Go type. go-z couples it to a **schema value**, beca
 
 ```go
 // Reusable schema value — not a tag string
-email:= z.String.Email
+email := z.String().Email()
 
-user:= z.Object(z.Shape{
+user := z.Object(z.Shape{
 	"email": email,
 	"backup": z.Optional(email),
 })
@@ -36,8 +36,8 @@ Parsing threads a `Payload{Value, Issues}` through the pipeline. Containers pref
 
 ```go
 // Conceptual flow (simplified)
-p:= z.AcquirePayload(input)
-schema.Internals.Run(p, ctx)
+p := z.AcquirePayload(input)
+schema.Internals().Run(p, ctx)
 if len(p.Issues) > 0 {
 	return newError(p.Issues, ctx)
 }
@@ -116,14 +116,14 @@ Like TypeScript runtime (which is dynamically typed under `z.infer`), go-z’s e
 
 ```go
 // Schema[T] — typed Parse surface
-var s z.Schema[string] = z.String.Min(1)
+var s z.Schema[string] = z.String().Min(1)
 
-out, err:= s.Parse("hello") // out is string
+out, err := s.Parse("hello") // out is string
 
 // Containers hold heterogeneous children via AnySchemaLike
 z.Object(z.Shape{
-	"a": z.String,
-	"b": z.Int,
+	"a": z.String(),
+	"b": z.Int(),
 })
 ```
 

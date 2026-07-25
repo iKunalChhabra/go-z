@@ -13,12 +13,12 @@ Go has no built-in JS `Map` / `Set`. go-z provides stand-ins that accept common 
 Output is always `map[any]any`.
 
 ```go
-schema:= z.Map(z.String, z.String)
+schema := z.Map(z.String(), z.String())
 
-out:= schema.MustParse(map[any]any{"first": "foo", "second": "bar"})
+out := schema.MustParse(map[any]any{"first": "foo", "second": "bar"})
 out = schema.MustParse(map[string]any{"a": "b"})
 
-res:= schema.SafeParse([]any{})
+res := schema.SafeParse([]any{})
 // Expected: "map"
 ```
 
@@ -32,18 +32,18 @@ res:= schema.SafeParse([]any{})
 | `NonEmpty` | `Min(1)` | `"map"` |
 
 ```go
-minTwo:= z.Map(z.String, z.String).Min(2)
+minTwo := z.Map(z.String(), z.String()).Min(2)
 minTwo.MustParse(map[any]any{"a": "b", "c": "d"})
-res:= minTwo.SafeParse(map[any]any{"a": "b"})
+res := minTwo.SafeParse(map[any]any{"a": "b"})
 // too_small, Origin: "map"
 
-maxTwo:= z.Map(z.String, z.String).Max(2)
+maxTwo := z.Map(z.String(), z.String()).Max(2)
 _ = maxTwo.SafeParse(map[any]any{"a": "b", "c": "d", "e": "f"})
 
-justTwo:= z.Map(z.String, z.String).Size(2)
+justTwo := z.Map(z.String(), z.String()).Size(2)
 justTwo.MustParse(map[any]any{"a": "b", "c": "d"})
 
-_ = z.Map(z.String, z.String).NonEmpty.SafeParse(map[any]any{})
+_ = z.Map(z.String(), z.String()).NonEmpty().SafeParse(map[any]any{})
 ```
 
 ### Key / value errors
@@ -51,9 +51,9 @@ _ = z.Map(z.String, z.String).NonEmpty.SafeParse(map[any]any{})
 Property-key-like keys (`string`, numbers) get **path-prefixed** issues. Other key types wrap failures in `invalid_key` / `invalid_element`.
 
 ```go
-schema:= z.Map(z.String, z.String)
+schema := z.Map(z.String(), z.String())
 
-res:= schema.SafeParse(map[any]any{1: "foo"})
+res := schema.SafeParse(map[any]any{1: "foo"})
 // int key → path-prefixed invalid_type on the key schema
 // Path starts with 1
 
@@ -71,9 +71,9 @@ res = schema.SafeParse(map[any]any{"ok": 12})
 Output is always `[]any`.
 
 ```go
-schema:= z.Set(z.String)
+schema := z.Set(z.String())
 
-out:= schema.MustParse([]any{"first", "second"})
+out := schema.MustParse([]any{"first", "second"})
 // []any{"first", "second"}
 
 // Uniqueness
@@ -93,18 +93,18 @@ Only comparable values (strings, numbers, bools, nil, …) participate in the se
 Size is measured on the **deduplicated** output (`Origin: "set"`).
 
 ```go
-minTwo:= z.Set(z.String).Min(2)
+minTwo := z.Set(z.String()).Min(2)
 minTwo.MustParse([]any{"a", "b"})
-res:= minTwo.SafeParse([]any{"just_one"})
+res := minTwo.SafeParse([]any{"just_one"})
 // too_small, Origin: "set"
 
-maxTwo:= z.Set(z.String).Max(2)
+maxTwo := z.Set(z.String()).Max(2)
 _ = maxTwo.SafeParse([]any{"one", "two", "three"})
 
-justTwo:= z.Set(z.String).Size(2)
+justTwo := z.Set(z.String()).Size(2)
 justTwo.MustParse([]any{"a", "b"})
 
-_ = z.Set(z.String).NonEmpty.SafeParse([]any{})
+_ = z.Set(z.String()).NonEmpty().SafeParse([]any{})
 ```
 
 ### Element errors (no path)
@@ -112,8 +112,8 @@ _ = z.Set(z.String).NonEmpty.SafeParse([]any{})
 Set element issues are **not** path-prefixed (matches `handleSetResult`):
 
 ```go
-schema:= z.Set(z.String)
-res:= schema.SafeParse([]any{"ok", 12})
+schema := z.Set(z.String())
+res := schema.SafeParse([]any{"ok", 12})
 // invalid_type, Path: [] (empty)
 ```
 
@@ -121,9 +121,9 @@ res:= schema.SafeParse([]any{"ok", 12})
 
 ```go
 // map[string]any is not a set stand-in
-_ = z.Set(z.String).SafeParse(map[string]any{"a": 1})
+_ = z.Set(z.String()).SafeParse(map[string]any{"a": 1})
 
-_ = z.Set(z.String).SafeParse("nope")
+_ = z.Set(z.String()).SafeParse("nope")
 ```
 
 ## Map vs Record vs Set
@@ -141,9 +141,15 @@ Prefer **Record** for JSON objects with dynamic string keys. Prefer **Map** when
 ## API surface
 
 ```go
-func Map(keySchema, valueSchema AnySchemaLike, params...any) *MapSchema
-func (m *MapSchema) Min / Max / Size / NonEmpty(...)
+func Map(keySchema, valueSchema AnySchemaLike, params ...any) *MapSchema
+func (m *MapSchema) Min(n int, params ...any) *MapSchema
+func (m *MapSchema) Max(n int, params ...any) *MapSchema
+func (m *MapSchema) Size(n int, params ...any) *MapSchema
+func (m *MapSchema) NonEmpty(params ...any) *MapSchema
 
-func Set(valueSchema AnySchemaLike, params...any) *SetSchema
-func (s *SetSchema) Min / Max / Size / NonEmpty(...)
+func Set(valueSchema AnySchemaLike, params ...any) *SetSchema
+func (s *SetSchema) Min(n int, params ...any) *SetSchema
+func (s *SetSchema) Max(n int, params ...any) *SetSchema
+func (s *SetSchema) Size(n int, params ...any) *SetSchema
+func (s *SetSchema) NonEmpty(params ...any) *SetSchema
 ```

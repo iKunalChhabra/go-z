@@ -16,7 +16,7 @@ z.Literal(true).MustParse(true)
 ### Failure
 
 ```go
-res:= z.Literal("tuna").SafeParse("shark")
+res := z.Literal("tuna").SafeParse("shark")
 // Code: invalid_value
 // Values: ["tuna"]
 // Message: `Invalid input: expected "tuna"`
@@ -25,12 +25,12 @@ res:= z.Literal("tuna").SafeParse("shark")
 ### Multi-value
 
 ```go
-s:= z.Literal("a", "b", 1)
+s := z.Literal("a", "b", 1)
 s.MustParse("a")
 s.MustParse("b")
 s.MustParse(1)
 
-res:= s.SafeParse("c")
+res := s.SafeParse("c")
 // Message: `Invalid option: expected one of "a"|"b"|1`
 ```
 
@@ -45,8 +45,8 @@ z.Literal([]string{"red", "green", "blue"}).MustParse("green")
 A trailing `string` / `ErrorMap` / `Params` is treated as schema params **when** there is at least one preceding value (a sole string is a literal value):
 
 ```go
-s:= z.Literal("tuna", "That's not a tuna")
-res:= s.SafeParse("shark")
+s := z.Literal("tuna", "That's not a tuna")
+res := s.SafeParse("shark")
 // Message: "That's not a tuna"
 
 z.Literal("hello") // the value is "hello", not a message
@@ -57,16 +57,16 @@ z.Literal("hello") // the value is "hello", not a message
 ```go
 import "math/big"
 
-s:= z.Literal(big.NewInt(12))
+s := z.Literal(big.NewInt(12))
 s.MustParse(big.NewInt(12))
-res:= s.SafeParse(big.NewInt(13))
+res := s.SafeParse(big.NewInt(13))
 // Message: "Invalid input: expected 12n"
 ```
 
 ### Values / Value helpers
 
 ```go
-lit:= z.Literal("a", "b")
+lit := z.Literal("a", "b")
 lit.Values // []any{"a", "b"}
 
 z.Literal("only").Value // "only"
@@ -76,24 +76,24 @@ z.Literal("only").Value // "only"
 ### Internals.Values for discriminators
 
 ```go
-role:= z.Literal("admin", "guest")
-vals:= role.Internals.Values
-_, ok:= vals["admin"] // true
+role := z.Literal("admin", "guest")
+vals := role.Internals().Values
+_, ok := vals["admin"] // true
 
 // Integral number literals are also indexed as float64 for JSON discriminants
-n:= z.Literal(1)
-_, ok = n.Internals.Values[float64(1)] // true
+n := z.Literal(1)
+_, ok = n.Internals().Values[float64(1)] // true
 ```
 
 ```go
-user:= z.DiscriminatedUnion("role", []z.AnySchemaLike{
+user := z.DiscriminatedUnion("role", []z.AnySchemaLike{
     z.Object(z.Shape{
         "role":  z.Literal("admin"),
-        "perms": z.Array(z.String),
+        "perms": z.Array(z.String()),
     }),
     z.Object(z.Shape{
         "role":    z.Literal("guest"),
-        "session": z.String.UUID,
+        "session": z.String().UUID(),
     }),
 })
 ```
@@ -103,20 +103,20 @@ user:= z.DiscriminatedUnion("role", []z.AnySchemaLike{
 `z.Enum("a", "b",...)` ports `z.enum([...])`. Members are strings; output type is `string`.
 
 ```go
-color:= z.Enum("red", "green", "blue")
+color := z.Enum("red", "green", "blue")
 color.MustParse("red")
 
-res:= color.SafeParse("yellow")
+res := color.SafeParse("yellow")
 // Code: invalid_value
 // Values includes "red", "green", "blue"
 
-color.Options // []string{"red", "green", "blue"}
+color.Options() // []string{"red", "green", "blue"}
 ```
 
 `Internals.Values` contains each option for discriminant / record exhaustiveness:
 
 ```go
-_, ok:= color.Internals.Values["green"] // true
+_, ok := color.Internals().Values["green"] // true
 ```
 
 ### NativeEnum
@@ -124,25 +124,25 @@ _, ok:= color.Internals.Values["green"] // true
 `z.NativeEnum(map[string]string)` ports `z.nativeEnum` / `z.enum(object)`. **Accepted values are the map values**, not the keys.
 
 ```go
-Status:= map[string]string{
+Status := map[string]string{
     "Pending": "pending",
     "Active":  "active",
     "Done":    "done",
 }
 
-schema:= z.NativeEnum(Status)
+schema := z.NativeEnum(Status)
 schema.MustParse("pending")
 _ = schema.SafeParse("Pending") // key is not accepted — value is
 
 schema.EnumMap // copy of the key→value map
-schema.Options // the values (order not guaranteed from map iteration)
+schema.Options() // the values (order not guaranteed from map iteration)
 ```
 
 Custom message via params:
 
 ```go
-schema:= z.NativeEnum(Status, "invalid status")
-res:= schema.SafeParse("nope")
+schema := z.NativeEnum(Status, "invalid status")
+res := schema.SafeParse("nope")
 // Message: "invalid status"
 ```
 
@@ -150,7 +150,7 @@ res:= schema.SafeParse("nope")
 `Enum("active", "inactive", "must be a status")` treats the third string as a **member**, not a message. Use `EnumWith` for params:
 
 ```go
-schema:= z.EnumWith([]string{"active", "inactive"}, "must be a status")
+schema := z.EnumWith([]string{"active", "inactive"}, "must be a status")
 ```
 :::
 
@@ -166,12 +166,12 @@ schema:= z.EnumWith([]string{"active", "inactive"}, "must be a status")
 ## API surface
 
 ```go
-func Literal(values...any) *LiteralSchema
-func (s *LiteralSchema) Values []any
-func (s *LiteralSchema) Value any
+func Literal(values ...any) *LiteralSchema
+func (s *LiteralSchema) Values() []any
+func (s *LiteralSchema) Value() any
 
-func Enum(values...string) *EnumSchema
-func NativeEnum(m map[string]string, params...any) *EnumSchema
-func (s *EnumSchema) Options []string
-func (s *EnumSchema) EnumMap map[string]string
+func Enum(values ...string) *EnumSchema
+func NativeEnum(m map[string]string, params ...any) *EnumSchema
+func (s *EnumSchema) Options() []string
+func (s *EnumSchema) EnumMap() map[string]string
 ```

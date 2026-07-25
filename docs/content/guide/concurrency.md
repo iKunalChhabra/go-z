@@ -16,12 +16,12 @@ Build schemas once (package `var` or `init`), share the pointer everywhere, call
 ## Immutable fluent API
 
 ```go
-var BaseName = z.String.Min(1)
+var BaseName = z.String().Min(1)
 
-func init {
+func init() {
 	// These do not mutate BaseName
 	_ = BaseName.Max(50)
-	_ = BaseName.Email // weird but safe — new schema value
+	_ = BaseName.Email() // weird but safe — new schema value
 }
 ```
 
@@ -30,11 +30,13 @@ Because clones happen at construction time, extending a shared schema in one pac
 ```go
 package schemas
 
-var Password = z.String.Min(8)
+var Password = z.String().Min(8)
+```
 
+```go
 package admin
 
-// Local stricter variant — Password unchanged
+// Local stricter variant — schemas.Password is unchanged
 var AdminPassword = schemas.Password.Min(16)
 ```
 
@@ -42,15 +44,15 @@ var AdminPassword = schemas.Password.Min(16)
 
 ```go
 var User = z.Object(z.Shape{
-	"email": z.String.Email,
-	"name":  z.String.Min(1),
+	"email": z.String().Email(),
+	"name":  z.String().Min(1),
 })
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	var input any
 	_ = json.NewDecoder(r.Body).Decode(&input)
 
-	out, err:= User.Parse(input) // many goroutines may do this at once
+	out, err := User.Parse(input) // many goroutines may do this at once
 	_ = out
 	_ = err
 }
@@ -81,12 +83,12 @@ For per-request locale or messages, use `ParseCtx.Error` instead of racing globa
 Large homogeneous slices can opt into a worker pool:
 
 ```go
-ctx:= context.Background
-item:= z.Object(z.Shape{
-	"id": z.String.UUID,
+ctx := context.Background
+item := z.Object(z.Shape{
+	"id": z.String().UUID(),
 })
 
-out, err:= z.ParseParallelSlice(ctx, item, rows, z.ParallelOpts{
+out, err := z.ParseParallelSlice(ctx, item, rows, z.ParallelOpts{
 	Workers:  runtime.GOMAXPROCS(0),
 	MinChunk: 64, // below this, runs sequential
 })
@@ -106,12 +108,12 @@ On multi-core machines, 10k-element arrays are roughly ~2.5× faster than sequen
 You do not manage the payload pool yourself. If you write custom schema internals or call `AcquirePayload` / `ReleasePayload` directly:
 
 ```go
-p:= z.AcquirePayload(value)
+p := z.AcquirePayload(value)
 defer z.ReleasePayload(p)
 
-schema.Internals.Run(p, nil)
+schema.Internals().Run(p, nil)
 // Copy anything you need from p before release
-issues:= append([]z.Issue(nil), p.Issues...)
+issues := append([]z.Issue(nil), p.Issues...)
 ```
 
 :::warn Do not retain pooled payloads
@@ -125,18 +127,18 @@ Huge error slices are discarded rather than returned to the pool (capacity guard
 Parsed objects are ordinary Go values:
 
 ```go
-out, err:= User.Parse(input)
+out, err := User.Parse(input)
 if err != nil {
 	return err
 }
-m:= out // map[string]any
+m := out // map[string]any
 
 // Fine — exclusive to this goroutine
 m["extra"] = true
 
 // Dangerous — sharing m with other goroutines while mutating
-go func { m["x"] = 1 }
-go func { fmt.Println(m["x"]) }
+go func() { m["x"] = 1 }()
+go func() { fmt.Println(m["x"]) }()
 ```
 
 Schemas don’t deep-freeze results. If you need to share parsed data across goroutines:
@@ -151,7 +153,7 @@ corrupt later parses by mutating the returned value. For custom pointer types,
 use `DefaultFunc` / `CatchFunc` and allocate fresh:
 
 ```go
-schema:= z.DefaultFunc(z.Array(z.String), func any {
+schema := z.DefaultFunc(z.Array(z.String()), func() any {
 	return []any{}
 })
 ```
@@ -163,14 +165,14 @@ Creating schemas inside a request is allowed but usually wasteful:
 ```go
 // Avoid in hot paths
 func bad(min int) (string, error) {
-	return z.String.Min(min).Parse(input)
+	return z.String().Min(min).Parse(input)
 }
 ```
 
 Prefer:
 
 ```go
-var min8 = z.String.Min(8)
+var min8 = z.String().Min(8)
 
 func good (string, error) {
 	return min8.Parse(input)
@@ -190,7 +192,7 @@ go test -race./...
 Safe check:
 
 ```go
-ch:= &z.Check{
+ch := &z.Check{
 	Fn: func(p *z.Payload) {
 		// only reads p.Value — fine
 	},
@@ -201,7 +203,7 @@ Unsafe check:
 
 ```go
 var counter int
-ch:= &z.Check{
+ch := &z.Check{
 	Fn: func(p *z.Payload) {
 		counter++ // data race under parallel Parse
 	},
@@ -224,17 +226,17 @@ Use atomics or don’t mutate shared state from `Check.Fn`.
 
 ```go
 func TestParallelParse(t *testing.T) {
-	schema:= z.String.Min(1).Email
+	schema := z.String().Min(1).Email()
 	var wg sync.WaitGroup
-	for i:= 0; i < 100; i++ {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		go func {
-			defer wg.Done
+		go func() {
+			defer wg.Done()
 			_, _ = schema.Parse("ada@example.com")
 			_, _ = schema.Parse("nope")
-		}
+		}()
 	}
-	wg.Wait
+	wg.Wait()
 }
 ```
 

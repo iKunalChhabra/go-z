@@ -26,12 +26,12 @@ type CreateUser struct {
 }
 
 var createUser = z.ToStruct[CreateUser](z.Object(z.Shape{
-    "name":  z.String.Min(2),
-    "email": z.String.Email,
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
 }))
 
 r.POST("/users", func(c *gin.Context) {
-    body, ok:= zgin.BindJSON(c, createUser)
+    body, ok := zgin.BindJSON(c, createUser)
     if !ok {
         return // 400 + issues already written
     }
@@ -46,7 +46,7 @@ On failure: writes **400** with the default issues JSON shape and returns `(zero
 Same as `BindJSON` for untyped `AnySchemaLike` (typical `Object` → `map[string]any`):
 
 ```go
-body, ok:= zgin.BindJSONAny(c, userSchema)
+body, ok := zgin.BindJSONAny(c, userSchema)
 ```
 
 ## BindQuery
@@ -55,17 +55,17 @@ URL query → schema. Values are coerced with `CoerceQueryValues` (single values
 
 ```go
 var listQuery = z.ToStruct[ListQuery](z.Object(z.Shape{
-    "page":  z.Coerce.Number.Gte(1),
-    "limit": z.Default(z.Coerce.Number.Gte(1).Lte(100), float64(20)),
-    "q":     z.Optional(z.String),
+    "page":  z.Coerce.Number().Gte(1),
+    "limit": z.Default(z.Coerce.Number().Gte(1).Lte(100), float64(20)),
+    "q":     z.Optional(z.String()),
 }))
 
 r.GET("/items", func(c *gin.Context) {
-    q, ok:= zgin.BindQuery(c, listQuery)
+    q, ok := zgin.BindQuery(c, listQuery)
     if !ok {
         return
     }
-    //...
+    // ...
 })
 ```
 
@@ -75,11 +75,11 @@ Gin path params → schema. All values are **strings**; use `z.Coerce.*` for num
 
 ```go
 var idParam = z.ToStruct[IDParam](z.Object(z.Shape{
-    "id": z.Int(z.Params{Coerce: true}), // or String.UUID
+    "id": z.Int(z.Params{Coerce: true}), // or z.String().UUID()
 }))
 
 r.GET("/users/:id", func(c *gin.Context) {
-    p, ok:= zgin.BindURI(c, idParam)
+    p, ok := zgin.BindURI(c, idParam)
     if !ok {
         return
     }
@@ -99,7 +99,7 @@ Middleware that parses the JSON body, stores the result, and continues:
 const ContextKey = "zod:value" // zgin.ContextKey
 
 r.POST("/users", zgin.Validate(userSchema), func(c *gin.Context) {
-    body, ok:= zgin.Get(c) // any
+    body, ok := zgin.Get(c) // any
     if !ok {
         return
     }
@@ -117,7 +117,7 @@ type User struct {
 }
 
 r.POST("/users", zgin.ValidateToStruct[User](userSchema), func(c *gin.Context) {
-    user, ok:= zgin.GetAs[User](c)
+    user, ok := zgin.GetAs[User](c)
     if !ok {
         return
     }
@@ -167,34 +167,34 @@ type User struct {
 }
 
 var userShape = z.Object(z.Shape{
-    "name":  z.String.Min(2).Max(100),
-    "email": z.String.Email,
-    "age":   z.Optional(z.Int.Gte(0).Lt(150)),
+    "name":  z.String().Min(2).Max(100),
+    "email": z.String().Email(),
+    "age":   z.Optional(z.Int().Gte(0).Lt(150)),
 })
 
 var createUser = z.ToStruct[User](userShape)
 
 var listQuery = z.Object(z.Shape{
-    "page":  z.Default(z.Coerce.Number.Gte(1), float64(1)),
-    "limit": z.Default(z.Coerce.Number.Gte(1).Lte(100), float64(20)),
+    "page":  z.Default(z.Coerce.Number().Gte(1), float64(1)),
+    "limit": z.Default(z.Coerce.Number().Gte(1).Lte(100), float64(20)),
 })
 
 var idURI = z.Object(z.Shape{
-    "id": z.String.UUID,
+    "id": z.String().UUID(),
 })
 
-func main {
-    r:= gin.Default
+func main() {
+    r := gin.Default
 
     // Middleware style
     r.POST("/users", zgin.Validate(userShape), func(c *gin.Context) {
-        body, _:= zgin.Get(c)
+        body, _ := zgin.Get(c)
         c.JSON(http.StatusCreated, body)
     })
 
     // Typed bind style
     r.POST("/users/typed", func(c *gin.Context) {
-        u, ok:= zgin.BindJSON(c, createUser)
+        u, ok := zgin.BindJSON(c, createUser)
         if !ok {
             return
         }
@@ -202,7 +202,7 @@ func main {
     })
 
     r.GET("/users", func(c *gin.Context) {
-        q, ok:= zgin.BindQuery(c, z.ToStruct[struct {
+        q, ok := zgin.BindQuery(c, z.ToStruct[struct {
             Page  float64 `json:"page"`
             Limit float64 `json:"limit"`
         }](listQuery))
@@ -213,7 +213,7 @@ func main {
     })
 
     r.GET("/users/:id", func(c *gin.Context) {
-        p, ok:= zgin.BindURI(c, z.ToStruct[struct {
+        p, ok := zgin.BindURI(c, z.ToStruct[struct {
             ID string `json:"id"`
         }](idURI))
         if !ok {
@@ -223,9 +223,9 @@ func main {
     })
 
     // Custom error format for a group
-    api:= r.Group("/api")
+    api := r.Group("/api")
     api.POST("/import", func(c *gin.Context) {
-        body, ok:= zgin.BindJSONAny(c, userShape)
+        body, ok := zgin.BindJSONAny(c, userShape)
         if !ok {
             // BindJSONAny already aborted with FormatIssues.
             // For a custom format, parse manually:
@@ -240,7 +240,7 @@ func main {
 
 :::tip Manual parse + custom format
 ```go
-v, err:= schema.Parse(data)
+v, err := schema.Parse(data)
 if err != nil {
     zgin.AbortWithError(c, err.(*z.Error), zgin.Options{
         Format: zgin.FormatTree,

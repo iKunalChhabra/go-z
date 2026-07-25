@@ -24,13 +24,13 @@ If you pass `nil` into a field schema, that means JSON `null`, not absence. Obje
 
 ```go
 // Optional — accepts Missing; rejects nil
-opt:= z.Optional(z.String)
+opt := z.Optional(z.String())
 
 // Nullable — accepts nil; rejects Missing (as invalid for the inner type)
-nul:= z.Nullable(z.String)
+nul := z.Nullable(z.String())
 
 // Nullish — Optional(Nullable(...)) — accepts Missing OR nil OR string
-both:= z.Nullish(z.String)
+both := z.Nullish(z.String())
 ```
 
 ### Behavior table (standalone parse)
@@ -45,19 +45,19 @@ both:= z.Nullish(z.String)
 The arrows above describe the **raw JSON model**, which is what `ParseAny` returns and what object parsing passes around. The typed `Parse` on `Optional` / `Nullable` folds both `Missing` and `nil` into a nil `*T`:
 
 ```go
-v, _:= z.String.Optional.Parse(z.Missing)   // (*string)(nil)
-raw, _:= z.String.Optional.ParseAny(z.Missing) // z.Missing — sentinel preserved
+v, _ := z.String().Optional().Parse(z.Missing)   // (*string)(nil)
+raw, _ := z.String().Optional().ParseAny(z.Missing) // z.Missing — sentinel preserved
 ```
 
 ```go
-fmt.Println(z.Optional(z.String).SafeParse(z.Missing).Success) // true
-fmt.Println(z.Optional(z.String).SafeParse(nil).Success)         // false
+fmt.Println(z.Optional(z.String()).SafeParse(z.Missing).Success) // true
+fmt.Println(z.Optional(z.String()).SafeParse(nil).Success)         // false
 
-fmt.Println(z.Nullable(z.String).SafeParse(nil).Success)         // true
-fmt.Println(z.Nullable(z.String).SafeParse(z.Missing).Success) // false
+fmt.Println(z.Nullable(z.String()).SafeParse(nil).Success)         // true
+fmt.Println(z.Nullable(z.String()).SafeParse(z.Missing).Success) // false
 
-fmt.Println(z.Nullish(z.String).SafeParse(z.Missing).Success)  // true
-fmt.Println(z.Nullish(z.String).SafeParse(nil).Success)          // true
+fmt.Println(z.Nullish(z.String()).SafeParse(z.Missing).Success)  // true
+fmt.Println(z.Nullish(z.String()).SafeParse(nil).Success)          // true
 ```
 
 ## Object absent keys
@@ -65,12 +65,12 @@ fmt.Println(z.Nullish(z.String).SafeParse(nil).Success)          // true
 When an object schema parses a `map[string]any`, **missing keys** are passed to field schemas as `Missing` (not as Go’s zero value, not as `nil`).
 
 ```go
-schema:= z.Object(z.Shape{
-	"name":  z.String,
-	"nickname": z.Optional(z.String),
+schema := z.Object(z.Shape{
+	"name":  z.String(),
+	"nickname": z.Optional(z.String()),
 })
 
-out, err:= schema.Parse(map[string]any{
+out, err := schema.Parse(map[string]any{
 	"name": "Ada",
 	// nickname omitted
 })
@@ -82,7 +82,7 @@ out, err:= schema.Parse(map[string]any{
 Present but null:
 
 ```go
-_, err:= schema.Parse(map[string]any{
+_, err := schema.Parse(map[string]any{
 	"name":     "Ada",
 	"nickname": nil, // JSON null
 })
@@ -92,9 +92,9 @@ _, err:= schema.Parse(map[string]any{
 Allow both omit and null:
 
 ```go
-schema:= z.Object(z.Shape{
-	"name":     z.String,
-	"nickname": z.Nullish(z.String),
+schema := z.Object(z.Shape{
+	"name":     z.String(),
+	"nickname": z.Nullish(z.String()),
 })
 
 schema.MustParse(map[string]any{"name": "Ada"})
@@ -119,11 +119,11 @@ Optional wrappers set `OptIn` / `OptOut` on schema internals so object parsing k
 ### Default — fill Missing
 
 ```go
-schema:= z.Object(z.Shape{
-	"role": z.Default(z.String, "user"),
+schema := z.Object(z.Shape{
+	"role": z.Default(z.String(), "user"),
 })
 
-out, _:= schema.Parse(map[string]any{})
+out, _ := schema.Parse(map[string]any{})
 fmt.Println(out["role"]) // "user"
 ```
 
@@ -134,9 +134,9 @@ fmt.Println(out["role"]) // "user"
 ### Catch — recover from failures
 
 ```go
-schema:= z.Catch(z.String.Email, "fallback@example.com")
+schema := z.Catch(z.String().Email(), "fallback@example.com")
 
-out, err:= schema.Parse("not-an-email")
+out, err := schema.Parse("not-an-email")
 // err == nil, out == "fallback@example.com"
 ```
 
@@ -154,12 +154,12 @@ type PatchUser struct {
 When building maps by hand for tests:
 
 ```go
-input:= map[string]any{
+input := map[string]any{
 	"name": "Ada",
 	// omit nickname key entirely for Missing
 }
 
-inputWithNull:= map[string]any{
+inputWithNull := map[string]any{
 	"name":     "Ada",
 	"nickname": nil, // null
 }
@@ -172,10 +172,10 @@ After `json.Unmarshal`, omitted keys are simply not in the map — object schema
 Strip optionality — reject `Missing` after the inner schema runs:
 
 ```go
-inner:= z.Optional(z.String)
-req:= z.NonOptional(inner)
+inner := z.Optional(z.String())
+req := z.NonOptional(inner)
 
-_, err:= req.Parse(z.Missing)
+_, err := req.Parse(z.Missing)
 // invalid_type, expected "nonoptional"
 ```
 
@@ -208,15 +208,15 @@ import (
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-func main {
-	schema:= z.Object(z.Shape{
-		"email": z.String.Email,
-		"age":   z.Optional(z.Int.Gte(0)),
-		"note":  z.Nullish(z.String.Max(200)),
-		"role":  z.Default(z.String, "member"),
+func main() {
+	schema := z.Object(z.Shape{
+		"email": z.String().Email(),
+		"age":   z.Optional(z.Int().Gte(0)),
+		"note":  z.Nullish(z.String().Max(200)),
+		"role":  z.Default(z.String(), "member"),
 	})
 
-	cases:= []string{
+	cases := []string{
 		`{"email":"a@b.co"}`,
 		`{"email":"a@b.co","age":31}`,
 		`{"email":"a@b.co","note":null}`,
@@ -224,15 +224,15 @@ func main {
 		`{"email":"a@b.co","age":null}`, // fails — age is Optional, not Nullable
 	}
 
-	for _, raw:= range cases {
+	for _, raw := range cases {
 		var input any
 		_ = json.Unmarshal([]byte(raw), &input)
-		out, err:= schema.Parse(input)
+		out, err := schema.Parse(input)
 		if err != nil {
 			fmt.Println(raw, "→", z.Prettify(err.(*z.Error)))
 			continue
 		}
-		b, _:= json.Marshal(out)
+		b, _ := json.Marshal(out)
 		fmt.Println(raw, "→", string(b))
 	}
 }

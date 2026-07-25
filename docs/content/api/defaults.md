@@ -5,7 +5,7 @@ Wrappers that supply a fallback when input is absent or when parsing fails.
 ## Default
 
 ```go
-schema:= z.Default(z.String, "anonymous")
+schema := z.Default(z.String(), "anonymous")
 
 schema.Parse(z.Missing) // "anonymous" — default applied, inner NOT re-parsed
 schema.Parse("hi")        // "hi"
@@ -26,8 +26,8 @@ A default that would fail the inner schema still succeeds when input is `Missing
 ### DefaultFunc
 
 ```go
-n:= 0
-schema:= z.DefaultFunc(z.String, func any {
+n := 0
+schema := z.DefaultFunc(z.String(), func() any {
     n++
     return fmt.Sprintf("user-%d", n)
 })
@@ -40,15 +40,15 @@ The function is called **each time** the default is needed. Prefer this for muta
 ## Prefault
 
 ```go
-inner:= z.Refine(z.String, func(v any) bool {
-    s, _:= v.(string)
+inner := z.Refine(z.String(), func(v any) bool {
+    s, _ := v.(string)
     return len(s) > 0 && s[0] == 'c'
 }, "must start with c")
 
-ok:= z.Prefault(inner, "c")
+ok := z.Prefault(inner, "c")
 ok.Parse(z.Missing) // "c" — prefault runs through inner + refine
 
-bad:= z.Prefault(inner, "z")
+bad := z.Prefault(inner, "z")
 bad.SafeParse(z.Missing) // fails — "z" fails refine
 ```
 
@@ -57,7 +57,7 @@ bad.SafeParse(z.Missing) // fails — "z" fails refine
 ### PrefaultFunc
 
 ```go
-schema:= z.PrefaultFunc(z.String.Min(1), func any {
+schema := z.PrefaultFunc(z.String().Min(1), func() any {
     return "fallback"
 })
 ```
@@ -67,7 +67,7 @@ Same as `Prefault`, but the fallback is produced by a function each time.
 ## Catch
 
 ```go
-schema:= z.Catch(z.String.Email, "nobody@example.com")
+schema := z.Catch(z.String().Email(), "nobody@example.com")
 
 schema.Parse("not-an-email") // "nobody@example.com" — always succeeds
 schema.Parse("a@b.co")       // "a@b.co"
@@ -80,7 +80,7 @@ Sets OptIn so Missing input can be caught (inner may fail on Missing → catch f
 ### CatchFunc
 
 ```go
-schema:= z.CatchFunc(z.String.Email, func(ctx z.CatchCtx) any {
+schema := z.CatchFunc(z.String().Email(), func(ctx z.CatchCtx) any {
     // ctx.Issues — finalized issues that caused the failure
     // ctx.Input  — value under parse when catch fired
     return "invalid@" + fmt.Sprint(len(ctx.Issues)) + ".example"
@@ -105,9 +105,9 @@ schema:= z.CatchFunc(z.String.Email, func(ctx z.CatchCtx) any {
 ```go
 // Object field patterns
 z.Object(z.Shape{
-    "tags":    z.Default(z.Array(z.String), []any{}),
+    "tags":    z.Default(z.Array(z.String()), []any{}),
     "role":    z.Prefault(z.Enum("user", "admin"), "user"),
-    "avatar":  z.Catch(z.String.URL, ""),
+    "avatar":  z.Catch(z.String().URL(), ""),
 })
 ```
 
@@ -115,9 +115,9 @@ z.Object(z.Shape{
 
 ```go
 func Default(inner AnySchemaLike, defVal any) *DefaultSchema
-func DefaultFunc(inner AnySchemaLike, fn func any) *DefaultSchema
+func DefaultFunc(inner AnySchemaLike, fn func() any) *DefaultSchema
 func Prefault(inner AnySchemaLike, defVal any) *PrefaultSchema
-func PrefaultFunc(inner AnySchemaLike, fn func any) *PrefaultSchema
+func PrefaultFunc(inner AnySchemaLike, fn func() any) *PrefaultSchema
 func Catch(inner AnySchemaLike, fallback any) *CatchSchema
 func CatchFunc(inner AnySchemaLike, fn func(CatchCtx) any) *CatchSchema
 ```
@@ -128,7 +128,7 @@ All expose `.Unwrap` to recover the inner schema.
 Outer defaults win for Missing input:
 
 ```go
-z.Default(z.Default(z.String, "inner"), "outer")
+z.Default(z.Default(z.String(), "inner"), "outer")
 // Missing → "outer"
 ```
 :::

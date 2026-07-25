@@ -7,7 +7,7 @@ go-z is built for high-concurrency HTTP workloads: immutable schemas, pooled pay
 Every parse acquires a `Payload` from `sync.Pool`:
 
 ```go
-p:= AcquirePayload(data)
+p := AcquirePayload(data)
 in.Run(p, ctx)
 // issues copied out on failure, then:
 ReleasePayload(p)
@@ -34,8 +34,8 @@ Hot-path parse walks `[]objectField` — **no reflection**, no map iteration ove
 ```go
 // Built once at init — plan is fixed for the life of the schema
 var user = z.Object(z.Shape{
-    "name":  z.String.Min(2),
-    "email": z.String.Email,
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
 })
 ```
 

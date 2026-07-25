@@ -29,7 +29,7 @@ How `*z.Error` is rendered for APIs — used by `zgin.AbortWithError` and availa
 ## Flatten
 
 ```go
-flat:= z.Flatten(zerr)
+flat := z.Flatten(zerr)
 // zgin.Options{Format: zgin.FormatFlatten}
 ```
 
@@ -60,7 +60,7 @@ Flatten is ideal for HTML / SPA forms that bind errors to top-level field names.
 ## Tree
 
 ```go
-tree:= z.Treeify(zerr)
+tree := z.Treeify(zerr)
 // zgin.Options{Format: zgin.FormatTree}
 ```
 
@@ -97,7 +97,7 @@ Custom mapper: `z.TreeifyMap`.
 ## Pretty
 
 ```go
-s:= z.Prettify(zerr)
+s := z.Prettify(zerr)
 // zgin.Options{Format: zgin.FormatPretty}
 ```
 
@@ -124,7 +124,7 @@ Issues are sorted by path length, then formatted as:
 Also available (not a zgin format constant):
 
 ```go
-m:= z.Format(zerr)
+m := z.Format(zerr)
 ```
 
 ```json

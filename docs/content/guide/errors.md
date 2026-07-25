@@ -13,7 +13,7 @@ type Error struct {
 `Error` returns pretty-printed JSON of the issues:
 
 ```go
-_, err:= z.String.Min(5).Parse("hi")
+_, err := z.String().Min(5).Parse("hi")
 fmt.Println(err)
 ```
 
@@ -35,11 +35,11 @@ Use `AsError` when you need structured data. It unwraps through
 adds context — a bare type assertion does not:
 
 ```go
-zerr, ok:= z.AsError(err)
+zerr, ok := z.AsError(err)
 if !ok {
 	// not a validation error
 }
-for _, iss:= range zerr.Issues {
+for _, iss := range zerr.Issues {
 	fmt.Println(iss.Code, iss.Path, iss.Message)
 }
 ```
@@ -50,7 +50,7 @@ directly too.
 `SafeParse` already exposes `*z.Error` on the result:
 
 ```go
-res:= schema.SafeParse(input)
+res := schema.SafeParse(input)
 if !res.Success {
 	_ = res.Error.Issues
 }
@@ -120,7 +120,7 @@ fmt.Println(z.ToDotPath(iss.Path))
 | `custom` | `IssueCustom` | Refine / custom checks |
 
 ```go
-res:= z.String.Email.SafeParse("nope")
+res := z.String().Email().SafeParse("nope")
 fmt.Println(res.Error.Issues[0].Code)    // invalid_format
 fmt.Println(res.Error.Issues[0].Format)  // email
 ```
@@ -134,12 +134,12 @@ All helpers accept `*z.Error`. They are pure functions — safe to call from any
 Human-readable multi-line string. Issues sorted by path length; each line is `✖ message` plus optional `→ at path`.
 
 ```go
-schema:= z.Object(z.Shape{
-	"name":  z.String.Min(2),
-	"email": z.String.Email,
+schema := z.Object(z.Shape{
+	"name":  z.String().Min(2),
+	"email": z.String().Email(),
 })
 
-_, err:= schema.Parse(map[string]any{
+_, err := schema.Parse(map[string]any{
 	"name":  "A",
 	"email": "bad",
 })
@@ -160,7 +160,7 @@ Great for CLI tools and server logs.
 Splits root-level issues (`formErrors`) from first-segment field errors (`fieldErrors`) — classic form UX.
 
 ```go
-flat:= z.Flatten(zerr)
+flat := z.Flatten(zerr)
 // flat.FormErrors  []string
 // flat.FieldErrors map[string][]string
 ```
@@ -168,12 +168,12 @@ flat:= z.Flatten(zerr)
 Example:
 
 ```go
-err:= &z.Error{Issues: []z.Issue{
+err := &z.Error{Issues: []z.Issue{
 	{Code: z.IssueCustom, Message: "Must be equal", Path: []any{}},
 	{Code: z.IssueTooSmall, Message: "Too small", Path: []any{"name"}},
 }}
 
-flat:= z.Flatten(err)
+flat := z.Flatten(err)
 fmt.Println(flat.FormErrors)           // [Must be equal]
 fmt.Println(flat.FieldErrors["name"])  // [Too small]
 ```
@@ -181,7 +181,7 @@ fmt.Println(flat.FieldErrors["name"])  // [Too small]
 Use `FlattenMap` when you want custom mapped values instead of messages:
 
 ```go
-codes:= z.FlattenMap(zerr, func(iss z.Issue) string {
+codes := z.FlattenMap(zerr, func(iss z.Issue) string {
 	return string(iss.Code)
 })
 ```
@@ -191,13 +191,13 @@ codes:= z.FlattenMap(zerr, func(iss z.Issue) string {
 Nested map with `"_errors"` arrays at each node — a nested form.
 
 ```go
-formatted:= z.Format(zerr)
+formatted := z.Format(zerr)
 ```
 
 Example shape:
 
 ```go
-zerr:= &z.Error{Issues: []z.Issue{
+zerr := &z.Error{Issues: []z.Issue{
 	{Code: z.IssueUnrecognizedKeys, Path: []any{}, Message: `Unrecognized key: "extra"`},
 	{Code: z.IssueInvalidType, Path: []any{"username"}, Message: "expected string"},
 	{Code: z.IssueInvalidType, Path: []any{"favoriteNumbers", 1}, Message: "expected number"},
@@ -237,7 +237,7 @@ type ErrorTree struct {
 	Items      []*ErrorTree
 }
 
-tree:= z.Treeify(zerr)
+tree := z.Treeify(zerr)
 if tree.Properties["username"] != nil {
 	fmt.Println(tree.Properties["username"].Errors)
 }
@@ -284,23 +284,23 @@ import (
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-func main {
-	schema:= z.Object(z.Shape{
-		"name": z.String.Min(2),
-		"tags": z.Array(z.String.Min(1)).Min(1),
+func main() {
+	schema := z.Object(z.Shape{
+		"name": z.String().Min(2),
+		"tags": z.Array(z.String().Min(1)).Min(1),
 	})
 
-	_, err:= schema.Parse(map[string]any{
+	_, err := schema.Parse(map[string]any{
 		"name": "A",
 		"tags": []any{"", "ok"},
 	})
-	zerr:= err.(*z.Error)
+	zerr := err.(*z.Error)
 
 	fmt.Println("--- Prettify ---")
 	fmt.Println(z.Prettify(zerr))
 
 	fmt.Println("--- Flatten ---")
-	b, _:= json.MarshalIndent(z.Flatten(zerr), "", "  ")
+	b, _ := json.MarshalIndent(z.Flatten(zerr), "", "  ")
 	fmt.Println(string(b))
 
 	fmt.Println("--- Format ---")
@@ -323,9 +323,9 @@ Possible Prettify output:
 By default finalized issues omit `Input`. Opt in per parse:
 
 ```go
-out, err:= schema.ParseCtx(input, &z.ParseCtx{ReportInput: true})
+out, err := schema.ParseCtx(input, &z.ParseCtx{ReportInput: true})
 if err != nil {
-	iss:= err.(*z.Error).Issues[0]
+	iss := err.(*z.Error).Issues[0]
 	fmt.Printf("bad value: %#v\n", iss.Input)
 }
 ```

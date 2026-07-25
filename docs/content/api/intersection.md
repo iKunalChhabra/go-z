@@ -5,9 +5,9 @@ Parse with both schemas, then deep-merge their outputs — `z.intersection`.
 ## Intersection
 
 ```go
-a:= z.Object(z.Shape{"a": z.String})
-b:= z.Object(z.Shape{"b": z.String})
-ab:= z.Intersection(a, b)
+a := z.Object(z.Shape{"a": z.String()})
+b := z.Object(z.Shape{"b": z.String()})
+ab := z.Intersection(a, b)
 
 ab.Parse(map[string]any{"a": "foo", "b": "bar"})
 // map[string]any{"a": "foo", "b": "bar"}
@@ -30,8 +30,8 @@ Both sides always run. Non-`unrecognized_keys` issues from either side are colle
 
 ```go
 // Shared key merges recursively
-left:= map[string]any{"meta": map[string]any{"x": 1}}
-right:= map[string]any{"meta": map[string]any{"y": 2}}
+left := map[string]any{"meta": map[string]any{"x": 1}}
+right := map[string]any{"meta": map[string]any{"y": 2}}
 // → {"meta": {"x": 1, "y": 2}}
 ```
 
@@ -40,9 +40,9 @@ right:= map[string]any{"meta": map[string]any{"y": 2}}
 Strict / strip interplay: only keys unrecognized by **both** sides are re-emitted as `unrecognized_keys`. A key known to either side is allowed.
 
 ```go
-strictA:= z.Object(z.Shape{"a": z.String}).Strict
-strictB:= z.Object(z.Shape{"b": z.String}).Strict
-cat:= z.Intersection(strictA, strictB)
+strictA := z.Object(z.Shape{"a": z.String()}).Strict()
+strictB := z.Object(z.Shape{"b": z.String()}).Strict()
+cat := z.Intersection(strictA, strictB)
 
 // {"a","b"} ok; {"a","b","c"} → unrecognized_keys ["c"]
 ```
@@ -70,11 +70,11 @@ If either side has OptIn / OptOut, the intersection inherits them (`OR`).
 ## Signatures
 
 ```go
-func Intersection(left, right AnySchemaLike, params...any) *IntersectionSchema
+func Intersection(left, right AnySchemaLike, params ...any) *IntersectionSchema
 
 type IntersectionSchema struct {
     Left  AnySchemaLike
     Right AnySchemaLike
 }
-func (s *IntersectionSchema) Check(checks...*Check) *IntersectionSchema
+func (s *IntersectionSchema) Check(checks ...*Check) *IntersectionSchema
 ```

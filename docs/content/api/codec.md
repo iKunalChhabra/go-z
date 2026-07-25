@@ -3,7 +3,7 @@
 A codec is a **bidirectional** schema: it validates and converts in both directions. Decoding runs input → output; encoding runs output → input.
 
 ```go
-isoDate:= z.Codec(z.String.ISODateTime, z.Time, z.CodecTx{
+isoDate := z.Codec(z.String().ISODateTime(), z.Time(), z.CodecTx{
     Decode: func(v any, _ *z.RefinementCtx) (any, error) {
         return time.Parse(time.RFC3339Nano, v.(string))
     },
@@ -12,8 +12,8 @@ isoDate:= z.Codec(z.String.ISODateTime, z.Time, z.CodecTx{
     },
 })
 
-t, err:= z.Decode(isoDate, "2024-01-15T10:30:00Z") // time.Time
-s, err:= z.Encode(isoDate, t)                      // "2024-01-15T10:30:00Z"
+t, err := z.Decode(isoDate, "2024-01-15T10:30:00Z") // time.Time
+s, err := z.Encode(isoDate, t)                      // "2024-01-15T10:30:00Z"
 ```
 
 `Decode` validates with the **input** schema, runs your transform, then validates with the **output** schema. `Encode` does the reverse.
@@ -23,15 +23,15 @@ s, err:= z.Encode(isoDate, t)                      // "2024-01-15T10:30:00Z"
 Both directions run the same schema tree, so a codec nested anywhere inside an object or array works in both directions:
 
 ```go
-event:= z.Object(z.Shape{
-    "name": z.String,
+event := z.Object(z.Shape{
+    "name": z.String(),
     "at":   isoDate,
 })
 
-parsed, _:= z.Decode(event, map[string]any{"name": "launch", "at": "2024-01-15T10:30:00Z"})
+parsed, _ := z.Decode(event, map[string]any{"name": "launch", "at": "2024-01-15T10:30:00Z"})
 // parsed["at"] is a time.Time
 
-raw, _:= z.Encode(event, parsed)
+raw, _ := z.Encode(event, parsed)
 // raw["at"] is an ISO string again
 ```
 
@@ -51,7 +51,7 @@ Direction-aware behavior across the library:
 ## Safe variants
 
 ```go
-res:= z.SafeDecode(isoDate, "not-a-date")
+res := z.SafeDecode(isoDate, "not-a-date")
 if !res.Success {
     fmt.Println(res.Error.Issues[0].Code) // invalid_format
 }
@@ -66,9 +66,9 @@ res = z.SafeEncode(isoDate, time.Now)
 Swaps the two sides, so decode becomes encode:
 
 ```go
-dateToISO:= z.InvertCodec(isoDate)
+dateToISO := z.InvertCodec(isoDate)
 
-s, _:= z.Decode(dateToISO, time.Now) // now a string
+s, _ := z.Decode(dateToISO, time.Now) // now a string
 ```
 
 ## JSONStringCodec
@@ -76,22 +76,22 @@ s, _:= z.Decode(dateToISO, time.Now) // now a string
 Ships with the common "field holds a JSON string" case:
 
 ```go
-payload:= z.JSONStringCodec(z.Object(z.Shape{
-    "retries": z.Int.Gte(0),
+payload := z.JSONStringCodec(z.Object(z.Shape{
+    "retries": z.Int().Gte(0),
 }))
 
-cfg, _:= z.Decode(payload, `{"retries":3}`) // map[string]any
-raw, _:= z.Encode(payload, cfg)             // `{"retries":3}`
+cfg, _ := z.Decode(payload, `{"retries":3}`) // map[string]any
+raw, _ := z.Encode(payload, cfg)             // `{"retries":3}`
 ```
 
 Invalid JSON produces an `invalid_format` issue with `format: "json"` rather than a Go error.
 
 ## Reading the direction inside a check
 
-`ParseCtx.Direction` carries the current direction; `ctx.IsEncode` is the readable form. Custom schemas and checks can branch on it:
+`ParseCtx.Direction` carries the current direction; `ctx.IsEncode()` is the readable form. Custom schemas and checks can branch on it:
 
 ```go
-if ctx.IsEncode {
+if ctx.IsEncode() {
     // encoding: skip anything that would fabricate data
 }
 ```
@@ -99,8 +99,8 @@ if ctx.IsEncode {
 ## Accessors
 
 ```go
-isoDate.In  // z.String.ISODateTime
-isoDate.Out // z.Time
+isoDate.In  // z.String().ISODateTime()
+isoDate.Out // z.Time()
 ```
 
 ## Signatures

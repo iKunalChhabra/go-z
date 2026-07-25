@@ -11,13 +11,13 @@ type User struct {
     Age   float64 `json:"age"`
 }
 
-schema:= z.ToStruct[User](z.Object(z.Shape{
-    "name":  z.String.Min(2),
-    "email": z.String.Email,
-    "age":   z.Optional(z.Int.Gte(0)),
+schema := z.ToStruct[User](z.Object(z.Shape{
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
+    "age":   z.Optional(z.Int().Gte(0)),
 }))
 
-user, err:= schema.Parse(map[string]any{
+user, err := schema.Parse(map[string]any{
     "name":  "Ada",
     "email": "ada@example.com",
     "age":   36.0,
@@ -85,7 +85,7 @@ var createUser = z.ToStruct[User](userObject) // once
 Decode **without** schema validation:
 
 ```go
-user, err:= z.DecodeStruct[User](map[string]any{
+user, err := z.DecodeStruct[User](map[string]any{
     "name":  "Ada",
     "email": "ada@example.com",
 })
@@ -116,7 +116,7 @@ func DecodeStruct[T any](data map[string]any) (T, error)
 var createUser = z.ToStruct[User](userObject)
 
 r.POST("/users", func(c *gin.Context) {
-    u, ok:= zgin.BindJSON(c, createUser)
+    u, ok := zgin.BindJSON(c, createUser)
     if !ok {
         return
     }

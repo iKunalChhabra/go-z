@@ -10,7 +10,7 @@ Dense reference for `github.com/iKunalChhabra/go-z`. Import: `import "github.com
 | `schema.MustParse(data)` | `T` or panic |
 | `schema.SafeParse(data)` | `SafeParseResult[T]{Success, Data, Error}` |
 | `schema.ParseCtx(data, ctx)` | `(T, error)` with per-parse `ParseCtx` |
-| `schema.Internals` | `*Internals` untyped core |
+| `schema.Internals()` | `*Internals` untyped core |
 
 ## Primitives
 
@@ -44,10 +44,10 @@ Formats: `Email` `URL` `UUID` `UUIDv4` `UUIDv6` `UUIDv7` `GUID` `NanoID` `CUID` 
 ## Coercion
 
 ```go
-z.Coerce.String
-z.Coerce.Number
-z.Coerce.Bool
-z.Coerce.Time
+z.Coerce.String()
+z.Coerce.Number()
+z.Coerce.Bool()
+z.Coerce.Time()
 ```
 
 ## Collections

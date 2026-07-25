@@ -6,10 +6,10 @@ Compose schemas and value transforms. Because Go methods cannot introduce new ty
 
 ```go
 // string → trimmed string → non-empty
-trimmed:= z.Transform(z.String, func(v any, _ *z.RefinementCtx) (any, error) {
+trimmed := z.Transform(z.String(), func(v any, _ *z.RefinementCtx) (any, error) {
     return strings.TrimSpace(v.(string)), nil
 })
-schema:= z.Pipe(trimmed, z.String.Min(1))
+schema := z.Pipe(trimmed, z.String().Min(1))
 ```
 
 Runs schema **A**, then schema **B** on A’s output. If A produces any issues, B is skipped and the payload is aborted.
@@ -21,7 +21,7 @@ Runs schema **A**, then schema **B** on A’s output. If A produces any issues, 
 | Values / PropValues | copied from A |
 
 ```go
-p:= z.Pipe(a, b)
+p := z.Pipe(a, b)
 p.In  // a
 p.Out // b
 ```
@@ -29,8 +29,8 @@ p.Out // b
 ## Transform
 
 ```go
-schema:= z.Transform(z.String, func(v any, ctx *z.RefinementCtx) (any, error) {
-    s:= v.(string)
+schema := z.Transform(z.String(), func(v any, ctx *z.RefinementCtx) (any, error) {
+    s := v.(string)
     if s == "" {
         ctx.AddMessage("empty")
         return nil, nil
@@ -51,11 +51,11 @@ If the inner schema already has issues, the transform is skipped (`Aborted`).
 Typed convenience when the output type is known:
 
 ```go
-schema:= z.TransformTo[int](z.String, func(v any) (int, error) {
+schema := z.TransformTo[int](z.String(), func(v any) (int, error) {
     return strconv.Atoi(v.(string))
 })
 
-n, err:= schema.Parse("42") // n is int
+n, err := schema.Parse("42") // n is int
 ```
 
 Returns `Schema[Out]`. Prefer this over untyped `Transform` at API boundaries.
@@ -63,12 +63,12 @@ Returns `Schema[Out]`. Prefer this over untyped `Transform` at API boundaries.
 ## Preprocess
 
 ```go
-schema:= z.Preprocess(func(v any) any {
-    if s, ok:= v.(string); ok {
+schema := z.Preprocess(func(v any) any {
+    if s, ok := v.(string); ok {
         return strings.TrimSpace(s)
     }
     return v
-}, z.String.Email)
+}, z.String().Email())
 ```
 
 Applies `fn` to the **input**, then parses with `schema`. Implemented as a pipe subtype. OptIn/OptOut follow the target schema.
@@ -78,7 +78,7 @@ Applies `fn` to the **input**, then parses with `schema`. Implemented as a pipe 
 In-place value rewrite that keeps the same schema “slot” (`.overwrite`):
 
 ```go
-schema:= z.OverwriteSchema(z.String, func(v any) any {
+schema := z.OverwriteSchema(z.String(), func(v any) any {
     return strings.TrimSpace(v.(string))
 })
 ```

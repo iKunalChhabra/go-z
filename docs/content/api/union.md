@@ -5,9 +5,9 @@ Try options in order; the first successful parse wins.
 ## Union
 
 ```go
-schema:= z.Union([]z.AnySchemaLike{
-    z.String,
-    z.Number,
+schema := z.Union([]z.AnySchemaLike{
+    z.String(),
+    z.Number(),
 })
 
 schema.Parse("hi") // "hi"
@@ -27,7 +27,7 @@ z.Union(options, z.Params{Error: myMap})
 Variadic convenience:
 
 ```go
-schema:= z.UnionOf(z.String, z.Number, z.Bool)
+schema := z.UnionOf(z.String(), z.Number(), z.Bool())
 ```
 
 ## Parse algorithm
@@ -57,9 +57,9 @@ Issue{
 `Errors[i]` is the finalized issue list from option `i`. Locale message for a plain union (no `Values`) is `"Invalid input"`.
 
 ```go
-res:= schema.SafeParse(true)
+res := schema.SafeParse(true)
 if !res.Success {
-    iss:= res.Error.Issues[0]
+    iss := res.Error.Issues[0]
     // iss.Code == "invalid_union"
     // iss.Errors[0] — string option failures
     // iss.Errors[1] — number option failures
@@ -73,8 +73,8 @@ If **any** option has OptIn / OptOut, the union inherits those flags. If every o
 ## Traits & immutability
 
 ```go
-u:= z.Union([]z.AnySchemaLike{z.String, z.Number})
-u2:= u.Check(myCheck) // immutable clone; Options are copied at construction
+u := z.Union([]z.AnySchemaLike{z.String(), z.Number()})
+u2 := u.Check(myCheck) // immutable clone; Options are copied at construction
 ```
 
 Callers cannot mutate the schema’s option list after construction — `Union` copies the slice.
@@ -91,12 +91,12 @@ See [Discriminated union](#/api/discriminated-union).
 ## Signatures
 
 ```go
-func Union(options []AnySchemaLike, params...any) *UnionSchema
-func UnionOf(options...AnySchemaLike) *UnionSchema
+func Union(options []AnySchemaLike, params ...any) *UnionSchema
+func UnionOf(options ...AnySchemaLike) *UnionSchema
 
 type UnionSchema struct {
     Options []AnySchemaLike
-    //...
+    // ...
 }
-func (s *UnionSchema) Check(checks...*Check) *UnionSchema
+func (s *UnionSchema) Check(checks ...*Check) *UnionSchema
 ```

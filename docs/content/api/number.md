@@ -1,11 +1,11 @@
 # Numbers
 
-Every numeric constructor produces the Go type its name promises: `z.Int` gives you an `int`, `z.Uint32` a `uint32`, `z.Number` a `float64`. They are all instantiations of one generic schema, `NumericSchema[T]`, so the whole fluent surface behaves the same regardless of which one you pick.
+Every numeric constructor produces the Go type its name promises: `z.Int()` gives you an `int`, `z.Uint32()` a `uint32`, `z.Number()` a `float64`. They are all instantiations of one generic schema, `NumericSchema[T]`, so the whole fluent surface behaves the same regardless of which one you pick.
 
 ```go
-schema:= z.Int().Gte(0).Lte(100)
+schema := z.Int().Gte(0).Lte(100)
 
-n, err:= schema.Parse(42)
+n, err := schema.Parse(42)
 // n is int(42) — not float64
 ```
 
@@ -18,14 +18,14 @@ z.Int().MustParse(42.0)      // 42   (from JSON)
 z.Int().MustParse(int64(42)) // 42
 z.Number().MustParse(42)     // 42.0 (int widened)
 
-res:= z.Int().SafeParse("12")
+res := z.Int().SafeParse("12")
 // invalid_type, Expected: "number"
 ```
 
 The conversion has to be exact. A value the output type cannot hold is reported as an issue — it is never silently truncated or wrapped:
 
 ```go
-res:= z.Int().SafeParse(3.7)
+res := z.Int().SafeParse(3.7)
 // invalid_type, Expected: "int"
 // Message: "Invalid input: expected int, received number"
 
@@ -40,9 +40,9 @@ res = z.Uint32().SafeParse(-1)        // too_small
 ```go
 import "math"
 
-schema:= z.Number()
+schema := z.Number()
 
-res:= schema.SafeParse(math.NaN())
+res := schema.SafeParse(math.NaN())
 // Message: "Invalid input: expected number, received NaN"
 
 res = schema.SafeParse(math.Inf(1))  // fail — Expected: "number"
@@ -68,10 +68,10 @@ res = schema.SafeParse(math.Inf(-1)) // fail
 | `Int64` | `int64` | the full Go `int64` range |
 
 ```go
-n, _:= z.Int().Parse(10)   // int(10)
-i, _:= z.Int64().Parse(10) // int64(10)
-p, _:= z.Uint32().Parse(8080)
-f, _:= z.Float32().Parse(1.5)
+n, _ := z.Int().Parse(10)   // int(10)
+i, _ := z.Int64().Parse(10) // int64(10)
+p, _ := z.Uint32().Parse(8080)
+f, _ := z.Float32().Parse(1.5)
 ```
 
 :::info Int vs Int64
@@ -110,19 +110,19 @@ Bounds take the schema's own type, so there is no casting at the call site: `z.I
 | `NonNegative` | `Gte(0)` | — | — |
 
 ```go
-schema:= z.Number().Gt(5)
+schema := z.Number().Gt(5)
 schema.MustParse(6)
 _ = schema.SafeParse(5) // fail — exclusive
 
 schema = z.Number().Gte(5) // same as Min(5)
 schema.MustParse(5)
 
-pos:= z.Int().Positive()
+pos := z.Int().Positive()
 pos.MustParse(1)
 _ = pos.SafeParse(0)
 _ = pos.SafeParse(-1)
 
-nn:= z.Int().NonNegative()
+nn := z.Int().NonNegative()
 nn.MustParse(0)
 ```
 
@@ -131,10 +131,10 @@ Issues use `Origin: "number"` (or `"int"` for integer type failures).
 ## MultipleOf / Step
 
 ```go
-schema:= z.Number().MultipleOf(5)
+schema := z.Number().MultipleOf(5)
 schema.MustParse(15)
 schema.MustParse(-15)
-res:= schema.SafeParse(7.5)
+res := schema.SafeParse(7.5)
 // Code: not_multiple_of
 // Origin: "number"
 // Divisor: 5
@@ -148,7 +148,7 @@ Uses a float-safe remainder so values like `0.1` steps work more reliably than n
 ## Coercion
 
 ```go
-s:= z.Number(z.Params{Coerce: true})
+s := z.Number(z.Params{Coerce: true})
 // or: z.Coerce.Number()
 
 s.MustParse("12.5")  // 12.5
@@ -156,7 +156,7 @@ s.MustParse("")      // 0  (JS Number("") === 0)
 s.MustParse(true)    // 1
 s.MustParse(false)   // 0
 
-res:= s.SafeParse("nope")
+res := s.SafeParse("nope")
 // coerce fails → still invalid_type number
 ```
 
@@ -174,17 +174,17 @@ Also accepts `*big.Int` when coerce is on. See [Coercion](/api/coerce).
 Wrappers keep the output type, and `Refine` receives it directly:
 
 ```go
-count, _:= z.Int().Default(1).Parse(z.Missing) // int(1)
-maybe, _:= z.Int().Optional().Parse(z.Missing) // (*int)(nil)
+count, _ := z.Int().Default(1).Parse(z.Missing) // int(1)
+maybe, _ := z.Int().Optional().Parse(z.Missing) // (*int)(nil)
 
-even:= z.Int().Refine(func(n int) bool { return n%2 == 0 }, "must be even")
+even := z.Int().Refine(func(n int) bool { return n%2 == 0 }, "must be even")
 ```
 
 ## Custom messages
 
 ```go
-schema:= z.Int().Min(0, "must be ≥ 0").Max(100, "must be ≤ 100")
-res:= schema.SafeParse(-1)
+schema := z.Int().Min(0, "must be ≥ 0").Max(100, "must be ≤ 100")
+res := schema.SafeParse(-1)
 // Message: "must be ≥ 0"
 ```
 
@@ -197,7 +197,7 @@ type Numeric interface {
 		~float32 | ~float64
 }
 
-type NumericSchema[T Numeric] struct{ ... }
+type NumericSchema[T Numeric] struct{ /* unexported */ }
 
 // NumberSchema and Int64Schema are aliases for the float64 and int64 forms.
 type NumberSchema = NumericSchema[float64]
@@ -211,11 +211,18 @@ func Int32(params ...any) *NumericSchema[int32]
 func Uint32(params ...any) *NumericSchema[uint32]
 func Int64(params ...any) *Int64Schema
 
-func (s *NumericSchema[T]) Gt / Gte / Lt / Lte / Min / Max(value T, ...)
-func (s *NumericSchema[T]) Positive / Negative / NonPositive / NonNegative(...)
-func (s *NumericSchema[T]) MultipleOf / Step(value T, ...)
-func (s *NumericSchema[T]) Integer / Safe / Finite(...)
-func (s *NumericSchema[T]) Refine(pred func(T) bool, ...)
+func (s *NumericSchema[T]) Gt(value T, params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) Gte(value T, params ...any) *NumericSchema[T] // alias Min
+func (s *NumericSchema[T]) Lt(value T, params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) Lte(value T, params ...any) *NumericSchema[T] // alias Max
+func (s *NumericSchema[T]) Positive(params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) Negative(params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) NonPositive(params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) NonNegative(params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) MultipleOf(value T, params ...any) *NumericSchema[T] // alias Step
+func (s *NumericSchema[T]) Integer(params ...any) *NumericSchema[T] // alias Safe
+func (s *NumericSchema[T]) Finite(params ...any) *NumericSchema[T]
+func (s *NumericSchema[T]) Refine(pred func(T) bool, params ...any) *NumericSchema[T]
 ```
 
 Adding another width — `Uint64`, `Int16` — is a one-line constructor on the same generic type.

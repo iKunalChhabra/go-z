@@ -5,14 +5,14 @@ Object unions keyed by a shared literal field — `z.discriminatedUnion`.
 ## DiscriminatedUnion
 
 ```go
-schema:= z.DiscriminatedUnion("role", []z.AnySchemaLike{
+schema := z.DiscriminatedUnion("role", []z.AnySchemaLike{
     z.Object(z.Shape{
         "role":  z.Literal("admin"),
-        "perms": z.Array(z.String),
+        "perms": z.Array(z.String()),
     }),
     z.Object(z.Shape{
         "role":    z.Literal("guest"),
-        "session": z.String.UUID,
+        "session": z.String().UUID(),
     }),
 })
 
@@ -61,7 +61,7 @@ Invalid discriminator value. Expected 'admin' | 'guest'
 ```
 
 ```go
-res:= schema.SafeParse(map[string]any{"role": "superuser"})
+res := schema.SafeParse(map[string]any{"role": "superuser"})
 // res.Error.Issues[0].Message ≈ "Invalid discriminator value. Expected 'admin' | 'guest'"
 ```
 
@@ -79,7 +79,7 @@ Options may be wrapped in `Lazy` — the builder unwraps lazy schemas when colle
 ## DiscUnionParams
 
 ```go
-schema:= z.DiscriminatedUnion("type", options, z.DiscUnionParams{
+schema := z.DiscriminatedUnion("type", options, z.DiscUnionParams{
     Error:         myErrorMap,
     UnionFallback: true, // on unknown tag, try plain Union instead of disc error
 })
@@ -99,7 +99,7 @@ The disc-union’s internals merge `PropValues` across options so nested contain
 ## Signatures
 
 ```go
-func DiscriminatedUnion(discriminator string, options []AnySchemaLike, params...any) *DiscriminatedUnionSchema
+func DiscriminatedUnion(discriminator string, options []AnySchemaLike, params ...any) *DiscriminatedUnionSchema
 
 type DiscUnionParams struct {
     Error         ErrorMap
@@ -109,7 +109,7 @@ type DiscUnionParams struct {
 type DiscriminatedUnionSchema struct {
     Discriminator string
     Options       []AnySchemaLike
-    //...
+    // ...
 }
-func (s *DiscriminatedUnionSchema) Check(checks...*Check) *DiscriminatedUnionSchema
+func (s *DiscriminatedUnionSchema) Check(checks ...*Check) *DiscriminatedUnionSchema
 ```

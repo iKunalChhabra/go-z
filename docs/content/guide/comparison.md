@@ -51,18 +51,18 @@ type User struct {
 
 ```go
 // go-z equivalent (JSON-first)
-user:= z.Object(z.Shape{
-	"name":  z.String.Min(2),
-	"email": z.String.Email,
+user := z.Object(z.Shape{
+	"name":  z.String().Min(2),
+	"email": z.String().Email(),
 })
-data, err:= user.Parse(input) // map[string]any
+data, err := user.Parse(input) // map[string]any
 
 // Optional typed edge
 type User struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
-u, err:= z.ToStruct[User](user).Parse(input)
+u, err := z.ToStruct[User](user).Parse(input)
 ```
 
 ## vs ozzo-validation
@@ -70,7 +70,7 @@ u, err:= z.ToStruct[User](user).Parse(input)
 ozzo-validation is fluent and Go-idiomatic:
 
 ```go
-err:= validation.ValidateStruct(&user,
+err := validation.ValidateStruct(&user,
 	validation.Field(&user.Name, validation.Required, validation.Length(2, 100)),
 	validation.Field(&user.Email, validation.Required, is.Email),
 )
@@ -108,14 +108,14 @@ This is the emotional home of go-z.
 
 | Concern | TypeScript Zod | go-z |
 |---|---|---|
-| Fluent API | `z.string.min(5).email` | `z.String.Min(5).Email` |
-| Objects | `z.object({... })` | `z.Object(z.Shape{... })` |
+| Fluent API | `z.string().min(5).email()` | `z.String().Min(5).Email()` |
+| Objects | `z.object({ ... })` | `z.Object(z.Shape{ ... })` |
 | Safe parse | `safeParse` | `SafeParse` |
 | Issues | `ZodError.issues` | `ZodError.Issues` |
 | Infer types | `z.infer<typeof s>` | **Not available** — declare Go types separately |
 | Runtime | JS / TS | Go `any` core + `Schema[T]` edge |
 | Defaults / catch | `default`, `catch` | `Default`, `Catch` |
-| Coercion | `z.coerce.string` | `z.Coerce.String` |
+| Coercion | `z.coerce.string()` | `z.Coerce.String()` |
 
 ### The hard honesty: no schema→type inference
 
@@ -133,8 +133,8 @@ In Go, the type system cannot infer a struct type from a runtime `Object` value.
 
 ```go
 var UserSchema = z.Object(z.Shape{
-	"name":  z.String,
-	"email": z.String.Email,
+	"name":  z.String(),
+	"email": z.String().Email(),
 })
 
 type User struct {
@@ -142,7 +142,7 @@ type User struct {
 	Email string `json:"email"`
 }
 
-parsed, err:= z.ToStruct[User](UserSchema).Parse(input)
+parsed, err := z.ToStruct[User](UserSchema).Parse(input)
 ```
 
 :::warn This is a language limit, not a backlog item

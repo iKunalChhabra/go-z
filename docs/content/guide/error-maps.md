@@ -11,14 +11,14 @@ type ErrorMap func(iss *Issue) string
 
 ### MessageFromString
 
-Shorthand for a fixed message — `z.string.min(5, "too short")`:
+Shorthand for a fixed message — `z.string().min(5, "too short")`:
 
 ```go
-msg:= z.MessageFromString("too short")
+msg := z.MessageFromString("too short")
 
-schema:= z.String.Min(5, msg)
+schema := z.String().Min(5, msg)
 // or simply:
-schema = z.String.Min(5, "too short")
+schema = z.String().Min(5, "too short")
 ```
 
 Empty string → `nil` map (no override).
@@ -28,11 +28,11 @@ Empty string → `nil` map (no override).
 Fluent methods accept a string, an `ErrorMap`, or `Params`:
 
 ```go
-z.String.Min(8, z.Params{
+z.String().Min(8, z.Params{
 	Error: z.MessageFromString("password too short"),
 })
 
-z.String.Email(z.Params{
+z.String().Email(z.Params{
 	Error: func(iss *z.Issue) string {
 		if iss.Format == "email" {
 			return "That doesn't look like an email"
@@ -57,7 +57,7 @@ z.String(z.Params{
 Override messages for a single call without changing the schema:
 
 ```go
-ctx:= &z.ParseCtx{
+ctx := &z.ParseCtx{
 	Error: func(iss *z.Issue) string {
 		switch iss.Code {
 		case z.IssueTooSmall:
@@ -70,7 +70,7 @@ ctx:= &z.ParseCtx{
 	},
 }
 
-_, err:= z.String.Min(5).Email.ParseCtx("x", ctx)
+_, err := z.String().Min(5).Email().ParseCtx("x", ctx)
 fmt.Println(err.(*z.Error).Issues[0].Message)
 // Please write a bit more
 ```
@@ -87,7 +87,7 @@ type Config struct {
 `Configure` atomically replaces the global config and returns the previous one. Safe for concurrent use.
 
 ```go
-prev:= z.Configure(z.Config{
+prev := z.Configure(z.Config{
 	CustomError: func(iss *z.Issue) string {
 		if iss.Code == z.IssueUnrecognizedKeys {
 			return "Please remove unknown fields"
@@ -97,7 +97,7 @@ prev:= z.Configure(z.Config{
 	LocaleError: z.Locale("es"),
 })
 
-//... later, restore
+// ... later, restore
 z.Configure(prev)
 ```
 
@@ -151,7 +151,7 @@ z.Configure(z.Config{
 	LocaleError: z.Locale("ja"),
 })
 
-_, err:= z.String.Min(5).Parse("hi")
+_, err := z.String().Min(5).Parse("hi")
 fmt.Println(err.(*z.Error).Issues[0].Message)
 // Japanese too_small message
 ```
@@ -167,7 +167,7 @@ z.Configure(z.Config{LocaleError: z.FrLocale})
 Same issue, different locales:
 
 ```go
-iss:= &z.Issue{
+iss := &z.Issue{
 	Code:      z.IssueTooSmall,
 	Origin:    "string",
 	Minimum:   5,
@@ -195,7 +195,7 @@ In HTTP handlers, map the first supported tag to `Locale` and pass it via `Parse
 ### Field-level product copy
 
 ```go
-password:= z.String.
+password := z.String().
 	Min(8, "Use at least 8 characters").
 	Max(128, "Password is too long")
 ```
@@ -219,11 +219,10 @@ z.Configure(z.Config{
 ### Per-request locale without global mutation
 
 ```go
-func parseWithLocale(schema z.AnySchemaLike, data any, lang string) (any, error)
-{
-	locale:= z.Locale(lang)
+func parseWithLocale(schema z.AnySchemaLike, data any, lang string) (any, error) {
+	locale := z.Locale(lang)
 	// Wrap as ParseCtx.Error — runs before global locale
-	ctx:= &z.ParseCtx{
+	ctx := &z.ParseCtx{
 		Error: func(iss *z.Issue) string {
 			return locale(iss)
 		},
@@ -239,7 +238,7 @@ func parseWithLocale(schema z.AnySchemaLike, data any, lang string) (any, error)
 Simpler when you already hold a concrete schema:
 
 ```go
-out, err:= userSchema.ParseCtx(input, &z.ParseCtx{
+out, err := userSchema.ParseCtx(input, &z.ParseCtx{
 	Error: z.Locale("pt"),
 })
 ```
@@ -247,8 +246,8 @@ out, err:= userSchema.ParseCtx(input, &z.ParseCtx{
 Because a per-parse map that always returns a string **short-circuits** the chain, this replaces locale messages for that call. To only override some codes, return `""` for the rest:
 
 ```go
-lang:= z.Locale("pt")
-ctx:= &z.ParseCtx{
+lang := z.Locale("pt")
+ctx := &z.ParseCtx{
 	Error: func(iss *z.Issue) string {
 		if iss.Code == z.IssueCustom {
 			return "Regra de negócio falhou"
@@ -262,10 +261,10 @@ ctx:= &z.ParseCtx{
 
 ```go
 func TestSpanish(t *testing.T) {
-	prev:= z.Configure(z.Config{LocaleError: z.EsLocale})
-	t.Cleanup(func { z.Configure(prev) })
+	prev := z.Configure(z.Config{LocaleError: z.EsLocale})
+	t.Cleanup(func() { z.Configure(prev) })
 
-	_, err:= z.String.Min(5).Parse("x")
+	_, err := z.String().Min(5).Parse("x")
 	if err == nil {
 		t.Fatal("expected error")
 	}

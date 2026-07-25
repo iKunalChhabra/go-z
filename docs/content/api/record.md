@@ -3,9 +3,9 @@
 `z.Record(keySchema, valueSchema)` ports `z.record(key, value)`. Validates `map[string]any` (and other string-keyed maps). Output is `map[string]any`.
 
 ```go
-scores:= z.Record(z.String, z.Number)
+scores := z.Record(z.String(), z.Number())
 
-out:= scores.MustParse(map[string]any{
+out := scores.MustParse(map[string]any{
     "alice": 10,
     "bob":   20,
 })
@@ -16,10 +16,10 @@ out:= scores.MustParse(map[string]any{
 When the key schema has **no** `Internals.Values` set (e.g. plain `String`), every enumerable key is validated independently:
 
 ```go
-schema:= z.Record(z.String, z.String)
+schema := z.Record(z.String(), z.String())
 schema.MustParse(map[string]any{"any": "key"})
 
-res:= schema.SafeParse(map[string]any{"a": 1})
+res := schema.SafeParse(map[string]any{"a": 1})
 // Value type error — Path: ["a"]
 
 res = schema.SafeParse([]any{})
@@ -32,8 +32,8 @@ If the key schema fails, go-z emits `invalid_key` with nested issues (`Origin: "
 
 ```go
 // Example: keys must be emails
-schema:= z.Record(z.String.Email, z.Number)
-res:= schema.SafeParse(map[string]any{
+schema := z.Record(z.String().Email(), z.Number())
+res := schema.SafeParse(map[string]any{
     "not-an-email": 1,
 })
 // Code: invalid_key
@@ -47,8 +47,8 @@ res:= schema.SafeParse(map[string]any{
 `.Loose` keeps entries whose keys fail validation (pass through raw), instead of emitting `invalid_key`:
 
 ```go
-schema:= z.Record(z.String.Email, z.Number).Loose
-got:= schema.MustParse(map[string]any{
+schema := z.Record(z.String().Email(), z.Number()).Loose()
+got := schema.MustParse(map[string]any{
     "ok@x.co": 1,
     "bad":     2, // kept despite invalid key
 })
@@ -62,12 +62,12 @@ When the key schema defines `Internals.Values` (Enum, Literal, Null, …), the r
 2. Extra keys → `unrecognized_keys`.
 
 ```go
-key:= z.Enum("ok")
-schema:= z.Record(key, z.String)
+key := z.Enum("ok")
+schema := z.Record(key, z.String())
 
 schema.MustParse(map[string]any{"ok": "yes"})
 
-res:= schema.SafeParse(map[string]any{"ok": "yes", "no": "x"})
+res := schema.SafeParse(map[string]any{"ok": "yes", "no": "x"})
 // Code: unrecognized_keys, Keys: ["no"]
 
 res = schema.SafeParse(map[string]any{})
@@ -77,21 +77,21 @@ res = schema.SafeParse(map[string]any{})
 Works well with `Object.Keyof`:
 
 ```go
-shape:= z.Object(z.Shape{
-    "width":  z.Number,
-    "height": z.Number,
+shape := z.Object(z.Shape{
+    "width":  z.Number(),
+    "height": z.Number(),
 })
-dims:= z.Record(shape.Keyof, z.Number)
+dims := z.Record(shape.Keyof, z.Number())
 dims.MustParse(map[string]any{"width": 1, "height": 2})
 ```
 
 ## Nested paths
 
 ```go
-schema:= z.Record(z.String, z.Object(z.Shape{
-    "n": z.String,
+schema := z.Record(z.String(), z.Object(z.Shape{
+    "n": z.String(),
 }))
-res:= schema.SafeParse(map[string]any{
+res := schema.SafeParse(map[string]any{
     "x": map[string]any{},
 })
 // Path: ["x", "n"]
@@ -100,6 +100,6 @@ res:= schema.SafeParse(map[string]any{
 ## API surface
 
 ```go
-func Record(keySchema, valueSchema AnySchemaLike, params...any) *RecordSchema
-func (r *RecordSchema) Loose *RecordSchema
+func Record(keySchema, valueSchema AnySchemaLike, params ...any) *RecordSchema
+func (r *RecordSchema) Loose() *RecordSchema
 ```

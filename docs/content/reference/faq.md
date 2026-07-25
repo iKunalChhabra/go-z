@@ -5,8 +5,8 @@
 Yes. Wrappers are generic, so the fluent methods preserve the inner type:
 
 ```go
-name, err:= z.String.Optional.Parse(v)   // (*string, error) — nil when absent
-age, err:= z.Int64.Default(18).Parse(v)    // (int64, error)
+name, err := z.String().Optional().Parse(v)   // (*string, error) — nil when absent
+age, err := z.Int64().Default(18).Parse(v)    // (int64, error)
 ```
 
 `Optional` and `Nullable` return `*T` because their output domain is “a T or nothing”; every other wrapper (`Default`, `Prefault`, `Catch`, `NonOptional`, `Readonly`) always produces a value, so it returns `T`. The package-level `z.Optional(schema)` still takes an `AnySchemaLike` for heterogeneous containers and yields the erased `*OptionalSchema[any]`; use `z.OptionalOf(schema)` (or the fluent method) when the inner type is known. See [Optional & friends](#/api/optional).
@@ -37,7 +37,7 @@ Use `DiscriminatedUnion` for object variants that share a literal tag — O(1) d
 
 ## 8. How do I validate Gin query / path params that are strings?
 
-Use `z.Coerce.Number` / `Bool` / `Time` with `zgin.BindQuery` / `BindURI`. Query values are unwrapped by `CoerceQueryValues`.
+Use `z.Coerce.Number()` / `Bool` / `Time` with `zgin.BindQuery` / `BindURI`. Query values are unwrapped by `CoerceQueryValues`.
 
 ## 9. How do I customize HTTP error JSON?
 
@@ -60,13 +60,13 @@ Yes — `z.ParseParallelSlice(ctx, elemSchema, data, z.ParallelOpts{})`. Default
 
 ## 11b. Why do bad params panic instead of returning an error?
 
-Params are only read while a schema is being **defined** — normally at package init or startup — so a typo like `z.String.Min(5, 42)` fails immediately and loudly rather than silently dropping your custom message. Schema definition is effectively compile time for an application: if the process starts, every schema in it was built with valid params. Nothing in the request path can panic from this.
+Params are only read while a schema is being **defined** — normally at package init or startup — so a typo like `z.String().Min(5, 42)` fails immediately and loudly rather than silently dropping your custom message. Schema definition is effectively compile time for an application: if the process starts, every schema in it was built with valid params. Nothing in the request path can panic from this.
 
 ## 12. How do I do recursive types?
 
 ```go
 var Node z.AnySchemaLike
-Node = z.Lazy(func z.AnySchemaLike {
+Node = z.Lazy(func() z.AnySchemaLike {
     return z.Object(z.Shape{
         "children": z.Array(Node),
     })
@@ -82,7 +82,7 @@ go-z finalizes schema-shaped issues (error-map chain, locales, rich JSON). Tag v
 ## 14. How do I set a locale?
 
 ```go
-cfg:= z.GetConfig
+cfg := z.GetConfig()
 cfg.LocaleError = z.EsLocale // FrLocale, DeLocale, JaLocale, PtLocale, ZhLocale
 ```
 
@@ -97,7 +97,7 @@ No — `T` must be a non-pointer struct. Pointer **fields** inside the struct ar
 ```go
 z.Refine(schema, pred, z.RefineOpts{Abort: true})
 // or
-ctx.AddIssue(iss.WithAbort)
+ctx.AddIssue(iss.WithAbort())
 ```
 
 `Custom` defaults to abort; `Refine` defaults to continue.

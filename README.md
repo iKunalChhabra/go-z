@@ -43,19 +43,19 @@ import (
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-func main {
-	user:= z.Object(z.Shape{
-		"name":  z.String.Min(2).Max(100),
-		"email": z.String.Email,
-		"age":   z.Int.Gte(0).Lt(150).Optional,
+func main() {
+	user := z.Object(z.Shape{
+		"name":  z.String().Min(2).Max(100),
+		"email": z.String().Email(),
+		"age":   z.Int().Gte(0).Lt(150).Optional(),
 	})
 
-	data, err:= user.Parse(map[string]any{
+	data, err := user.Parse(map[string]any{
 		"name":  "Ada",
 		"email": "ada@example.com",
 	})
 	if err != nil {
-		zerr, _:= z.AsError(err)
+		zerr, _ := z.AsError(err)
 		fmt.Println(z.Prettify(zerr))
 		return
 	}
@@ -69,14 +69,14 @@ way you would want — no alias required:
 ```go
 import "github.com/iKunalChhabra/go-z/z"
 
-z.String.Min(5).Email
+z.String().Min(5).Email()
 ```
 
 ## Features
 
-- **Fluent schema API.** `z.String.Min(5).Email`, `z.Object(z.Shape{…})`,
+- **Fluent schema API.** `z.String().Min(5).Email()`, `z.Object(z.Shape{…})`,
   `Optional` / `Nullable` / `Default` / `Catch` / `Pipe` / `Transform` / `Refine`.
-- **Typed edges.** `String.Optional.Parse(v)` returns `(*string, error)`;
+- **Typed edges.** `String().Optional().Parse(v)` returns `(*string, error)`;
   `String.Default("x").Parse(v)` returns `(string, error)`. Generic wrappers keep
   the inner type instead of collapsing to `any`.
 - **Structured errors.** Eleven issue codes with paths and stable JSON field
@@ -93,7 +93,7 @@ z.String.Min(5).Email
 ### Safe parsing
 
 ```go
-res:= z.String.Email.SafeParse("nope")
+res := z.String().Email().SafeParse("nope")
 if !res.Success {
 	fmt.Println(res.Error.Issues[0].Code) // invalid_format
 }
@@ -103,16 +103,16 @@ if !res.Success {
 
 ```go
 var Category z.AnySchemaLike
-Category = z.Lazy(func z.AnySchemaLike {
+Category = z.Lazy(func() z.AnySchemaLike {
 	return z.Object(z.Shape{
-		"name":     z.String.Min(1),
+		"name":     z.String().Min(1),
 		"children": z.Array(Category).Default([]any{}),
 	})
 })
 
-userOrGuest:= z.DiscriminatedUnion("role", []z.AnySchemaLike{
-	z.Object(z.Shape{"role": z.Literal("admin"), "perms": z.Array(z.String)}),
-	z.Object(z.Shape{"role": z.Literal("guest"), "session": z.String.UUID}),
+userOrGuest := z.DiscriminatedUnion("role", []z.AnySchemaLike{
+	z.Object(z.Shape{"role": z.Literal("admin"), "perms": z.Array(z.String())}),
+	z.Object(z.Shape{"role": z.Literal("guest"), "session": z.String().UUID()}),
 })
 ```
 
@@ -124,13 +124,13 @@ type User struct {
 	Email string `json:"email"`
 }
 
-parsed, err:= z.ToStruct[User](user).Parse(input) // parsed is a User
+parsed, err := z.ToStruct[User](user).Parse(input) // parsed is a User
 ```
 
 ### Codecs
 
 ```go
-isoDate:= z.Codec(z.String.ISODateTime, z.Time, z.CodecTx{
+isoDate := z.Codec(z.String().ISODateTime(), z.Time(), z.CodecTx{
 	Decode: func(v any, _ *z.RefinementCtx) (any, error) {
 		return time.Parse(time.RFC3339Nano, v.(string))
 	},
@@ -139,8 +139,8 @@ isoDate:= z.Codec(z.String.ISODateTime, z.Time, z.CodecTx{
 	},
 })
 
-t, _:= z.Decode(isoDate, "2024-01-15T10:30:00Z") // time.Time
-s, _:= z.Encode(isoDate, t)                      // ISO string
+t, _ := z.Decode(isoDate, "2024-01-15T10:30:00Z") // time.Time
+s, _ := z.Encode(isoDate, t)                      // ISO string
 ```
 
 ### Gin
@@ -149,7 +149,7 @@ s, _:= z.Encode(isoDate, t)                      // ISO string
 import "github.com/iKunalChhabra/go-z/zgin"
 
 r.POST("/users", zgin.Validate(user), func(c *gin.Context) {
-	body, _:= zgin.Get(c) // already parsed and validated
+	body, _ := zgin.Get(c) // already parsed and validated
 	c.JSON(200, body)
 })
 ```
@@ -165,11 +165,11 @@ Failed validation writes structured issues automatically:
 ### Concurrency
 
 ```go
-schema:= z.String.Email // build once, share freely
-go func { schema.Parse(a) }
-go func { schema.Parse(b) }
+schema := z.String().Email() // build once, share freely
+go func() { schema.Parse(a) }()
+go func() { schema.Parse(b) }()
 
-out, err:= z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
+out, err := z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
 ```
 
 ## Performance
@@ -235,8 +235,8 @@ template literals, coercion, error utilities, seven locales, Gin, struct binding
 and parallel parsing. Behavioural parity is tracked in `z/parity_*_test.go` — see
 [PARITY.md](./PARITY.md).
 
-Not implemented: `fromJSONSchema`, and the JavaScript-only surface (`z.function`,
-`z.promise`, `z.symbol`, `z.file`). Async parsing is unnecessary in Go.
+Not implemented: `fromJSONSchema`, and the JavaScript-only surface (`z.function()`,
+`z.promise()`, `z.symbol()`, `z.file()`). Async parsing is unnecessary in Go.
 
 ## Contributing
 

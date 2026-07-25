@@ -6,9 +6,9 @@ Defer schema construction for recursive and mutually-recursive types — `z.lazy
 
 ```go
 var Category z.AnySchemaLike
-Category = z.Lazy(func z.AnySchemaLike {
+Category = z.Lazy(func() z.AnySchemaLike {
     return z.Object(z.Shape{
-        "name":     z.String.Min(1),
+        "name":     z.String().Min(1),
         "children": z.Default(z.Array(Category), []any{}),
     })
 })
@@ -33,10 +33,10 @@ Typical pattern: declare a `var`, assign `Lazy`, close over the var inside the g
 
 ```go
 var Comment z.AnySchemaLike
-Comment = z.Lazy(func z.AnySchemaLike {
+Comment = z.Lazy(func() z.AnySchemaLike {
     return z.Object(z.Shape{
-        "id":      z.String.UUID,
-        "body":    z.String.Min(1),
+        "id":      z.String().UUID(),
+        "body":    z.String().Min(1),
         "replies": z.Default(z.Array(Comment), []any{}),
     })
 })
@@ -46,13 +46,13 @@ Mutual recursion:
 
 ```go
 var A, B z.AnySchemaLike
-A = z.Lazy(func z.AnySchemaLike {
+A = z.Lazy(func() z.AnySchemaLike {
     return z.Object(z.Shape{
         "type": z.Literal("a"),
         "b":    z.Optional(B),
     })
 })
-B = z.Lazy(func z.AnySchemaLike {
+B = z.Lazy(func() z.AnySchemaLike {
     return z.Object(z.Shape{
         "type": z.Literal("b"),
         "a":    z.Optional(A),
@@ -63,8 +63,8 @@ B = z.Lazy(func z.AnySchemaLike {
 ## Inner
 
 ```go
-lazy:= z.Lazy(func z.AnySchemaLike { return z.String.Min(1) })
-inner:= lazy.Inner // resolves getter if needed; returns the memoized schema
+lazy := z.Lazy(func() z.AnySchemaLike { return z.String().Min(1) })
+inner := lazy.Inner() // resolves getter if needed; returns the memoized schema
 ```
 
 `Inner` also copies OptIn / OptOut / Values / PropValues / Pattern from the inner schema onto the Lazy’s `Internals`, so containers that inspect traits (discriminated unions, objects) see the real inner metadata — `defineLazy` getters.
@@ -76,16 +76,16 @@ Disc-union construction unwraps `*LazySchema` when collecting discriminator valu
 ## Check clones share state
 
 ```go
-base:= z.Lazy(func z.AnySchemaLike { return z.String })
-cloned:= base.Check(myCheck)
+base := z.Lazy(func() z.AnySchemaLike { return z.String() })
+cloned := base.Check(myCheck)
 // base and cloned share the same memoized inner schema
 ```
 
 ## Signatures
 
 ```go
-func Lazy(fn func AnySchemaLike) *LazySchema
+func Lazy(fn func() AnySchemaLike) *LazySchema
 
-func (s *LazySchema) Inner AnySchemaLike
-func (s *LazySchema) Check(checks...*Check) *LazySchema
+func (s *LazySchema) Inner() AnySchemaLike
+func (s *LazySchema) Check(checks ...*Check) *LazySchema
 ```

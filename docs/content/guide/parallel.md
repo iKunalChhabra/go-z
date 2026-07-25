@@ -5,7 +5,7 @@ Validate large `[]any` slices with a worker pool — `z.ParseParallelSlice`.
 ## ParseParallelSlice
 
 ```go
-out, err:= z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
+out, err := z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
 ```
 
 - Validates each element with `elemSchema`.
@@ -13,16 +13,16 @@ out, err:= z.ParseParallelSlice(ctx, itemSchema, items, z.ParallelOpts{})
 - Issue paths are prefixed with the **absolute element index**.
 
 ```go
-items:= []any{
+items := []any{
     map[string]any{"name": "a", "email": "a@x.co", "age": 20.0},
     map[string]any{"name": "bb", "email": "bad", "age": -1.0},
 }
-out, err:= z.ParseParallelSlice(ctx, flatUser, items, z.ParallelOpts{
+out, err := z.ParseParallelSlice(ctx, flatUser, items, z.ParallelOpts{
     Workers:  4,
     MinChunk: 64,
 })
 if err != nil {
-    zerr:= err.(*z.Error)
+    zerr := err.(*z.Error)
     // paths like [1, "email"], [1, "age"]
     _ = out // still populated for successful / attempted slots
 }
@@ -57,10 +57,10 @@ Goroutine scheduling costs more than validation for small slices. Defaults targe
 ## Context cancellation
 
 ```go
-ctx, cancel:= context.WithTimeout(context.Background, 2*time.Second)
-defer cancel
+ctx, cancel := context.WithTimeout(context.Background, 2*time.Second)
+defer cancel()
 
-out, err:= z.ParseParallelSlice(ctx, schema, items, z.ParallelOpts{})
+out, err := z.ParseParallelSlice(ctx, schema, items, z.ParallelOpts{})
 if errors.Is(err, context.DeadlineExceeded) {
     // workers observe ctx.Err between elements
 }

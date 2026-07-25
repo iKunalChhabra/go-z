@@ -240,6 +240,6 @@ Message resolution order (schema-compatible):
 6. `"Invalid input"`
 
 ```go
-cfg:= z.GetConfig
+cfg := z.GetConfig()
 // cfg.LocaleError = z.EsLocale  // etc.
 ```

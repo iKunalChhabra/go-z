@@ -26,7 +26,7 @@ go get github.com/iKunalChhabra/go-z/z
 
 That adds a `require` line similar to:
 
-```go
+```text
 require github.com/iKunalChhabra/go-z v0.x.x
 ```
 
@@ -37,7 +37,7 @@ import "github.com/iKunalChhabra/go-z/z"
 ```
 
 :::tip Docs import style
-The package is named `z` and lives at `/z`, so a plain import gives you the `z.` prefix (`z.String`, `z.Object`, …) with no alias to remember.
+The package is named `z` and lives at `/z`, so a plain import gives you the `z.` prefix (`z.String()`, `z.Object`, …) with no alias to remember.
 :::
 
 ## Optional: Gin integration
@@ -73,10 +73,10 @@ import (
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-func main {
-	schema:= z.String.Min(5).Email
+func main() {
+	schema := z.String().Min(5).Email()
 
-	out, err:= schema.Parse("ada@example.com")
+	out, err := schema.Parse("ada@example.com")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, z.Prettify(err.(*z.Error)))
 		os.Exit(1)
@@ -102,7 +102,7 @@ ok: ada@example.com
 Try a failing input to confirm errors work:
 
 ```go
-_, err:= schema.Parse("nope")
+_, err := schema.Parse("nope")
 fmt.Println(err.(*z.Error).Issues[0].Code) // invalid_format
 ```
 
@@ -126,8 +126,8 @@ package schemas
 import "github.com/iKunalChhabra/go-z/z"
 
 var CreateUser = z.Object(z.Shape{
-	"name":  z.String.Min(2),
-	"email": z.String.Email,
+	"name":  z.String().Min(2),
+	"email": z.String().Email(),
 })
 ```
 

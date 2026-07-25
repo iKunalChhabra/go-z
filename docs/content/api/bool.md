@@ -1,21 +1,21 @@
 # Bool
 
-`z.Bool` ports `z.boolean`. Output type is Go `bool`.
+`z.Bool()` ports `z.boolean`. Output type is Go `bool`.
 
 ```go
-schema:= z.Bool
+schema := z.Bool()
 
 schema.MustParse(true)
 schema.MustParse(false)
 
-res:= schema.SafeParse("true")
+res := schema.SafeParse("true")
 // Without coerce: fail
 // Message: "Invalid input: expected boolean, received string"
 ```
 
 ## Coercion table
 
-Enable with `z.Params{Coerce: true}` or [`z.Coerce.Bool`](/api/coerce).
+Enable with `z.Params{Coerce: true}` or [`z.Coerce.Bool()`](/api/coerce).
 
 | Input | Coerced to |
 |-------|------------|
@@ -27,7 +27,7 @@ Enable with `z.Params{Coerce: true}` or [`z.Coerce.Bool`](/api/coerce).
 | `"yes"`, `"no"`, `2`, `""`, other strings | **rejected** |
 
 ```go
-s:= z.Bool(z.Params{Coerce: true})
+s := z.Bool(z.Params{Coerce: true})
 
 s.MustParse(true)
 s.MustParse("true")
@@ -45,14 +45,14 @@ _ = s.SafeParse(2)     // fail
 ## Custom messages
 
 ```go
-schema:= z.Bool("flag required")
-res:= schema.SafeParse("true")
+schema := z.Bool("flag required")
+res := schema.SafeParse("true")
 // Message: "flag required" (still wrong type without coerce)
 ```
 
 ## API surface
 
 ```go
-func Bool(params...any) *BoolSchema
-func (s *BoolSchema) Check(checks...*Check) *BoolSchema
+func Bool(params ...any) *BoolSchema
+func (s *BoolSchema) Check(checks ...*Check) *BoolSchema
 ```

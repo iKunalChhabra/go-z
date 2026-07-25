@@ -3,12 +3,12 @@
 `z.Tuple(items)` ports `z.tuple([...])`. Fixed positions plus optional trailing `Rest`. Output is `[]any`.
 
 ```go
-pair:= z.Tuple([]z.AnySchemaLike{
-    z.String,
-    z.Number,
+pair := z.Tuple([]z.AnySchemaLike{
+    z.String(),
+    z.Number(),
 })
 
-out:= pair.MustParse([]any{"age", 42})
+out := pair.MustParse([]any{"age", 42})
 // out[0] == "age", out[1] == 42.0
 ```
 
@@ -17,11 +17,11 @@ out:= pair.MustParse([]any{"age", 42})
 Without `Rest`, length must match the item list (accounting for optional trailing elements):
 
 ```go
-schema:= z.Tuple([]z.AnySchemaLike{z.String, z.String})
+schema := z.Tuple([]z.AnySchemaLike{z.String(), z.String()})
 
 schema.MustParse([]any{"asdf", "1234"})
 
-res:= schema.SafeParse([]any{"asdf"})
+res := schema.SafeParse([]any{"asdf"})
 // too_small, Origin: "array", Minimum: 2
 
 res = schema.SafeParse([]any{"asdf", "1234", true})
@@ -34,8 +34,8 @@ res = schema.SafeParse(map[string]any{})
 ## Element type errors & paths
 
 ```go
-schema:= z.Tuple([]z.AnySchemaLike{z.String, z.String})
-res:= schema.SafeParse([]any{"asdf", 1234})
+schema := z.Tuple([]z.AnySchemaLike{z.String(), z.String()})
+res := schema.SafeParse([]any{"asdf", 1234})
 // Path: [1], Code: invalid_type, Expected: "string"
 ```
 
@@ -44,12 +44,12 @@ res:= schema.SafeParse([]any{"asdf", 1234})
 `.Rest(schema)` accepts zero or more additional elements of that type:
 
 ```go
-schema:= z.Tuple([]z.AnySchemaLike{z.String}).Rest(z.String)
+schema := z.Tuple([]z.AnySchemaLike{z.String()}).Rest(z.String())
 
 schema.MustParse([]any{"a"})
 schema.MustParse([]any{"a", "b", "c"})
 
-res:= schema.SafeParse([]any{"a", 1})
+res := schema.SafeParse([]any{"a", 1})
 // Path: [1] — rest element type error
 ```
 
@@ -58,11 +58,11 @@ res:= schema.SafeParse([]any{"a", 1})
 Trailing `Optional(...)` items may be omitted. Optional-out failures for absent slots are swallowed. Combine with `Rest`:
 
 ```go
-schema:= z.Tuple([]z.AnySchemaLike{
-    z.String,
-    z.Optional(z.String),
-    z.Optional(z.String),
-}).Rest(z.String)
+schema := z.Tuple([]z.AnySchemaLike{
+    z.String(),
+    z.Optional(z.String()),
+    z.Optional(z.String()),
+}).Rest(z.String())
 
 schema.MustParse([]any{"asdf"})
 schema.MustParse([]any{"asdf", "1234"})
@@ -77,14 +77,14 @@ Optional tuple slots should be at the end of the fixed prefix. Leading optionals
 ## Inspect items
 
 ```go
-t:= z.Tuple([]z.AnySchemaLike{z.String, z.Bool})
-items:= t.Items // copy of the fixed schemas
+t := z.Tuple([]z.AnySchemaLike{z.String(), z.Bool()})
+items := t.Items() // copy of the fixed schemas
 ```
 
 ## API surface
 
 ```go
-func Tuple(items []AnySchemaLike, params...any) *TupleSchema
+func Tuple(items []AnySchemaLike, params ...any) *TupleSchema
 func (t *TupleSchema) Rest(schema AnySchemaLike) *TupleSchema
-func (t *TupleSchema) Items []AnySchemaLike
+func (t *TupleSchema) Items() []AnySchemaLike
 ```

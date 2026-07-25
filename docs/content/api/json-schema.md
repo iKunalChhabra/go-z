@@ -3,13 +3,13 @@
 `ToJSONSchema` converts a schema into a JSON Schema document (`map[string]any`), ready to marshal into an OpenAPI spec or hand to a client validator.
 
 ```go
-js, err:= z.ToJSONSchema(z.Object(z.Shape{
-    "name":  z.String.Min(2),
-    "email": z.String.Email,
-    "age":   z.Optional(z.Int.Gte(0)),
+js, err := z.ToJSONSchema(z.Object(z.Shape{
+    "name":  z.String().Min(2),
+    "email": z.String().Email(),
+    "age":   z.Optional(z.Int().Gte(0)),
 }))
 
-out, _:= json.MarshalIndent(js, "", "  ")
+out, _ := json.MarshalIndent(js, "", "  ")
 fmt.Println(string(out))
 ```
 
@@ -31,7 +31,7 @@ Optional fields are simply absent from `required`. `Int` carries the JSON safe-i
 ## Options
 
 ```go
-js, err:= z.ToJSONSchema(schema, z.ToJSONSchemaOpts{
+js, err := z.ToJSONSchema(schema, z.ToJSONSchemaOpts{
     Target:          z.JSONSchemaDraft202012, // or Draft07, OpenAPI30
     Unrepresentable: "any",                   // or "throw" (default)
     IO:              "input",                 // or "output" (default)
@@ -51,7 +51,7 @@ js, err:= z.ToJSONSchema(schema, z.ToJSONSchemaOpts{
 `BigInt`, `Time`, `Map`, `Set`, `NaN`, `Undefined`, and `Void` have no JSON Schema equivalent. The default throws:
 
 ```go
-_, err:= z.ToJSONSchema(z.BigInt)
+_, err := z.ToJSONSchema(z.BigInt())
 // error: unrepresentable type "bigint"
 ```
 
@@ -62,7 +62,7 @@ Pass `Unrepresentable: "any"` to emit an empty schema (`{}`) instead — the JSO
 A pipe or codec has two sides. `IO` picks which one the document describes:
 
 ```go
-p:= z.Pipe(z.String, z.Number)
+p := z.Pipe(z.String(), z.Number())
 
 z.ToJSONSchema(p, z.ToJSONSchemaOpts{IO: "input"})  // {"type": "string"}
 z.ToJSONSchema(p, z.ToJSONSchemaOpts{IO: "output"}) // {"type": "number"}
@@ -75,8 +75,8 @@ Use `input` when documenting what a client should send, `output` when documentin
 Register a description or title and it flows into the document:
 
 ```go
-email:= z.Describe(z.String.Email, "Primary contact address")
-js, _:= z.ToJSONSchema(email)
+email := z.Describe(z.String().Email(), "Primary contact address")
+js, _ := z.ToJSONSchema(email)
 // js["description"] == "Primary contact address"
 ```
 
@@ -105,7 +105,7 @@ Recursive schemas built with `Lazy` are inlined once and then cut off, so a self
 ## Signatures
 
 ```go
-func ToJSONSchema(schema AnySchemaLike, opts...ToJSONSchemaOpts) (map[string]any, error)
+func ToJSONSchema(schema AnySchemaLike, opts ...ToJSONSchemaOpts) (map[string]any, error)
 
 type ToJSONSchemaOpts struct {
     Target          JSONSchemaTarget          // JSONSchemaDraft202012 | JSONSchemaDraft07 | JSONSchemaOpenAPI30

@@ -18,10 +18,10 @@ import (
 )
 
 var User = z.Object(z.Shape{
-	"name":  z.String.Min(2).Max(100),
-	"email": z.String.Email,
-	"age":   z.Optional(z.Int.Gte(0).Lt(150)),
-	"tags":  z.Default(z.Array(z.String).Max(10), []any{}),
+	"name":  z.String().Min(2).Max(100),
+	"email": z.String().Email(),
+	"age":   z.Optional(z.Int().Gte(0).Lt(150)),
+	"tags":  z.Default(z.Array(z.String()).Max(10), []any{}),
 })
 ```
 
@@ -39,17 +39,17 @@ Objects parse into `map[string]any`. That matches JSON and keeps the core untype
 ## 2. Parse (throws… as a Go error)
 
 ```go
-func main {
-	input:= map[string]any{
+func main() {
+	input := map[string]any{
 		"name":  "Ada Lovelace",
 		"email": "ada@example.com",
 		// age omitted — Optional
 		// tags omitted — Default fills []any{}
 	}
 
-	data, err:= User.Parse(input)
+	data, err := User.Parse(input)
 	if err != nil {
-		zerr:= err.(*z.Error)
+		zerr := err.(*z.Error)
 		fmt.Println(z.Prettify(zerr))
 		return
 	}
@@ -66,13 +66,13 @@ func main {
 Prefer a result object when you don’t want to type-assert the error:
 
 ```go
-res:= User.SafeParse(map[string]any{
+res := User.SafeParse(map[string]any{
 	"name":  "A", // too short
 	"email": "not-an-email",
 })
 
 if !res.Success {
-	for _, iss:= range res.Error.Issues {
+	for _, iss := range res.Error.Issues {
 		fmt.Printf("%s at %v: %s\n", iss.Code, iss.Path, iss.Message)
 	}
 	return
@@ -95,9 +95,9 @@ Use `Parse` when you’re writing `if err != nil` pipelines. Use `SafeParse` whe
 ## 4. Handle Error properly
 
 ```go
-data, err:= User.Parse(badInput)
+data, err := User.Parse(badInput)
 if err != nil {
-	zerr, ok:= err.(*z.Error)
+	zerr, ok := err.(*z.Error)
 	if !ok {
 		panic(err) // should not happen for schema.Parse
 	}
@@ -110,11 +110,11 @@ if err != nil {
 	//   → at email
 
 	// Form / field maps for UIs
-	flat:= z.Flatten(zerr)
+	flat := z.Flatten(zerr)
 	_ = flat.FieldErrors["name"]
 
 	// Nested tree for complex forms
-	tree:= z.Treeify(zerr)
+	tree := z.Treeify(zerr)
 	_ = tree
 }
 ```
@@ -125,19 +125,19 @@ See [Issues & Error](#/guide/errors) for `Format`, `Treeify`, `ToDotPath`, and i
 
 ```go
 // Absent key OK; JSON null (nil) is NOT OK
-opt:= z.Optional(z.String)
+opt := z.Optional(z.String())
 
 // JSON null OK; absent key still fails on object fields unless also Optional
-nul:= z.Nullable(z.String)
+nul := z.Nullable(z.String())
 
 // Absent OR null OR string
-both:= z.Nullish(z.String)
+both := z.Nullish(z.String())
 
 // Absent → substitute without re-validating the default through the inner schema
-withDef:= z.Default(z.String, "anonymous")
+withDef := z.Default(z.String(), "anonymous")
 
 // On parse failure, catch and return a fallback
-caught:= z.Catch(z.String.Email, "fallback@example.com")
+caught := z.Catch(z.String().Email(), "fallback@example.com")
 ```
 
 :::warn Missing ≠ nil
@@ -147,13 +147,13 @@ In go-z, `z.Missing` is `undefined` (key absent). Go’s `nil` is JSON `null`. C
 ## 6. Coerce query/form strings
 
 ```go
-n, err:= z.Coerce.Number.Parse("42")
+n, err := z.Coerce.Number().Parse("42")
 // n == float64(42) — use z.Int(z.Params{Coerce: true}) for an int
 
-b, err:= z.Coerce.Bool.Parse("true")
+b, err := z.Coerce.Bool().Parse("true")
 // b == true
 
-s, err:= z.Coerce.String.Parse(99)
+s, err := z.Coerce.String().Parse(99)
 // s == "99"
 ```
 
@@ -169,13 +169,13 @@ import (
 
 func mount(r *gin.Engine) {
 	r.POST("/users", zgin.Validate(User), func(c *gin.Context) {
-		body, _:= zgin.Get(c)
+		body, _ := zgin.Get(c)
 		c.JSON(200, body)
 	})
 
 	// Or without middleware:
 	r.POST("/users2", func(c *gin.Context) {
-		body, ok:= zgin.BindJSONAny(c, User)
+		body, ok := zgin.BindJSONAny(c, User)
 		if !ok {
 			return // 400 + issues already written
 		}
@@ -214,26 +214,26 @@ import (
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-func main {
-	schema:= z.Object(z.Shape{
-		"name":  z.String.Min(2),
-		"email": z.String.Email,
-		"role":  z.Default(z.String, "user"),
+func main() {
+	schema := z.Object(z.Shape{
+		"name":  z.String().Min(2),
+		"email": z.String().Email(),
+		"role":  z.Default(z.String(), "user"),
 	})
 
-	raw:= []byte(`{"name":"Ada","email":"ada@example.com"}`)
+	raw := []byte(`{"name":"Ada","email":"ada@example.com"}`)
 	var input any
-	if err:= json.Unmarshal(raw, &input); err != nil {
+	if err := json.Unmarshal(raw, &input); err != nil {
 		panic(err)
 	}
 
-	out, err:= schema.Parse(input)
+	out, err := schema.Parse(input)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, z.Prettify(err.(*z.Error)))
 		os.Exit(1)
 	}
 
-	enc:= json.NewEncoder(os.Stdout)
+	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(out)
 }

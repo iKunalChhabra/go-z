@@ -20,14 +20,14 @@ import (
 	"github.com/iKunalChhabra/go-z/z"
 )
 
-func main {
-	user:= z.Object(z.Shape{
-		"name":  z.String.Min(2).Max(100),
-		"email": z.String.Email,
-		"age":   z.Optional(z.Int.Gte(0).Lt(150)),
+func main() {
+	user := z.Object(z.Shape{
+		"name":  z.String().Min(2).Max(100),
+		"email": z.String().Email(),
+		"age":   z.Optional(z.Int().Gte(0).Lt(150)),
 	})
 
-	data, err:= user.Parse(map[string]any{
+	data, err := user.Parse(map[string]any{
 		"name":  "Ada",
 		"email": "ada@example.com",
 	})
@@ -80,12 +80,12 @@ Requires **Go 1.22+**. Gin users also pull in `github.com/iKunalChhabra/go-z/zgi
 ## A taste of the fluent API
 
 ```go
-schema:= z.String.Min(5).Email
+schema := z.String().Min(5).Email()
 
-s, err:= schema.Parse("hi@example.com")
+s, err := schema.Parse("hi@example.com")
 // err is *z.Error when validation fails
 
-res:= schema.SafeParse("nope")
+res := schema.SafeParse("nope")
 if !res.Success {
 	fmt.Println(res.Error.Issues[0].Code) // invalid_format
 }
@@ -94,7 +94,7 @@ if !res.Success {
 Objects produce `map[string]any`; arrays produce `[]any`. That is intentional — go-z is **JSON-model first**, then typed at the edges with generics (`Schema[T]`) and optional `ToStruct[T]`.
 
 ```go
-parsed, err:= z.ToStruct[User](userSchema).Parse(input)
+parsed, err := z.ToStruct[User](userSchema).Parse(input)
 ```
 
 ## Gin in one breath
@@ -103,7 +103,7 @@ parsed, err:= z.ToStruct[User](userSchema).Parse(input)
 import "github.com/iKunalChhabra/go-z/zgin"
 
 r.POST("/users", zgin.Validate(user), func(c *gin.Context) {
-	body, _:= zgin.Get(c) // already parsed & validated
+	body, _ := zgin.Get(c) // already parsed & validated
 	c.JSON(200, body)
 })
 ```
