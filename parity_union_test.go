@@ -166,9 +166,38 @@ func TestParityUnionSurfaceContinuableErrors(t *testing.T) {
 	}
 }
 
-func TestParityXorUnsupported(t *testing.T) {
-	// Port: "z.xor()" family — go-zod has no Xor constructor.
-	t.Skip("xor not implemented in go-zod")
+func TestParityXor(t *testing.T) {
+	// Port: "z.xor()" — exactly one option must succeed.
+	schema := XorOf(String().Min(1), Number().Gte(0))
+	if got, err := schema.Parse("hi"); err != nil || got != "hi" {
+		t.Fatalf(`Parse("hi") = %v, %v`, got, err)
+	}
+	if got, err := schema.Parse(5.0); err != nil || got != 5.0 {
+		t.Fatalf("Parse(5) = %v, %v", got, err)
+	}
+	if schema.SafeParse("").Success {
+		t.Fatal(`"" should fail (zero matches)`)
+	}
+	if schema.SafeParse(-1.0).Success {
+		t.Fatal("-1 should fail (zero matches)")
+	}
+
+	// Overlapping options: both String() and String().Min(1) accept "ab".
+	overlap := XorOf(String(), String().Min(1))
+	res := overlap.SafeParse("ab")
+	if res.Success {
+		t.Fatal("overlapping success should fail exclusive xor")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueInvalidUnion {
+		t.Fatalf("code = %s", iss.Code)
+	}
+	if len(iss.Errors) != 0 {
+		t.Fatalf("multi-match Errors should be empty, got %+v", iss.Errors)
+	}
+	if iss.Inclusive {
+		t.Fatal("multi-match Inclusive should be false")
+	}
 }
 
 func TestParityUnionEmpty(t *testing.T) {

@@ -186,6 +186,15 @@ func (s *StringSchema) Email(params ...any) *StringSchema {
 func (s *StringSchema) URL(params ...any) *StringSchema {
 	return newString(s.def.withChecks(FormatURL(params...)))
 }
+func (s *StringSchema) HttpURL(params ...any) *StringSchema {
+	return newString(s.def.withChecks(FormatHttpURL(params...)))
+}
+func (s *StringSchema) Hostname(params ...any) *StringSchema {
+	return newString(s.def.withChecks(FormatHostname(params...)))
+}
+func (s *StringSchema) Hash(alg string, params ...any) *StringSchema {
+	return newString(s.def.withChecks(FormatHash(alg, params...)))
+}
 func (s *StringSchema) UUID(params ...any) *StringSchema {
 	return newString(s.def.withChecks(FormatUUID(params...)))
 }

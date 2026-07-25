@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -86,8 +87,27 @@ func TestParityLiteralValueGetter(t *testing.T) {
 	_ = Literal(1.0, 2.0, 3.0).Value()
 }
 
-func TestParityLiteralTemplateUnsupported(t *testing.T) {
-	t.Skip("template-literal not supported in go-zod")
+func TestParityLiteralTemplate(t *testing.T) {
+	hello := TemplateLiteral([]any{"hello"})
+	if got, err := hello.Parse("hello"); err != nil || got != "hello" {
+		t.Fatalf("%v %v", got, err)
+	}
+	if hello.SafeParse("world").Success {
+		t.Fatal("expected failure")
+	}
+
+	url := TemplateLiteral([]any{
+		"https://",
+		String().Regex(regexp.MustCompile(`\w+`)),
+		".",
+		Enum("com", "net"),
+	})
+	if _, err := url.Parse("https://example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if url.SafeParse("https://example.org").Success {
+		t.Fatal("expected enum failure")
+	}
 }
 
 // --- enum.test.ts ---

@@ -304,8 +304,33 @@ func TestParityStringURL(t *testing.T) {
 }
 
 func TestParityStringURLHostnameProtocol(t *testing.T) {
-	// Ported from classic/tests/url.test.ts + string.test.ts "httpurl"
-	t.Skip("hostname/protocol URL constraints not exposed on go-zod URLOpts (classic/tests/url.test.ts, string.test.ts httpurl)")
+	// Ported from classic/tests/url.test.ts + string.test.ts "httpurl" / mini string URL opts
+	hostDots := String().URL(URLOpts{Hostname: regexp.MustCompile(`\.+`)})
+	parityStrOK(t, hostDots, "http://example.com")
+	parityStrOK(t, hostDots, "https://sub.example.com")
+	parityStrFail(t, hostDots, "http://localhost") // no dot
+
+	httpsOnly := String().URL(URLOpts{Protocol: regexp.MustCompile(`^https:$`)})
+	parityStrOK(t, httpsOnly, "https://example.com")
+	parityStrFail(t, httpsOnly, "http://example.com")
+
+	both := String().URL(URLOpts{
+		Hostname: regexp.MustCompile(`example\.com$`),
+		Protocol: regexp.MustCompile(`^https$`),
+	})
+	parityStrOK(t, both, "https://example.com")
+	parityStrOK(t, both, "https://sub.example.com")
+	parityStrFail(t, both, "http://example.com")
+	parityStrFail(t, both, "https://example.org")
+
+	httpURL := String().HttpURL()
+	parityStrOK(t, httpURL, "https://x.com")
+	parityStrOK(t, httpURL, "http://example.com")
+	parityStrOK(t, httpURL, "https://sub.example.com/path?q=1#f")
+	parityStrFail(t, httpURL, "ftp://example.com")
+	parityStrFail(t, httpURL, "mailto:asdf@lckj.com")
+	parityStrFail(t, httpURL, "http://localhost")
+	parityStrFail(t, httpURL, "http:example.com")
 }
 
 func TestParityStringEmoji(t *testing.T) {
@@ -552,7 +577,45 @@ func TestParityStringFormatsChaining(t *testing.T) {
 
 func TestParityStringFormatCustom(t *testing.T) {
 	// Ported from classic/tests/string-formats.test.ts — "z.stringFormat"
-	t.Skip("z.stringFormat custom formats unsupported (classic/tests/string-formats.test.ts)")
+	re := regexp.MustCompile(`^foo+$`)
+	s := StringFormat("my-format", re)
+	parityStrOK(t, s, "foo")
+	parityStrOK(t, s, "foooo")
+	parityStrFail(t, s, "bar")
+	res := s.SafeParse("bar")
+	if res.Success || res.Error.Issues[0].Format != "my-format" {
+		t.Fatalf("got %+v", res.Error)
+	}
+	if res.Error.Issues[0].Message != "Invalid my-format" {
+		t.Fatalf("message=%q", res.Error.Issues[0].Message)
+	}
+
+	ccRegex := regexp.MustCompile(`^(?:\d{14,19}|\d{4}(?: \d{3,6}){2,4}|\d{4}(?:-\d{3,6}){2,4})$`)
+	a := StringFormat("creditCard", func(val string) bool {
+		return ccRegex.MatchString(val)
+	}, Params{Error: MessageFromString("Invalid credit card number")}).Refine(func(string) bool {
+		return false
+	}, "Also bad")
+	res = a.SafeParse("asdf")
+	if res.Success || len(res.Error.Issues) != 2 {
+		t.Fatalf("want 2 issues, got %+v", res.Error)
+	}
+	if res.Error.Issues[0].Message != "Invalid credit card number" {
+		t.Fatalf("got %q", res.Error.Issues[0].Message)
+	}
+	res = a.SafeParse("1234-5678-9012-3456")
+	if res.Success || len(res.Error.Issues) != 1 || res.Error.Issues[0].Message != "Also bad" {
+		t.Fatalf("got %+v", res.Error)
+	}
+
+	b := StringFormat("creditCard", ccRegex, Params{
+		Abort: true,
+		Error: MessageFromString("Invalid credit card number"),
+	}).Refine(func(string) bool { return false }, "Also bad")
+	res = b.SafeParse("asdf")
+	if res.Success || len(res.Error.Issues) != 1 {
+		t.Fatalf("abort: %+v", res.Error)
+	}
 }
 
 func TestParityStringHex(t *testing.T) {

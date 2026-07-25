@@ -62,7 +62,7 @@ func TestParityOptionalityFlags(t *testing.T) {
 		t.Fatal("default().nullable() should not set OptOut")
 	}
 
-	// z.undefined should NOT be optional — go-zod has no Undefined schema;
+	// z.undefined should NOT be optional — Undefined accepts only Missing;
 	// Missing alone is not a schema.
 }
 
@@ -362,7 +362,18 @@ func TestParityNonOptionalInObject(t *testing.T) {
 
 func TestParityNonOptionalEncode(t *testing.T) {
 	// Ported from classic/tests/nonoptional.test.ts — "encoding"
-	t.Skip("codecs/encode unsupported (classic/tests/nonoptional.test.ts encoding)")
+	schema := NonOptional(Optional(String()))
+	got, err := Encode(schema, "hello")
+	if err != nil || got != "hello" {
+		t.Fatalf("encode hello: %v %v", got, err)
+	}
+	res := SafeEncode(schema, Missing)
+	if res.Success {
+		t.Fatal("encode Missing should fail")
+	}
+	if res.Error.Issues[0].Expected != "nonoptional" {
+		t.Fatalf("%+v", res.Error.Issues[0])
+	}
 }
 
 func TestParityReadonly(t *testing.T) {

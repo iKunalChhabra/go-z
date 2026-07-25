@@ -267,7 +267,19 @@ func TestParityPrefaultObjectClone(t *testing.T) {
 
 func TestParityPrefaultDirectionEncode(t *testing.T) {
 	// Ported from classic/tests/prefault.test.ts — "direction-aware prefault"
-	t.Skip("codecs/encode unsupported (classic/tests/prefault.test.ts direction-aware prefault)")
+	schema := Prefault(String(), "hello")
+	got, err := schema.Parse(Missing)
+	if err != nil || got != "hello" {
+		t.Fatalf("parse Missing: %v %v", got, err)
+	}
+	res := SafeEncode(schema, Missing)
+	if res.Success {
+		t.Fatal("encode Missing should not apply prefault")
+	}
+	enc, err := Encode(schema, "world")
+	if err != nil || enc != "world" {
+		t.Fatalf("encode world: %v %v", enc, err)
+	}
 }
 
 func TestParityPrefaultBadFailsRefine(t *testing.T) {

@@ -74,6 +74,8 @@ type ParseCtx struct {
 	Error ErrorMap
 	// ReportInput includes the offending input in finalized issues.
 	ReportInput bool
+	// Direction selects decode (forward) or encode (backward) parsing.
+	Direction ParseDirection
 
 	// skipChecks is internal (Zod uses it for backward/codec passes).
 	skipChecks bool

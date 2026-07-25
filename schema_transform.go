@@ -23,6 +23,9 @@ func newTransform(def *Def, inner AnySchemaLike, fn func(any, *RefinementCtx) (a
 	s := &TransformSchema{def: def, inner: inner, fn: fn}
 	innerIn := inner.Internals()
 	parse := func(p *Payload, ctx *ParseCtx) {
+		if ctx.IsEncode() {
+			panic("zod: Encountered unidirectional transform during encode: Transform")
+		}
 		RunSelf(innerIn, p, ctx)
 		if len(p.Issues) > 0 {
 			p.Aborted = true
@@ -83,7 +86,7 @@ func TransformTo[Out any](inner AnySchemaLike, fn func(any) (Out, error)) Schema
 type PreprocessSchema struct {
 	schemaBase[any]
 	def    *Def
-	fn     func(any) any
+	fn     func(any, *RefinementCtx) any
 	schema AnySchemaLike
 }
 
@@ -92,15 +95,28 @@ func Preprocess(fn func(any) any, schema AnySchemaLike) *PreprocessSchema {
 	if fn == nil {
 		fn = func(v any) any { return v }
 	}
+	return PreprocessCtx(func(v any, _ *RefinementCtx) any { return fn(v) }, schema)
+}
+
+// PreprocessCtx is like Preprocess but fn receives RefinementCtx and can AddIssue.
+// If fn adds issues, the target schema is not run (Zod preprocess abort).
+func PreprocessCtx(fn func(any, *RefinementCtx) any, schema AnySchemaLike) *PreprocessSchema {
+	if fn == nil {
+		fn = func(v any, _ *RefinementCtx) any { return v }
+	}
 	def := &Def{Type: "pipe"} // Zod preprocess is a pipe subtype
 	return newPreprocess(def, fn, schema)
 }
 
-func newPreprocess(def *Def, fn func(any) any, schema AnySchemaLike) *PreprocessSchema {
+func newPreprocess(def *Def, fn func(any, *RefinementCtx) any, schema AnySchemaLike) *PreprocessSchema {
 	s := &PreprocessSchema{def: def, fn: fn, schema: schema}
 	schemaIn := schema.Internals()
 	parse := func(p *Payload, ctx *ParseCtx) {
-		p.Value = fn(p.Value)
+		rctx := &RefinementCtx{payload: p}
+		p.Value = fn(p.Value, rctx)
+		if len(p.Issues) > 0 {
+			return
+		}
 		RunSelf(schemaIn, p, ctx)
 	}
 	s.schemaBase = newBase[any](buildInternals(def, parse))

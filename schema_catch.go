@@ -39,6 +39,10 @@ func newCatch(inner AnySchemaLike, catchValue func(CatchCtx) any) *CatchSchema {
 		if len(p.Issues) == 0 {
 			return
 		}
+		// Catch applies only in the forward (decode) direction.
+		if ctx.IsEncode() {
+			return
+		}
 		// Finalize issues for the catch callback (Zod passes finalized issues).
 		finalized := make([]Issue, len(p.Issues))
 		cfg := GetConfig()
