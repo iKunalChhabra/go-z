@@ -1,0 +1,190 @@
+package z
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
+
+// Ports cases from v4/classic/tests/discriminated-unions.test.ts.
+
+// Port: "valid parse - object"
+func TestDiscUnionValidParse(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a"), "a": String()}),
+		Object(Shape{"type": Literal("b"), "b": String()}),
+	})
+	got, err := schema.Parse(map[string]any{"type": "a", "a": "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := got.(map[string]any)
+	if m["type"] != "a" || m["a"] != "abc" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+// Port: "valid - optional discriminator (object)"
+func TestDiscUnionOptionalDiscriminator(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Optional(Literal("a")), "a": String()}),
+		Object(Shape{"type": Literal("b"), "b": String()}),
+	})
+	got, err := schema.Parse(map[string]any{"type": "a", "a": "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(map[string]any)["a"] != "abc" {
+		t.Fatalf("got %#v", got)
+	}
+	got, err = schema.Parse(map[string]any{"a": "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(map[string]any)["a"] != "abc" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+// Port: "valid - discriminator value of various primitive types" (subset)
+func TestDiscUnionVariousPrimitives(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("1"), "val": String()}),
+		Object(Shape{"type": Literal(1.0), "val": String()}),
+		Object(Shape{"type": Literal(true), "val": String()}),
+		Object(Shape{"type": Nil(), "val": String()}),
+	})
+	cases := []any{"1", 1.0, true, nil}
+	for _, disc := range cases {
+		got, err := schema.Parse(map[string]any{"type": disc, "val": "v"})
+		if err != nil {
+			t.Fatalf("disc=%v: %v", disc, err)
+		}
+		if got.(map[string]any)["val"] != "v" {
+			t.Fatalf("disc=%v got %#v", disc, got)
+		}
+	}
+}
+
+// Port: "invalid - null"
+func TestDiscUnionInvalidNull(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a"), "a": String()}),
+		Object(Shape{"type": Literal("b"), "b": String()}),
+	})
+	res := schema.SafeParse(nil)
+	if res.Success {
+		t.Fatal("expected failure")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueInvalidType || iss.Expected != "object" {
+		t.Fatalf("got %+v", iss)
+	}
+}
+
+// Port: "invalid discriminator value"
+func TestDiscUnionInvalidDiscriminator(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a"), "a": String()}),
+		Object(Shape{"type": Literal("b"), "b": String()}),
+	})
+	res := schema.SafeParse(map[string]any{"type": "x", "a": "abc"})
+	if res.Success {
+		t.Fatal("expected failure")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueInvalidUnion {
+		t.Fatalf("code = %s", iss.Code)
+	}
+	if iss.Discriminator != "type" {
+		t.Fatalf("discriminator = %q", iss.Discriminator)
+	}
+	if len(iss.Path) != 1 || iss.Path[0] != "type" {
+		t.Fatalf("path = %v", iss.Path)
+	}
+	if len(iss.Values) != 2 {
+		t.Fatalf("values = %v", iss.Values)
+	}
+	wantMsg := "Invalid discriminator value. Expected 'a' | 'b'"
+	if iss.Message != wantMsg {
+		t.Fatalf("message = %q want %q", iss.Message, wantMsg)
+	}
+}
+
+// Port: "valid discriminator value, invalid data"
+func TestDiscUnionValidDiscInvalidData(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a"), "a": String()}),
+		Object(Shape{"type": Literal("b"), "b": String()}),
+	})
+	res := schema.SafeParse(map[string]any{"type": "a", "b": "abc"})
+	if res.Success {
+		t.Fatal("expected failure")
+	}
+	found := false
+	for _, iss := range res.Error.Issues {
+		if iss.Code == IssueInvalidType && iss.Expected == "string" {
+			found = true
+			if len(iss.Path) == 0 || iss.Path[0] != "a" {
+				t.Fatalf("path = %v", iss.Path)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("want invalid_type for a, got %+v", res.Error.Issues)
+	}
+}
+
+// Port: "invalid discriminator value - unionFallback"
+func TestDiscUnionFallback(t *testing.T) {
+	schema := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a"), "a": String()}),
+		Object(Shape{"type": Literal("b"), "b": String()}),
+	}, DiscUnionParams{UnionFallback: true})
+	res := schema.SafeParse(map[string]any{"type": "x", "a": "abc"})
+	if res.Success {
+		t.Fatal("expected failure")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueInvalidUnion || len(iss.Errors) != 2 {
+		t.Fatalf("want wrapped union errors, got %+v", iss)
+	}
+}
+
+// Port: empty options
+func TestDiscUnionEmpty(t *testing.T) {
+	schema := DiscriminatedUnion("type", nil)
+	res := schema.SafeParse("nope")
+	if res.Success || res.Error.Issues[0].Code != IssueInvalidType {
+		t.Fatalf("non-object: %+v", res.Error)
+	}
+	res = schema.SafeParse(map[string]any{"type": "x"})
+	if res.Success || res.Error.Issues[0].Code != IssueInvalidUnion {
+		t.Fatalf("unknown disc: %+v", res.Error)
+	}
+}
+
+func TestDiscUnionDuplicatePanics(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil || !strings.Contains(fmt.Sprint(r), "Duplicate discriminator") {
+			t.Fatalf("recover = %v", r)
+		}
+	}()
+	_ = DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a"), "a": String()}),
+		Object(Shape{"type": Literal("a"), "b": String()}),
+	})
+}
+
+func TestDiscUnionMissingDiscPanics(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil || !strings.Contains(fmt.Sprint(r), "Invalid discriminated union option") {
+			t.Fatalf("recover = %v", r)
+		}
+	}()
+	_ = DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"value": String()}),
+	})
+}

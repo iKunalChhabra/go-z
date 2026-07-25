@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting…</title>
+    <script>
+      // GitHub Pages SPA fallback: send unknown paths back to the hash router.
+      (function () {
+        var base = "/go-z/docs/";
+        var path = location.pathname;
+        if (path.indexOf(base) === 0) {
+          var rest = path.slice(base.length).replace(/\/$/, "");
+          location.replace(base + "#/" + (rest || ""));
+        } else {
+          location.replace("index.html#/");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to docs…</p>
+  </body>
+</html>
