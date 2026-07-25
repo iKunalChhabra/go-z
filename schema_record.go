@@ -89,7 +89,7 @@ func makeRecordParse(def *Def, keySchema, valueSchema AnySchemaLike, loose bool)
 
 				raw, present := input[k]
 				if !present {
-					raw = Missing
+					raw = missingSentinel
 				}
 				if valIn != nil {
 					childOut, _ := RunChild(valIn, p, raw, ctx, k)

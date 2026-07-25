@@ -47,6 +47,24 @@ func (s *NumberSchema) SuperRefine(fn func(float64, *RefinementCtx), params ...a
 	return newNumber(s.def.withChecks(ch))
 }
 
+// --- Int64Schema ---
+
+func (s *Int64Schema) Refine(pred func(int64) bool, params ...any) *Int64Schema {
+	ch := refineCheck(func(v any) bool {
+		n, ok := v.(int64)
+		return ok && pred(n)
+	}, params...)
+	return newInt64(s.def.withChecks(ch))
+}
+
+func (s *Int64Schema) SuperRefine(fn func(int64, *RefinementCtx), params ...any) *Int64Schema {
+	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
+		n, _ := v.(int64)
+		fn(n, ctx)
+	}, params...)
+	return newInt64(s.def.withChecks(ch))
+}
+
 // --- BoolSchema ---
 
 func (s *BoolSchema) Refine(pred func(bool) bool, params ...any) *BoolSchema {
@@ -126,7 +144,7 @@ func (s *ObjectSchema) Refine(pred func(map[string]any) bool, params ...any) *Ob
 		m, ok := v.(map[string]any)
 		return ok && pred(m)
 	}, params...)
-	return newObject(s.def.withChecks(ch), cloneShape(s.shape), s.mode, s.catchall)
+	return newObject(s.def.withChecks(ch), cloneShape(s.shape), s.fieldOrder, s.mode, s.catchall)
 }
 
 func (s *ObjectSchema) SuperRefine(fn func(map[string]any, *RefinementCtx), params ...any) *ObjectSchema {
@@ -134,7 +152,7 @@ func (s *ObjectSchema) SuperRefine(fn func(map[string]any, *RefinementCtx), para
 		m, _ := v.(map[string]any)
 		fn(m, ctx)
 	}, params...)
-	return newObject(s.def.withChecks(ch), cloneShape(s.shape), s.mode, s.catchall)
+	return newObject(s.def.withChecks(ch), cloneShape(s.shape), s.fieldOrder, s.mode, s.catchall)
 }
 
 // --- ArraySchema ---

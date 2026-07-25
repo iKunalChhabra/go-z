@@ -12,8 +12,12 @@ type DefaultSchema struct {
 }
 
 // Default wraps inner with a static default value for Missing input.
+//
+// Maps and slices are cloned on each use so handlers cannot corrupt later
+// parses by mutating the returned default. Prefer DefaultFunc for custom
+// reference types that need a fresh allocation each time.
 func Default(inner AnySchemaLike, defVal any) *DefaultSchema {
-	return newDefault(inner, func() any { return defVal })
+	return newDefault(inner, func() any { return cloneDefaultValue(defVal) })
 }
 
 // DefaultFunc wraps inner with a function-produced default (called each time
@@ -59,8 +63,9 @@ type PrefaultSchema struct {
 }
 
 // Prefault wraps inner with a static prefault value for Missing input.
+// Maps/slices are cloned on each use (same as Default).
 func Prefault(inner AnySchemaLike, defVal any) *PrefaultSchema {
-	return newPrefault(inner, func() any { return defVal })
+	return newPrefault(inner, func() any { return cloneDefaultValue(defVal) })
 }
 
 // PrefaultFunc wraps inner with a function-produced prefault.

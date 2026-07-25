@@ -18,7 +18,7 @@ out, err := user.Parse(map[string]any{
 
 ## Shape
 
-`zod.Shape` is `map[string]AnySchemaLike`. Keys are validated in sorted order for stable issue ordering.
+`zod.Shape` is `map[string]AnySchemaLike`. Because Go maps are unordered, `Object(Shape)` validates keys in **sorted** order for stable issue ordering (not Zod's definition order).
 
 ```go
 schema := zod.Object(zod.Shape{
@@ -27,6 +27,15 @@ schema := zod.Object(zod.Shape{
 })
 
 schema.Shape() // defensive copy of the shape map
+```
+
+For form UX / Zod-like definition order, use `ObjectOrdered`:
+
+```go
+schema := zod.ObjectOrdered([]zod.Field{
+    {Name: "name", Schema: zod.String().Min(1)},
+    {Name: "email", Schema: zod.String().Email()},
+})
 ```
 
 Non-map inputs fail with `Expected: "object"`. Typed Go maps with string keys are accepted via reflection.

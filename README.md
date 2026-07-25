@@ -140,10 +140,12 @@ Schemas are immutable and lock-free — `b.RunParallel` / `-race` clean under co
 
 ## Design notes
 
-- **Untyped core, typed edge.** Like Zod, the engine runs on `any`; `Schema[T]` is the generic boundary. Output-type-changing ops (`Transform`, `Pipe`, `ToStruct`) are package-level functions because Go methods cannot introduce new type parameters.
-- **JSON model first.** Objects produce `map[string]any`, arrays `[]any`. Use `ToStruct[T]` when you want typed Go structs.
+- **Untyped core, typed edge.** Like Zod, the engine runs on `any`; `Schema[T]` is the generic boundary. Same-type fluent ops (`Optional`, `Refine`, …) are methods on concrete schemas; output-type-changing ops (`Transform`, `Pipe`, `ToStruct`) stay package-level because Go methods cannot introduce new type parameters.
+- **JSON model first.** Objects produce `map[string]any`, arrays `[]any`, and `Int()`/`Number()` output `float64`. Use `Int64()` for a typed `int64` edge, or `ToStruct[T]` for structs.
 - **`Missing` ≠ `nil`.** `Missing` is Zod's `undefined` (absent key); `nil` is JSON `null`. `Optional` accepts Missing; `Nullable` accepts nil.
+- **Object field order.** `Object(Shape)` reports issues in sorted key order (Go maps are unordered). Use `ObjectOrdered([]Field{...})` for definition order.
 - **Coercion.** `zod.Coerce.String()/Number()/Bool()/Time()` for query/form pipelines.
+- **Parse context.** `ParseCtx.Context` threads `context.Context` into `SuperRefine` via `RefinementCtx.Context()`.
 
 ## Package map
 
@@ -151,14 +153,14 @@ Schemas are immutable and lock-free — `b.RunParallel` / `-race` clean under co
 zod.go              package docs
 schema_*.go         schemas (string, number, object, union, ...)
 checks_*.go         composable checks
+fluent*.go          mid-chain Optional/Default/Refine on concrete schemas
 errorutils.go       Flatten / Format / Treeify / Prettify
 registry.go         metadata registry
 locale_*.go         i18n error maps
 parallel.go         ParseParallelSlice
 tostruct.go         cached reflect decode
-zgin/               Gin bind + middleware
+zgin/               Gin bind + middleware (GetAs[T], ValidateToStruct[T])
 bench/              comparative benchmarks
-PLAN.md             architecture + sub-agent work distribution
 ```
 
 ## Status

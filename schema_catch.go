@@ -17,8 +17,9 @@ type CatchSchema struct {
 }
 
 // Catch wraps inner with a static fallback on failure.
+// Maps/slices are cloned on each use so fallbacks are not shared across parses.
 func Catch(inner AnySchemaLike, fallback any) *CatchSchema {
-	return newCatch(inner, func(CatchCtx) any { return fallback })
+	return newCatch(inner, func(CatchCtx) any { return cloneDefaultValue(fallback) })
 }
 
 // CatchFunc wraps inner with a function-produced fallback on failure.

@@ -34,6 +34,18 @@ func (s *NumberSchema) NonOptional(params ...any) *NonOptionalSchema {
 	return NonOptional(s, params...)
 }
 
+// --- Int64Schema ---
+
+func (s *Int64Schema) Optional(params ...any) *OptionalSchema { return Optional(s, params...) }
+func (s *Int64Schema) Nullable(params ...any) *NullableSchema { return Nullable(s, params...) }
+func (s *Int64Schema) Nullish(params ...any) *OptionalSchema  { return Nullish(s, params...) }
+func (s *Int64Schema) Default(v int64) *DefaultSchema         { return Default(s, v) }
+func (s *Int64Schema) Prefault(v int64) *PrefaultSchema       { return Prefault(s, v) }
+func (s *Int64Schema) Catch(v int64) *CatchSchema             { return Catch(s, v) }
+func (s *Int64Schema) NonOptional(params ...any) *NonOptionalSchema {
+	return NonOptional(s, params...)
+}
+
 // --- BoolSchema ---
 
 func (s *BoolSchema) Optional(params ...any) *OptionalSchema { return Optional(s, params...) }

@@ -1,6 +1,9 @@
 package zod
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // Payload mirrors Zod's ParsePayload: the value being parsed plus accumulated
 // issues. It is threaded through the whole pipeline; parsing never throws.
@@ -9,6 +12,10 @@ type Payload struct {
 	Issues []Issue
 	// Aborted marks the whole payload as aborted (Zod uses this in pipes).
 	Aborted bool
+
+	// parseCtx is set for the duration of a top-level/child Run so checks and
+	// SuperRefine can read Context / error maps without changing CheckFn.
+	parseCtx *ParseCtx
 }
 
 // AddIssue appends a raw issue.
@@ -60,6 +67,9 @@ func (p *Payload) PrependPath(startIndex int, seg any) {
 
 // ParseCtx carries per-parse options (Zod's ParseContext).
 type ParseCtx struct {
+	// Context is the request/operation context (cancellations, deadlines,
+	// values). SuperRefine reads it via RefinementCtx.Context().
+	Context context.Context
 	// Error is a per-parse error map (second link in the resolution chain).
 	Error ErrorMap
 	// ReportInput includes the offending input in finalized issues.
@@ -92,5 +102,7 @@ func ReleasePayload(p *Payload) {
 		p.Issues = make([]Issue, 0, 4) // don't pin huge error slices
 	}
 	p.Value = nil
+	p.Aborted = false
+	p.parseCtx = nil
 	payloadPool.Put(p)
 }

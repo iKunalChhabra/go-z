@@ -91,7 +91,7 @@ r.GET("/users/:id", func(c *gin.Context) {
 `zgin.CoerceQueryValues(map[string][]string) map[string]any` is public if you need the same conversion outside BindQuery.
 :::
 
-## Validate + Get
+## Validate + Get / GetAs
 
 Middleware that parses the JSON body, stores the result, and continues:
 
@@ -99,11 +99,29 @@ Middleware that parses the JSON body, stores the result, and continues:
 const ContextKey = "zod:value" // zgin.ContextKey
 
 r.POST("/users", zgin.Validate(userSchema), func(c *gin.Context) {
-    body, ok := zgin.Get(c)
+    body, ok := zgin.Get(c) // any
     if !ok {
         return
     }
     c.JSON(200, body)
+})
+```
+
+Typed end-to-end with `ToStruct`:
+
+```go
+type User struct {
+    Name  string  `json:"name"`
+    Email string  `json:"email"`
+    Age   float64 `json:"age"`
+}
+
+r.POST("/users", zgin.ValidateToStruct[User](userSchema), func(c *gin.Context) {
+    user, ok := zgin.GetAs[User](c)
+    if !ok {
+        return
+    }
+    c.JSON(200, user)
 })
 ```
 

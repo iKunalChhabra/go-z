@@ -145,17 +145,10 @@ Schemas don’t deep-freeze results. If you need to share parsed data across gor
 - deep-copy / synchronize, or  
 - convert once with `ToStruct[T]` and share the struct carefully  
 
-The same applies to `Default` values you pass in:
-
-```go
-shared := []any{"a"} // mutable backing array
-schema := zod.Default(zod.Array(zod.String()), shared)
-
-// If a parse returns this default slice and a handler mutates it,
-// the next Missing-input parse may observe the mutation.
-```
-
-Prefer immutable defaults (or `DefaultFunc` that allocates fresh):
+`Default` / `Prefault` / `Catch` clone common JSON-model defaults (`[]any`,
+`map[string]any`, `[]string`, `*big.Int`) on each use so handlers cannot
+corrupt later parses by mutating the returned value. For custom pointer types,
+use `DefaultFunc` / `CatchFunc` and allocate fresh:
 
 ```go
 schema := zod.DefaultFunc(zod.Array(zod.String()), func() any {

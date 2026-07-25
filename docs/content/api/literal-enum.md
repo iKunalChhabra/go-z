@@ -146,8 +146,12 @@ res := schema.SafeParse("nope")
 // Message: "invalid status"
 ```
 
-:::info Enum constructor messages
-Plain `Enum("a","b")` takes only string members. Prefer `NativeEnum(..., message)` or wrap with `Check` / object-level messages when you need customization on a simple enum.
+:::warn Enum args are all values
+`Enum("active", "inactive", "must be a status")` treats the third string as a **member**, not a message. Use `EnumWith` for params:
+
+```go
+schema := zod.EnumWith([]string{"active", "inactive"}, "must be a status")
+```
 :::
 
 ## Literal vs Enum

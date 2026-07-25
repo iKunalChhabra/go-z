@@ -301,3 +301,38 @@ func TestBindJSONToStruct(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestValidateToStructGetAs(t *testing.T) {
+	type User struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Age   int    `json:"age"`
+	}
+
+	r := gin.New()
+	r.POST("/users", zgin.ValidateToStruct[User](userSchema()), func(c *gin.Context) {
+		user, ok := zgin.GetAs[User](c)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "missing"})
+			return
+		}
+		c.JSON(http.StatusOK, user)
+	})
+
+	body := `{"name":"Ada","email":"ada@example.com","age":36}`
+	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var got User
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if got.Name != "Ada" || got.Age != 36 {
+		t.Fatalf("got %+v", got)
+	}
+}

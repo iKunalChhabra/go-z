@@ -3,12 +3,19 @@ package zod
 import "regexp"
 
 // missingType is the internal sentinel for absent values (Zod's `undefined`),
-// distinct from nil (JSON null). Object parsing passes Missing to field
+// distinct from nil (JSON null). Object parsing passes the sentinel to field
 // schemas when a key is absent; Optional/Default/Prefault/Catch react to it.
 type missingType struct{}
 
-// Missing is the "absent value" sentinel (Zod's undefined).
-var Missing any = missingType{}
+// missingSentinel is the unique absent-value token used by the library.
+// Callers should prefer IsMissing; the exported Missing var aliases this
+// value for ergonomics but is not read by internals (so reassigning Missing
+// cannot corrupt object/optional parsing).
+var missingSentinel any = missingType{}
+
+// Missing is the "absent value" sentinel (Zod's undefined) for callers.
+// Prefer IsMissing(v) for checks. Do not reassign — internals ignore the var.
+var Missing any = missingSentinel
 
 // IsMissing reports whether v is the absent-value sentinel.
 func IsMissing(v any) bool {
@@ -37,6 +44,10 @@ type Def struct {
 
 // Internals is the untyped core of every schema (Zod's inst._zod). The typed
 // Schema[T] surface wraps it.
+//
+// Power-user API: Def and Bag are shared mutable pointers. Schemas are
+// immutable by convention after construction — do not mutate Internals of a
+// shared schema (same caveat as Zod's `_zod`). Prefer fluent builders.
 type Internals struct {
 	Def *Def
 	// Parse is the bare type parser (no checks).
@@ -116,6 +127,7 @@ func (d *Def) withChecks(checks ...*Check) *Def {
 // their output type T; the runtime core stays untyped, exactly like Zod.
 type Schema[T any] interface {
 	Parse(data any) (T, error)
+	ParseCtx(data any, ctx *ParseCtx) (T, error)
 	MustParse(data any) T
 	SafeParse(data any) SafeParseResult[T]
 	Internals() *Internals
@@ -168,6 +180,7 @@ func (b *schemaBase[T]) SafeParse(data any) SafeParseResult[T] {
 // parseTyped is the single typed entry point (Zod's core/parse.ts _parse).
 func parseTyped[T any](in *Internals, data any, ctx *ParseCtx) (T, error) {
 	p := AcquirePayload(data)
+	p.parseCtx = ctx
 	in.Run(p, ctx)
 	if len(p.Issues) > 0 {
 		err := newZodError(p.Issues, ctx)
@@ -191,6 +204,10 @@ func parseTyped[T any](in *Internals, data any, ctx *ParseCtx) (T, error) {
 // the child's output value and whether the child parse succeeded.
 func RunChild(child *Internals, parent *Payload, value any, ctx *ParseCtx, seg any) (any, bool) {
 	cp := AcquirePayload(value)
+	if ctx == nil && parent != nil {
+		ctx = parent.parseCtx
+	}
+	cp.parseCtx = ctx
 	child.Run(cp, ctx)
 	ok := len(cp.Issues) == 0
 	if !ok {

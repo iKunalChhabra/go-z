@@ -1,5 +1,10 @@
 package zod
 
+import (
+	"context"
+	"fmt"
+)
+
 // RefinementCtx is the context passed to SuperRefine and Transform callbacks.
 // Ports core.$RefinementCtx.
 type RefinementCtx struct {
@@ -12,6 +17,23 @@ func (ctx *RefinementCtx) Value() any {
 		return nil
 	}
 	return ctx.payload.Value
+}
+
+// Context returns the context.Context from ParseCtx, or context.Background()
+// when none was provided. Use this for DB/HTTP work inside SuperRefine.
+func (ctx *RefinementCtx) Context() context.Context {
+	if ctx == nil || ctx.payload == nil || ctx.payload.parseCtx == nil || ctx.payload.parseCtx.Context == nil {
+		return context.Background()
+	}
+	return ctx.payload.parseCtx.Context
+}
+
+// ParseContext returns the active ParseCtx, or nil.
+func (ctx *RefinementCtx) ParseContext() *ParseCtx {
+	if ctx == nil || ctx.payload == nil {
+		return nil
+	}
+	return ctx.payload.parseCtx
 }
 
 // AddIssue appends a custom (or caller-specified) issue. By default issues
@@ -197,6 +219,8 @@ func normalizeRefineParams(params []any) refineParamResult {
 					out.Params = x.Params
 				}
 			}
+		default:
+			panic(fmt.Sprintf("zod: unsupported refine params type %T (want string, ErrorMap, Params, RefineOpts, or nil)", p))
 		}
 	}
 	return out

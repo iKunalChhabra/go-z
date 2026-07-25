@@ -88,7 +88,7 @@ func makeTupleParse(def *Def, items []AnySchemaLike, rest AnySchemaLike) ParseFn
 				if i < len(input) {
 					results[i] = itemResult{value: input[i], ok: true}
 				} else {
-					results[i] = itemResult{value: Missing, ok: true}
+					results[i] = itemResult{value: missingSentinel, ok: true}
 				}
 				continue
 			}
@@ -96,7 +96,7 @@ func makeTupleParse(def *Def, items []AnySchemaLike, rest AnySchemaLike) ParseFn
 			if i < len(input) {
 				val = input[i]
 			} else {
-				val = Missing
+				val = missingSentinel
 			}
 			start := len(p.Issues)
 			issueStarts[i] = start

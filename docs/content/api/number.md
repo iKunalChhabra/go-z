@@ -46,17 +46,20 @@ res = schema.SafeParse(math.Inf(-1)) // fail
 
 ## Constructors
 
-| Constructor | Check | Range / rule |
-|-------------|-------|----------------|
-| `Number()` | — | finite float64 |
-| `Int()` | `safeint` | integral + within `±(2^53−1)` |
-| `Int32()` | `int32` | integral, `[−2^31, 2^31−1]` |
-| `Uint32()` | `uint32` | integral, `[0, 2^32−1]` |
-| `Float32()` | `float32` | within float32 exact range |
-| `Float64()` | `float64` | full float64 range |
+| Constructor | Check | Range / rule | Output type |
+|-------------|-------|----------------|-------------|
+| `Number()` | — | finite float64 | `float64` |
+| `Int()` | `safeint` | integral + within `±(2^53−1)` | `float64` |
+| `Int64()` | type gate | Go `int64` range | `int64` |
+| `Int32()` | `int32` | integral, `[−2^31, 2^31−1]` | `float64` |
+| `Uint32()` | `uint32` | integral, `[0, 2^32−1]` | `float64` |
+| `Float32()` | `float32` | within float32 exact range | `float64` |
+| `Float64()` | `float64` | full float64 range | `float64` |
 
 ```go
-zod.Int().MustParse(10)
+n, _ := zod.Int().Parse(10)       // n is float64(10)
+i, _ := zod.Int64().Parse(10)     // i is int64(10)
+
 res := zod.Int().SafeParse(1.5)
 // Expected: "int"
 // Message: "Invalid input: expected int, received number"
@@ -64,6 +67,10 @@ res := zod.Int().SafeParse(1.5)
 zod.Int32().MustParse(2147483647)
 _ = zod.Uint32().SafeParse(-1) // too_small
 ```
+
+:::info Int vs Int64
+`Int()` matches Zod's JSON-number model (`float64` + safeint). Prefer `Int64()` when you want a typed Go integer without `ToStruct`.
+:::
 
 Fluent equivalents on an existing number schema:
 
