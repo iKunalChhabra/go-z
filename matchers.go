@@ -157,6 +157,89 @@ func isUUIDVersion(s string, version byte) bool {
 // variant constraint.
 func isGUID(s string) bool { return uuidShape(s) }
 
+// isISODate ports Zod's date regex, whose alternations encode the Gregorian
+// leap-year rule: YYYY-MM-DD with a real calendar day.
+func isISODate(s string) bool {
+	if len(s) != 10 || s[4] != '-' || s[7] != '-' {
+		return false
+	}
+	for _, i := range [8]int{0, 1, 2, 3, 5, 6, 8, 9} {
+		if !isASCIIDigit(s[i]) {
+			return false
+		}
+	}
+	year := int(s[0]-'0')*1000 + int(s[1]-'0')*100 + int(s[2]-'0')*10 + int(s[3]-'0')
+	month := int(s[5]-'0')*10 + int(s[6]-'0')
+	day := int(s[8]-'0')*10 + int(s[9]-'0')
+	if month < 1 || month > 12 || day < 1 {
+		return false
+	}
+	return day <= daysInMonth(year, month)
+}
+
+func daysInMonth(year, month int) int {
+	switch month {
+	case 1, 3, 5, 7, 8, 10, 12:
+		return 31
+	case 4, 6, 9, 11:
+		return 30
+	default: // February
+		if year%4 == 0 && (year%100 != 0 || year%400 == 0) {
+			return 29
+		}
+		return 28
+	}
+}
+
+// isISOTimeDefault ports Zod's time regex at the default precision:
+// HH:MM, optionally :SS, optionally with a fractional part.
+func isISOTimeDefault(s string) bool {
+	if len(s) < 5 || s[2] != ':' {
+		return false
+	}
+	if !isASCIIDigit(s[0]) || !isASCIIDigit(s[1]) || !isASCIIDigit(s[3]) || !isASCIIDigit(s[4]) {
+		return false
+	}
+	if hour := int(s[0]-'0')*10 + int(s[1]-'0'); hour > 23 {
+		return false
+	}
+	if s[3] > '5' {
+		return false
+	}
+	if len(s) == 5 {
+		return true
+	}
+	// Seconds are optional, and only present with a leading colon.
+	if s[5] != ':' || len(s) < 8 {
+		return false
+	}
+	if !isASCIIDigit(s[6]) || !isASCIIDigit(s[7]) || s[6] > '5' {
+		return false
+	}
+	if len(s) == 8 {
+		return true
+	}
+	// Fractional seconds: a dot followed by at least one digit.
+	if s[8] != '.' || len(s) == 9 {
+		return false
+	}
+	for i := 9; i < len(s); i++ {
+		if !isASCIIDigit(s[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// isISODateTimeDefault ports Zod's datetime regex at its default settings
+// (no fixed precision, no offset, not local): <date>T<time>Z.
+func isISODateTimeDefault(s string) bool {
+	if len(s) < 17 || s[10] != 'T' || s[len(s)-1] != 'Z' {
+		return false
+	}
+	return isISODate(s[:10]) && isISOTimeDefault(s[11:len(s)-1])
+}
+
 // isIPv4 ports Zod's ipv4 regex: four dot-separated decimal octets, each
 // 0-255 with no leading zeros.
 func isIPv4(s string) bool {

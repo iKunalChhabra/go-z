@@ -146,6 +146,87 @@ func TestIsIPv4MatchesRegex(t *testing.T) {
 	}, 300000)
 }
 
+func TestISODateMatchesRegex(t *testing.T) {
+	fixed := []string{
+		"", "2024-01-15", "2024-02-29", "2023-02-29", "1900-02-29", "2000-02-29",
+		"2024-13-01", "2024-00-10", "2024-04-31", "2024-04-30", "2024-12-31",
+		"2024-1-15", "24-01-15", "2024-01-15T00:00:00Z", "2024-01-32", "2024-02-30",
+	}
+	differential(t, "isISODate", isISODate, reDate, fixed, func(rng *rand.Rand) string {
+		return randomFrom(rng, "0123-9", 8, 11)
+	}, 200000)
+
+	// Exhaustive over a century of real dates plus every out-of-range day.
+	for year := 1896; year <= 2100; year++ {
+		for month := 0; month <= 13; month++ {
+			for day := 0; day <= 32; day++ {
+				s := isoDateString(year, month, day)
+				if len(s) != 10 {
+					continue
+				}
+				if got, want := isISODate(s), reDate.MatchString(s); got != want {
+					t.Fatalf("isISODate(%q) = %v, regex = %v", s, got, want)
+				}
+			}
+		}
+	}
+}
+
+func isoDateString(year, month, day int) string {
+	if year < 0 || year > 9999 || month < 0 || month > 99 || day < 0 || day > 99 {
+		return ""
+	}
+	digits := func(n, width int) string {
+		out := make([]byte, width)
+		for i := width - 1; i >= 0; i-- {
+			out[i] = byte('0' + n%10)
+			n /= 10
+		}
+		return string(out)
+	}
+	return digits(year, 4) + "-" + digits(month, 2) + "-" + digits(day, 2)
+}
+
+func TestISOTimeAndDateTimeMatchRegex(t *testing.T) {
+	timeRE := timeRegexp(nil)
+	timeFixed := []string{
+		"", "00:00", "23:59", "24:00", "23:60", "12:34:56", "12:34:56.789",
+		"12:34:56.", "12:34:5", "1:23", "12:34:60", "12:34:56.1234567890",
+	}
+	differential(t, "isISOTimeDefault", isISOTimeDefault, timeRE, timeFixed, func(rng *rand.Rand) string {
+		return randomFrom(rng, "0125:.9", 1, 12)
+	}, 200000)
+
+	dtRE := datetimeRegexp(nil, false, false)
+	dtFixed := []string{
+		"", "2024-01-15T10:30:00Z", "2024-01-15T10:30Z", "2024-01-15T10:30:00.123Z",
+		"2024-01-15T10:30:00", "2024-01-15T10:30:00+01:00", "2024-01-15 10:30:00Z",
+		"2024-02-30T10:30:00Z", "2024-01-15T24:00:00Z", "2024-01-15T10:30:00.Z",
+	}
+	differential(t, "isISODateTimeDefault", isISODateTimeDefault, dtRE, dtFixed, func(rng *rand.Rand) string {
+		return randomFrom(rng, "0123-9TZ:.", 14, 22)
+	}, 200000)
+
+	// Mutations around a valid timestamp reach branches random strings miss.
+	rng := rand.New(rand.NewSource(9))
+	mutations := "0129TZ:.-+ "
+	for i := 0; i < 200000; i++ {
+		base := []byte("2024-01-15T10:30:00.123Z")
+		switch rng.Intn(3) {
+		case 0:
+			base[rng.Intn(len(base))] = mutations[rng.Intn(len(mutations))]
+		case 1:
+			base = base[:rng.Intn(len(base))]
+		case 2:
+			base = append(base, mutations[rng.Intn(len(mutations))])
+		}
+		s := string(base)
+		if got, want := isISODateTimeDefault(s), dtRE.MatchString(s); got != want {
+			t.Fatalf("isISODateTimeDefault(%q) = %v, regex = %v", s, got, want)
+		}
+	}
+}
+
 // Realistic-shaped corpora: the random alphabets above rarely produce valid
 // values, so also fuzz around well-formed inputs with single mutations.
 func TestMatchersAgainstMutatedValidValues(t *testing.T) {

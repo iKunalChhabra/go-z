@@ -530,7 +530,7 @@ func FormatMAC(params ...any) *Check {
 
 // FormatISODate attaches Zod's ISO date format check.
 func FormatISODate(params ...any) *Check {
-	return stringFormatPattern("date", reDate, jsPattern(reDate), params...)
+	return stringFormatFn("date", jsPattern(reDate), isISODate, params...)
 }
 
 // ISOTimeOpts customizes time precision (nil = Zod default).
@@ -556,7 +556,13 @@ func FormatISOTime(params ...any) *Check {
 		}
 	}
 	re := timeRegexp(precision)
-	ch := stringFormatPattern("time", re, jsPattern(re))
+	var ch *Check
+	if precision == nil {
+		// Default precision is the common case and has a fast matcher.
+		ch = stringFormatFn("time", jsPattern(re), isISOTimeDefault)
+	} else {
+		ch = stringFormatPattern("time", re, jsPattern(re))
+	}
 	ch.Error = p.Error
 	ch.Abort = p.Abort
 	return ch
@@ -590,7 +596,13 @@ func FormatISODateTime(params ...any) *Check {
 		}
 	}
 	re := datetimeRegexp(precision, offset, local)
-	ch := stringFormatPattern("datetime", re, jsPattern(re))
+	var ch *Check
+	if precision == nil && !offset && !local {
+		// Default settings are the common case and have a fast matcher.
+		ch = stringFormatFn("datetime", jsPattern(re), isISODateTimeDefault)
+	} else {
+		ch = stringFormatPattern("datetime", re, jsPattern(re))
+	}
 	ch.Error = p.Error
 	ch.Abort = p.Abort
 	return ch
