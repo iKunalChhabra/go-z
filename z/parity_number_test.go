@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func parityNumOK(t *testing.T, s *NumberSchema, in any) float64 {
+func parityNumOK[T Numeric](t *testing.T, s *NumericSchema[T], in any) T {
 	t.Helper()
 	got, err := s.Parse(in)
 	if err != nil {
@@ -14,7 +14,7 @@ func parityNumOK(t *testing.T, s *NumberSchema, in any) float64 {
 	return got
 }
 
-func parityNumFail(t *testing.T, s *NumberSchema, in any) *Error {
+func parityNumFail[T Numeric](t *testing.T, s *NumericSchema[T], in any) *Error {
 	t.Helper()
 	res := s.SafeParse(in)
 	if res.Success {
@@ -23,7 +23,7 @@ func parityNumFail(t *testing.T, s *NumberSchema, in any) *Error {
 	return res.Error
 }
 
-func parityNumFailMsg(t *testing.T, s *NumberSchema, in any, msg string) {
+func parityNumFailMsg[T Numeric](t *testing.T, s *NumericSchema[T], in any, msg string) {
 	t.Helper()
 	err := parityNumFail(t, s, in)
 	if err.Issues[0].Message != msg {
@@ -79,7 +79,7 @@ func TestParityNumberComparisons(t *testing.T) {
 
 func TestParityNumberIntSign(t *testing.T) {
 	// Ported from classic/tests/number.test.ts — int / positive / negative / non*
-	intSch := Number().Int()
+	intSch := Number().Integer()
 	parityNumOK(t, intSch, 4)
 	parityNumFail(t, intSch, 3.14)
 

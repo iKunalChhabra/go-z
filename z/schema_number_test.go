@@ -70,7 +70,7 @@ func TestNumberComparisons(t *testing.T) {
 }
 
 func TestNumberInt(t *testing.T) {
-	schema := Number().Int()
+	schema := Number().Integer()
 	mustParseNum(t, schema, 4)
 	mustFailNum(t, schema, 3.14)
 
@@ -218,14 +218,14 @@ func TestNumberTypeMessage(t *testing.T) {
 	}
 }
 
-func mustParseNum(t *testing.T, s *NumberSchema, in any) {
+func mustParseNum[T Numeric](t *testing.T, s *NumericSchema[T], in any) {
 	t.Helper()
 	if _, err := s.Parse(in); err != nil {
 		t.Fatalf("Parse(%v) unexpected error: %v", in, err)
 	}
 }
 
-func mustFailNum(t *testing.T, s *NumberSchema, in any) {
+func mustFailNum[T Numeric](t *testing.T, s *NumericSchema[T], in any) {
 	t.Helper()
 	if res := s.SafeParse(in); res.Success {
 		t.Fatalf("Parse(%v) expected failure", in)

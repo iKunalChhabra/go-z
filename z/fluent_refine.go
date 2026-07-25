@@ -33,40 +33,22 @@ func (s *StringSchema) SuperRefine(fn func(string, *RefinementCtx), params ...an
 	return newString(s.def.withChecks(ch))
 }
 
-// --- NumberSchema ---
+// --- NumericSchema ---
 
-func (s *NumberSchema) Refine(pred func(float64) bool, params ...any) *NumberSchema {
+func (s *NumericSchema[T]) Refine(pred func(T) bool, params ...any) *NumericSchema[T] {
 	ch := refineCheck(func(v any) bool {
-		n, ok := ToFloat(v)
+		n, ok := v.(T)
 		return ok && pred(n)
 	}, params...)
-	return newNumber(s.def.withChecks(ch))
+	return s.clone(ch)
 }
 
-func (s *NumberSchema) SuperRefine(fn func(float64, *RefinementCtx), params ...any) *NumberSchema {
+func (s *NumericSchema[T]) SuperRefine(fn func(T, *RefinementCtx), params ...any) *NumericSchema[T] {
 	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
-		n, _ := ToFloat(v)
+		n, _ := v.(T)
 		fn(n, ctx)
 	}, params...)
-	return newNumber(s.def.withChecks(ch))
-}
-
-// --- Int64Schema ---
-
-func (s *Int64Schema) Refine(pred func(int64) bool, params ...any) *Int64Schema {
-	ch := refineCheck(func(v any) bool {
-		n, ok := v.(int64)
-		return ok && pred(n)
-	}, params...)
-	return newInt64(s.def.withChecks(ch))
-}
-
-func (s *Int64Schema) SuperRefine(fn func(int64, *RefinementCtx), params ...any) *Int64Schema {
-	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
-		n, _ := v.(int64)
-		fn(n, ctx)
-	}, params...)
-	return newInt64(s.def.withChecks(ch))
+	return s.clone(ch)
 }
 
 // --- BoolSchema ---

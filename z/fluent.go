@@ -37,39 +37,22 @@ func (s *StringSchema) NonOptional(params ...any) *NonOptionalSchema[string] {
 	return NonOptionalOf(s, params...)
 }
 
-// --- NumberSchema ---
+// --- NumericSchema: one definition covers Number, Int, Int32, Int64, Uint32,
+// Float32 and Float64 ---
 
-func (s *NumberSchema) Optional(params ...any) *OptionalSchema[float64] {
+func (s *NumericSchema[T]) Optional(params ...any) *OptionalSchema[T] {
 	return OptionalOf(s, params...)
 }
-func (s *NumberSchema) Nullable(params ...any) *NullableSchema[float64] {
+func (s *NumericSchema[T]) Nullable(params ...any) *NullableSchema[T] {
 	return NullableOf(s, params...)
 }
-func (s *NumberSchema) Nullish(params ...any) *OptionalSchema[float64] {
+func (s *NumericSchema[T]) Nullish(params ...any) *OptionalSchema[T] {
 	return NullishOf(s, params...)
 }
-func (s *NumberSchema) Default(v float64) *DefaultSchema[float64]   { return DefaultOf(s, v) }
-func (s *NumberSchema) Prefault(v float64) *PrefaultSchema[float64] { return PrefaultOf(s, v) }
-func (s *NumberSchema) Catch(v float64) *CatchSchema[float64]       { return CatchOf(s, v) }
-func (s *NumberSchema) NonOptional(params ...any) *NonOptionalSchema[float64] {
-	return NonOptionalOf(s, params...)
-}
-
-// --- Int64Schema ---
-
-func (s *Int64Schema) Optional(params ...any) *OptionalSchema[int64] {
-	return OptionalOf(s, params...)
-}
-func (s *Int64Schema) Nullable(params ...any) *NullableSchema[int64] {
-	return NullableOf(s, params...)
-}
-func (s *Int64Schema) Nullish(params ...any) *OptionalSchema[int64] {
-	return NullishOf(s, params...)
-}
-func (s *Int64Schema) Default(v int64) *DefaultSchema[int64]   { return DefaultOf(s, v) }
-func (s *Int64Schema) Prefault(v int64) *PrefaultSchema[int64] { return PrefaultOf(s, v) }
-func (s *Int64Schema) Catch(v int64) *CatchSchema[int64]       { return CatchOf(s, v) }
-func (s *Int64Schema) NonOptional(params ...any) *NonOptionalSchema[int64] {
+func (s *NumericSchema[T]) Default(v T) *DefaultSchema[T]   { return DefaultOf(s, v) }
+func (s *NumericSchema[T]) Prefault(v T) *PrefaultSchema[T] { return PrefaultOf(s, v) }
+func (s *NumericSchema[T]) Catch(v T) *CatchSchema[T]       { return CatchOf(s, v) }
+func (s *NumericSchema[T]) NonOptional(params ...any) *NonOptionalSchema[T] {
 	return NonOptionalOf(s, params...)
 }
 

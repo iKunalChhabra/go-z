@@ -194,10 +194,10 @@ func TestDocClaimsCodec(t *testing.T) {
 	// JSON string codec
 	j := JSONStringCodec(Object(Shape{"retries": Int().Gte(0)}))
 	cfg, err := Decode(j, `{"retries":3}`)
-	if err != nil || cfg.(map[string]any)["retries"] != 3.0 {
+	if err != nil || cfg.(map[string]any)["retries"] != 3 {
 		t.Fatalf("json decode: %#v %v", cfg, err)
 	}
-	raw, err := Encode(j, map[string]any{"retries": 3.0})
+	raw, err := Encode(j, map[string]any{"retries": 3})
 	if err != nil || raw != `{"retries":3}` {
 		t.Fatalf("json encode: %#v %v", raw, err)
 	}
