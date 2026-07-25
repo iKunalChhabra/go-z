@@ -9,8 +9,8 @@ import (
 
 // Number format range constants (JS Number / Zod NUMBER_FORMAT_RANGES).
 const (
-	MaxSafeInteger  = float64(1<<53 - 1)  // 9007199254740991
-	MinSafeInteger  = -MaxSafeInteger     // -9007199254740991
+	MaxSafeInteger  = float64(1<<53 - 1) // 9007199254740991
+	MinSafeInteger  = -MaxSafeInteger    // -9007199254740991
 	MaxFloat32Exact = 3.4028234663852886e38
 	MinFloat32Exact = -MaxFloat32Exact
 	MaxInt32        = float64(2147483647)

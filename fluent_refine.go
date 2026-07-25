@@ -9,6 +9,10 @@ import (
 // Mid-chain Refine / SuperRefine — return the SAME concrete schema type so
 // further fluent checks still chain:
 //   String().Min(5).Refine(...).Email()
+//
+// RefineOf / SuperRefineOf / OverwriteOf in refine.go do the same job for any
+// schema type (they return a *CheckedSchema[T], which ends the type-specific
+// chain), so a type missing from this file is still refinable.
 //////////////////////////////////////////////////////////////////////////////
 
 // --- StringSchema ---
@@ -171,4 +175,76 @@ func (s *ArraySchema) SuperRefine(fn func([]any, *RefinementCtx), params ...any)
 		fn(a, ctx)
 	}, params...)
 	return newArray(s.def.withChecks(ch), s.element)
+}
+
+// --- TupleSchema ---
+
+func (s *TupleSchema) Refine(pred func([]any) bool, params ...any) *TupleSchema {
+	ch := refineCheck(func(v any) bool {
+		a, ok := v.([]any)
+		return ok && pred(a)
+	}, params...)
+	return newTuple(s.def.withChecks(ch), append([]AnySchemaLike(nil), s.items...), s.rest)
+}
+
+func (s *TupleSchema) SuperRefine(fn func([]any, *RefinementCtx), params ...any) *TupleSchema {
+	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
+		a, _ := v.([]any)
+		fn(a, ctx)
+	}, params...)
+	return newTuple(s.def.withChecks(ch), append([]AnySchemaLike(nil), s.items...), s.rest)
+}
+
+// --- RecordSchema ---
+
+func (s *RecordSchema) Refine(pred func(map[string]any) bool, params ...any) *RecordSchema {
+	ch := refineCheck(func(v any) bool {
+		m, ok := v.(map[string]any)
+		return ok && pred(m)
+	}, params...)
+	return newRecord(s.def.withChecks(ch), s.keySchema, s.valueSchema, s.loose)
+}
+
+func (s *RecordSchema) SuperRefine(fn func(map[string]any, *RefinementCtx), params ...any) *RecordSchema {
+	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
+		m, _ := v.(map[string]any)
+		fn(m, ctx)
+	}, params...)
+	return newRecord(s.def.withChecks(ch), s.keySchema, s.valueSchema, s.loose)
+}
+
+// --- MapSchema ---
+
+func (s *MapSchema) Refine(pred func(map[any]any) bool, params ...any) *MapSchema {
+	ch := refineCheck(func(v any) bool {
+		m, ok := v.(map[any]any)
+		return ok && pred(m)
+	}, params...)
+	return newMap(s.def.withChecks(ch), s.keySchema, s.valueSchema)
+}
+
+func (s *MapSchema) SuperRefine(fn func(map[any]any, *RefinementCtx), params ...any) *MapSchema {
+	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
+		m, _ := v.(map[any]any)
+		fn(m, ctx)
+	}, params...)
+	return newMap(s.def.withChecks(ch), s.keySchema, s.valueSchema)
+}
+
+// --- SetSchema ---
+
+func (s *SetSchema) Refine(pred func([]any) bool, params ...any) *SetSchema {
+	ch := refineCheck(func(v any) bool {
+		a, ok := v.([]any)
+		return ok && pred(a)
+	}, params...)
+	return newSet(s.def.withChecks(ch), s.valueSchema)
+}
+
+func (s *SetSchema) SuperRefine(fn func([]any, *RefinementCtx), params ...any) *SetSchema {
+	ch := superRefineCheck(func(v any, ctx *RefinementCtx) {
+		a, _ := v.([]any)
+		fn(a, ctx)
+	}, params...)
+	return newSet(s.def.withChecks(ch), s.valueSchema)
 }

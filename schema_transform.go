@@ -108,6 +108,9 @@ func PreprocessCtx(fn func(any, *RefinementCtx) any, schema AnySchemaLike) *Prep
 	return newPreprocess(def, fn, schema)
 }
 
+// Unwrap returns the target schema, satisfying Unwrapper for schema walkers.
+func (s *PreprocessSchema) Unwrap() AnySchemaLike { return s.schema }
+
 func newPreprocess(def *Def, fn func(any, *RefinementCtx) any, schema AnySchemaLike) *PreprocessSchema {
 	s := &PreprocessSchema{def: def, fn: fn, schema: schema}
 	schemaIn := schema.Internals()

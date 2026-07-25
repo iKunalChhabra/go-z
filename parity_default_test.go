@@ -24,7 +24,7 @@ func TestParityDefaultWithOptional(t *testing.T) {
 	if err != nil || got != "default" {
 		t.Fatalf("%v %v", got, err)
 	}
-	u, err := schema.Unwrap().(*OptionalSchema).Parse(Missing)
+	u, err := schema.Unwrap().(*OptionalSchema[any]).ParseAny(Missing)
 	if err != nil || !IsMissing(u) {
 		t.Fatalf("unwrap: %v %v", u, err)
 	}
@@ -65,7 +65,7 @@ func TestParityDefaultOnExistingOptional(t *testing.T) {
 	if err != nil || got != "asdf" {
 		t.Fatalf("%v %v", got, err)
 	}
-	if _, ok := schema.Unwrap().(*OptionalSchema); !ok {
+	if _, ok := schema.Unwrap().(*OptionalSchema[any]); !ok {
 		t.Fatalf("%T", schema.Unwrap())
 	}
 }
@@ -74,8 +74,12 @@ func TestParityOptionalOnDefault(t *testing.T) {
 	// Ported from classic/tests/default.test.ts — "optional on default"
 	schema := Optional(Default(String(), "asdf"))
 	got, err := schema.Parse(Missing)
-	if err != nil || got != "asdf" {
+	if err != nil || got == nil || *got != "asdf" {
 		t.Fatalf("%v %v", got, err)
+	}
+	raw, err := schema.ParseAny(Missing)
+	if err != nil || raw != "asdf" {
+		t.Fatalf("raw: %v %v", raw, err)
 	}
 }
 
