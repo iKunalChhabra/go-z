@@ -111,7 +111,7 @@ This is the emotional home of go-z.
 | Fluent API | `z.string().min(5).email()` | `z.String().Min(5).Email()` |
 | Objects | `z.object({ ... })` | `z.Object(z.Shape{ ... })` |
 | Safe parse | `safeParse` | `SafeParse` |
-| Issues | `ZodError.issues` | `ZodError.Issues` |
+| Issues | `ZodError.issues` | `Error.Issues` (via `z.AsError`) |
 | Infer types | `z.infer<typeof s>` | **Not available** — declare Go types separately |
 | Runtime | JS / TS | Go `any` core + `Schema[T]` edge |
 | Defaults / catch | `default`, `catch` | `Default`, `Catch` |

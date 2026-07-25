@@ -91,7 +91,7 @@ try { schema.parse(x) } catch (e) {
 ```go
 _, err := schema.Parse(x)
 if err != nil {
-    zerr := err.(*z.ZodError)
+    zerr, _ := z.AsError(err)
     _ = zerr.Issues // same codes / JSON fields as Zod v4
 }
 ```
