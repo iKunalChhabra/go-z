@@ -117,6 +117,24 @@ type User struct {
 parsed, err := zod.ToStruct[User](user).Parse(input)
 ```
 
+### Concurrency
+
+Built schemas are **immutable and safe to share** across goroutines — no locks needed around `Parse` / `SafeParse`:
+
+```go
+schema := zod.String().Email() // build once
+go func() { schema.Parse(a) }()
+go func() { schema.Parse(b) }()
+```
+
+Batch helpers when you want an explicit fan-out API:
+
+```go
+shared := zod.Share(schema)
+outs, errs, err := shared.ParseAll(ctx, inputs, 8)
+// or: zod.ConcurrentParseAny(ctx, objectSchema, inputs, 8)
+```
+
 ### Parallel validation
 
 ```go
@@ -124,6 +142,8 @@ out, err := zod.ParseParallelSlice(ctx, itemSchema, items, zod.ParallelOpts{})
 ```
 
 On 10k-element arrays this is ~2.5× faster than sequential on a 4-core machine — see [BENCHMARKS.md](./BENCHMARKS.md).
+
+Zod classic test ports live in `parity_*_test.go` — see [PARITY.md](./PARITY.md).
 
 ## Performance (headline)
 
