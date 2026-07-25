@@ -1,0 +1,173 @@
+package zod
+
+import (
+	"testing"
+)
+
+// Ports cases from v4/classic/tests/intersection.test.ts.
+
+// Port: "object intersection"
+func TestIntersectionObject(t *testing.T) {
+	a := Object(Shape{"a": String()})
+	b := Object(Shape{"b": String()})
+	c := Intersection(a, b)
+	data := map[string]any{"a": "foo", "b": "foo"}
+	got, err := c.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := got.(map[string]any)
+	if m["a"] != "foo" || m["b"] != "foo" {
+		t.Fatalf("got %#v", got)
+	}
+	if _, err := c.Parse(map[string]any{"a": "foo"}); err == nil {
+		t.Fatal("expected failure for missing b")
+	}
+}
+
+// Port: "object intersection: strict + strict"
+func TestIntersectionStrictStrict(t *testing.T) {
+	a := Object(Shape{"a": String()}).Strict()
+	b := Object(Shape{"b": String()}).Strict()
+	c := Intersection(a, b)
+	got, err := c.Parse(map[string]any{"a": "foo", "b": "bar"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(map[string]any)["a"] != "foo" || got.(map[string]any)["b"] != "bar" {
+		t.Fatalf("got %#v", got)
+	}
+	res := c.SafeParse(map[string]any{"a": "foo", "b": "bar", "c": "extra"})
+	if res.Success {
+		t.Fatal("expected unrecognized_keys")
+	}
+	found := false
+	for _, iss := range res.Error.Issues {
+		if iss.Code == IssueUnrecognizedKeys {
+			found = true
+			if len(iss.Keys) != 1 || iss.Keys[0] != "c" {
+				t.Fatalf("keys = %v", iss.Keys)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("want unrecognized_keys, got %+v", res.Error.Issues)
+	}
+}
+
+// Port: "deep intersection"
+func TestIntersectionDeep(t *testing.T) {
+	animal := Object(Shape{
+		"properties": Object(Shape{"is_animal": Bool()}),
+	})
+	catExtra := Object(Shape{
+		"properties": Object(Shape{"jumped": Bool()}),
+	})
+	cat := Intersection(catExtra, animal)
+	res := cat.SafeParse(map[string]any{
+		"properties": map[string]any{"is_animal": true, "jumped": true},
+	})
+	if !res.Success {
+		t.Fatalf("err = %v", res.Error)
+	}
+	props := res.Data.(map[string]any)["properties"].(map[string]any)
+	if props["is_animal"] != true || props["jumped"] != true {
+		t.Fatalf("props = %#v", props)
+	}
+}
+
+// Port: "deep intersection of arrays"
+func TestIntersectionDeepArrays(t *testing.T) {
+	left := Object(Shape{
+		"posts": Array(Object(Shape{"post_id": Number()})),
+	})
+	right := Object(Shape{
+		"posts": Array(Object(Shape{"title": String()})),
+	})
+	reg := Intersection(left, right)
+	posts := []any{
+		map[string]any{"post_id": 1.0, "title": "Novels"},
+		map[string]any{"post_id": 2.0, "title": "Fairy tales"},
+	}
+	got, err := reg.Parse(map[string]any{"posts": posts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := got.(map[string]any)["posts"].([]any)
+	if len(out) != 2 {
+		t.Fatalf("len = %d", len(out))
+	}
+	p0 := out[0].(map[string]any)
+	if p0["post_id"] != 1.0 || p0["title"] != "Novels" {
+		t.Fatalf("p0 = %#v", p0)
+	}
+}
+
+// Port: "invalid intersection types"
+func TestIntersectionUnmergeable(t *testing.T) {
+	left := Number()
+	right := Transform(Number(), func(v any, _ *RefinementCtx) (any, error) {
+		f, _ := ToFloat(v)
+		return f + 1, nil
+	})
+	schema := Intersection(left, right)
+	res := schema.SafeParse(1234.0)
+	if res.Success {
+		t.Fatal("expected unmergeable failure")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueCustom || iss.Message != "Unmergeable intersection results" {
+		t.Fatalf("got %+v", iss)
+	}
+}
+
+// Port: "invalid array merge (incompatible lengths)"
+func TestIntersectionUnmergeableArrayLength(t *testing.T) {
+	left := Array(String())
+	right := Transform(Array(String()), func(v any, _ *RefinementCtx) (any, error) {
+		arr := v.([]any)
+		return append(append([]any{}, arr...), "asdf"), nil
+	})
+	schema := Intersection(left, right)
+	res := schema.SafeParse([]any{"asdf", "qwer"})
+	if res.Success {
+		t.Fatal("expected failure")
+	}
+	if res.Error.Issues[0].Message != "Unmergeable intersection results" {
+		t.Fatalf("got %+v", res.Error.Issues[0])
+	}
+}
+
+// Port: "invalid object merge"
+func TestIntersectionUnmergeableObjectKey(t *testing.T) {
+	cat := Object(Shape{
+		"phrase": Transform(String(), func(v any, _ *RefinementCtx) (any, error) {
+			return v.(string) + " Meow", nil
+		}),
+	})
+	dog := Object(Shape{
+		"phrase": Transform(String(), func(v any, _ *RefinementCtx) (any, error) {
+			return v.(string) + " Woof", nil
+		}),
+	})
+	schema := Intersection(cat, dog)
+	res := schema.SafeParse(map[string]any{"phrase": "Hello"})
+	if res.Success {
+		t.Fatal("expected failure")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Message != "Unmergeable intersection results" {
+		t.Fatalf("got %+v", iss)
+	}
+	if len(iss.Path) != 1 || iss.Path[0] != "phrase" {
+		t.Fatalf("path = %v", iss.Path)
+	}
+}
+
+func TestIntersectionSamePrimitive(t *testing.T) {
+	schema := Intersection(String(), String())
+	got, err := schema.Parse("hello")
+	if err != nil || got != "hello" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+}

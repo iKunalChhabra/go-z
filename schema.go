@@ -1,0 +1,252 @@
+package zod
+
+import "regexp"
+
+// missingType is the internal sentinel for absent values (Zod's `undefined`),
+// distinct from nil (JSON null). Object parsing passes Missing to field
+// schemas when a key is absent; Optional/Default/Prefault/Catch react to it.
+type missingType struct{}
+
+// Missing is the "absent value" sentinel (Zod's undefined).
+var Missing any = missingType{}
+
+// IsMissing reports whether v is the absent-value sentinel.
+func IsMissing(v any) bool {
+	_, ok := v.(missingType)
+	return ok
+}
+
+// ParseFn is a schema's bare type parser (Zod's inst._zod.parse): it validates
+// and normalizes p.Value, appending issues on failure. It must not run checks.
+type ParseFn func(p *Payload, ctx *ParseCtx)
+
+// Def is the common, serializable part of a schema definition (Zod's
+// $ZodTypeDef). Type-specific definition fields live on the concrete schema
+// structs.
+type Def struct {
+	// Type is the schema kind: "string", "number", "object", ...
+	Type string
+	// Error is the schema-level error map, attached to issues this schema's
+	// own parse produces.
+	Error ErrorMap
+	// Checks are the attached checks, run in order after parse.
+	Checks []*Check
+	// Coerce enables input coercion for primitives.
+	Coerce bool
+}
+
+// Internals is the untyped core of every schema (Zod's inst._zod). The typed
+// Schema[T] surface wraps it.
+type Internals struct {
+	Def *Def
+	// Parse is the bare type parser (no checks).
+	Parse ParseFn
+	// Run executes parse + checks. For zero-check schemas Run == Parse
+	// (Zod's deferred fast path).
+	Run ParseFn
+
+	// Values is the exhaustive set of literal values that pass validation
+	// (defined on literal/enum/nil…, propagated through wrappers). Used for
+	// discriminated-union dispatch.
+	Values map[any]struct{}
+	// PropValues maps object property names to their literal value sets;
+	// discriminated unions build their dispatch table from it.
+	PropValues map[string]map[any]struct{}
+	// OptIn/OptOut mark input/output optionality (Zod's optin/optout);
+	// object parsing skips absent keys whose field schema has OptIn.
+	OptIn  bool
+	OptOut bool
+	// Pattern, when non-nil, is a regexp equivalent of this schema's
+	// validation (Zod uses it for template literals).
+	Pattern *regexp.Regexp
+	// Bag is scratch metadata written by check OnAttach hooks (min/max/format
+	// hints), mirroring Zod's inst._zod.bag.
+	Bag map[string]any
+}
+
+// buildInternals wires Def + ParseFn into Internals, porting the trait
+// initialization in core.$ZodType: run OnAttach hooks, then either fast-path
+// Run to Parse (no checks) or compose parse → runChecks.
+func buildInternals(def *Def, parse ParseFn) *Internals {
+	in := &Internals{Def: def, Parse: parse}
+	for _, ch := range def.Checks {
+		for _, hook := range ch.OnAttach {
+			hook(in)
+		}
+	}
+	if len(def.Checks) == 0 {
+		in.Run = parse
+	} else {
+		checks := def.Checks
+		in.Run = func(p *Payload, ctx *ParseCtx) {
+			parse(p, ctx)
+			if ctx != nil && ctx.skipChecks {
+				return
+			}
+			runChecks(p, checks)
+		}
+	}
+	return in
+}
+
+// SchemaIssue prepares a raw issue produced by a schema's own parse step:
+// wires the schema-level error map; continue stays unset (type errors abort,
+// as in Zod).
+func (in *Internals) SchemaIssue(iss Issue) Issue {
+	iss.errMap = in.Def.Error
+	return iss
+}
+
+// FailInvalidType appends the canonical invalid_type issue for this schema.
+func (in *Internals) FailInvalidType(p *Payload, expected string) {
+	p.AddIssue(in.SchemaIssue(Issue{Code: IssueInvalidType, Expected: expected, Input: p.Value}))
+}
+
+// withChecks returns a copy of the def with extra checks appended — the
+// canonical clone step behind every fluent method (Zod's immutable API).
+func (d *Def) withChecks(checks ...*Check) *Def {
+	nd := *d
+	nd.Checks = make([]*Check, 0, len(d.Checks)+len(checks))
+	nd.Checks = append(nd.Checks, d.Checks...)
+	nd.Checks = append(nd.Checks, checks...)
+	return &nd
+}
+
+// Schema is the generic typed surface. All schemas implement Schema[T] for
+// their output type T; the runtime core stays untyped, exactly like Zod.
+type Schema[T any] interface {
+	Parse(data any) (T, error)
+	MustParse(data any) T
+	SafeParse(data any) SafeParseResult[T]
+	Internals() *Internals
+}
+
+// AnySchemaLike is the type-erased view used by container schemas (object,
+// array…) that hold heterogeneous children.
+type AnySchemaLike interface {
+	Internals() *Internals
+}
+
+// schemaBase provides the typed Parse surface over Internals; concrete schema
+// types embed it.
+type schemaBase[T any] struct {
+	in *Internals
+}
+
+func newBase[T any](in *Internals) schemaBase[T] { return schemaBase[T]{in: in} }
+
+// Internals exposes the untyped core.
+func (b *schemaBase[T]) Internals() *Internals { return b.in }
+
+// Parse validates data and returns the typed output or a *ZodError.
+func (b *schemaBase[T]) Parse(data any) (T, error) { return parseTyped[T](b.in, data, nil) }
+
+// ParseCtx validates data with per-parse options.
+func (b *schemaBase[T]) ParseCtx(data any, ctx *ParseCtx) (T, error) {
+	return parseTyped[T](b.in, data, ctx)
+}
+
+// MustParse is Parse but panics with *ZodError on failure.
+func (b *schemaBase[T]) MustParse(data any) T {
+	v, err := b.Parse(data)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// SafeParse never returns an error value; it mirrors Zod's safeParse result.
+func (b *schemaBase[T]) SafeParse(data any) SafeParseResult[T] {
+	v, err := b.Parse(data)
+	if err != nil {
+		zerr, _ := err.(*ZodError)
+		return SafeParseResult[T]{Success: false, Error: zerr}
+	}
+	return SafeParseResult[T]{Success: true, Data: v}
+}
+
+// parseTyped is the single typed entry point (Zod's core/parse.ts _parse).
+func parseTyped[T any](in *Internals, data any, ctx *ParseCtx) (T, error) {
+	p := AcquirePayload(data)
+	in.Run(p, ctx)
+	if len(p.Issues) > 0 {
+		err := newZodError(p.Issues, ctx)
+		ReleasePayload(p)
+		var zero T
+		return zero, err
+	}
+	out, ok := p.Value.(T)
+	ReleasePayload(p)
+	if !ok {
+		// p.Value == nil (typed nil) or an internal type mismatch: return the
+		// zero value. Concrete schemas guarantee the dynamic type of Value.
+		var zero T
+		return zero, nil
+	}
+	return out, nil
+}
+
+// RunChild parses value with a child schema, scoping any child issues under
+// seg on the parent payload (Zod containers' path-prefix merge). It returns
+// the child's output value and whether the child parse succeeded.
+func RunChild(child *Internals, parent *Payload, value any, ctx *ParseCtx, seg any) (any, bool) {
+	cp := AcquirePayload(value)
+	child.Run(cp, ctx)
+	ok := len(cp.Issues) == 0
+	if !ok {
+		start := len(parent.Issues)
+		parent.Issues = append(parent.Issues, cp.Issues...)
+		if seg != nil {
+			parent.PrependPath(start, seg)
+		}
+	}
+	out := cp.Value
+	ReleasePayload(cp)
+	return out, ok
+}
+
+// RunSelf runs a child schema on the parent payload without path scoping
+// (wrappers like Optional/Default/Pipe).
+func RunSelf(child *Internals, p *Payload, ctx *ParseCtx) {
+	child.Run(p, ctx)
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Reference implementations: Any / Unknown (Zod's $ZodAny / $ZodUnknown).
+// These double as the canonical pattern for wave-1 schema authors.
+//////////////////////////////////////////////////////////////////////////////
+
+// AnySchema accepts any input (z.any()).
+type AnySchema struct {
+	schemaBase[any]
+	def *Def
+}
+
+// Any returns a schema that accepts anything.
+func Any() *AnySchema { return newAny(&Def{Type: "any"}) }
+
+func newAny(def *Def) *AnySchema {
+	s := &AnySchema{def: def}
+	s.schemaBase = newBase[any](buildInternals(def, func(p *Payload, ctx *ParseCtx) {}))
+	return s
+}
+
+// Check attaches raw checks (the low-level composition primitive; fluent
+// helpers in later work packages build on this pattern).
+func (s *AnySchema) Check(checks ...*Check) *AnySchema {
+	return newAny(s.def.withChecks(checks...))
+}
+
+// UnknownSchema accepts any input (z.unknown()); identical to Any at runtime.
+type UnknownSchema struct {
+	schemaBase[any]
+	def *Def
+}
+
+// Unknown returns a schema that accepts anything.
+func Unknown() *UnknownSchema {
+	def := &Def{Type: "unknown"}
+	s := &UnknownSchema{def: def}
+	s.schemaBase = newBase[any](buildInternals(def, func(p *Payload, ctx *ParseCtx) {}))
+	return s
+}
