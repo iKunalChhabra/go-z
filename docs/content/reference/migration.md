@@ -16,7 +16,7 @@ go-zod ports Zod v4’s architecture and issue taxonomy. The biggest differences
 | `z.enum(["a","b"])` | `z.Enum("a", "b")` |
 | `z.object({ name: z.string() })` | `z.Object(z.Shape{"name": z.String()})` |
 | `z.array(z.string())` | `z.Array(z.String())` |
-| `z.tuple([a,b])` | `z.Tuple(a, b)` |
+| `z.tuple([a,b])` | `z.Tuple([]z.AnySchemaLike{a, b})` |
 | `z.record(z.string(), z.number())` | `z.Record(z.String(), z.Number())` |
 | `z.union([a,b])` | `z.Union([]z.AnySchemaLike{a,b})` or `z.UnionOf(a,b)` |
 | `z.discriminatedUnion("t", […])` | `z.DiscriminatedUnion("t", []z.AnySchemaLike{…})` |
@@ -98,14 +98,16 @@ if err != nil {
 
 `safeParse` → `SafeParse` with `Success` / `Data` / `Error`.
 
-## Not in v0
+## Feature status
 
 | Zod feature | Status |
 |---|---|
-| Codecs / `.encode()` / `.decode()` | **Not in v0** — use `Pipe` / `Transform` |
-| JSON Schema export | Roadmap |
-| `z.function` / `z.promise` | Out of scope |
-| Template literals | Roadmap |
+| Codecs / `.encode()` / `.decode()` | **Shipped** — `z.Codec`, `z.Decode` / `z.Encode`, `z.InvertCodec` |
+| JSON Schema export | **Shipped** — `z.ToJSONSchema` |
+| Template literals | **Shipped** — `z.TemplateLiteral` |
+| Exclusive union | **Shipped** — `z.Xor` / `z.XorOf` (no Zod equivalent) |
+| JSON Schema import (`fromJSONSchema`) | Not ported |
+| `z.function` / `z.promise` / `z.symbol` / `z.file` | Out of scope for Go |
 | Async `parseAsync` | Unneeded — Go is sync |
 | Mini functional API | Not ported |
 | All 50+ locales | `en es fr de ja pt zh` shipped |

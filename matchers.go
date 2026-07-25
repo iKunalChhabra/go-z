@@ -29,7 +29,7 @@ func emailLocalByte(c byte) bool {
 }
 
 // emailLocalLastByte is the required final local character [A-Za-z0-9_+-]:
-// the local part may not end in '.' or '\''.
+// the local part may end in neither a dot nor an apostrophe.
 func emailLocalLastByte(c byte) bool {
 	return isASCIIAlnum(c) || c == '_' || c == '+' || c == '-'
 }

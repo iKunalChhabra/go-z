@@ -54,9 +54,9 @@ z.Coerce.Time()
 |---|---|
 | `Object(Shape{...})` | `map[string]any` |
 | `Array(elem)` | `[]any` |
-| `Tuple(items...)` | `[]any` |
+| `Tuple([]AnySchemaLike{...})` | `[]any` |
 | `Record(key, val)` | `map[string]any` |
-| `Map(key, val)` | `any` (map) |
+| `Map(key, val)` | `map[any]any` |
 | `Set(elem)` | `any` (set-like) |
 
 ### Object methods

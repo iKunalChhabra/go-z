@@ -30,17 +30,22 @@ fmt.Println(err)
 ]
 ```
 
-Always type-assert when you need structured data:
+Use `AsZodError` when you need structured data. It unwraps through
+`fmt.Errorf("%w", …)`, so it keeps working once the error crosses a layer that
+adds context — a bare type assertion does not:
 
 ```go
-zerr, ok := err.(*z.ZodError)
+zerr, ok := z.AsZodError(err)
 if !ok {
-	// unexpected — schema.Parse should only return *ZodError
+	// not a validation error
 }
 for _, iss := range zerr.Issues {
 	fmt.Println(iss.Code, iss.Path, iss.Message)
 }
 ```
+
+`z.IsZodError(err)` is the boolean-only form, and `errors.As(err, &zerr)` works
+directly too.
 
 `SafeParse` already exposes `*ZodError` on the result:
 

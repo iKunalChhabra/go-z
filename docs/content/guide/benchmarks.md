@@ -23,15 +23,15 @@ Medians of 3 runs. go-zod validates `map[string]any`; validator uses tagged stru
 
 | Library | Mode | ns/op | B/op | allocs/op |
 |---|---|---:|---:|---:|
-| go-zod | sequential | 739.2 | 394 | 6 |
-| go-zod | `RunParallel` | 285.0 | 397 | 6 |
-| validator | sequential | 609.5 | 0 | 0 |
-| validator | `RunParallel` | 205.5 | 0 | 0 |
-| zog | sequential | 1314 | 169 | 13 |
-| zog | `RunParallel` | 528.7 | 170 | 13 |
+| go-zod | sequential | 416.0 | 392 | 6 |
+| go-zod | `RunParallel` | 231.2 | 392 | 6 |
+| validator | sequential | 607.1 | 0 | 0 |
+| validator | `RunParallel` | 159.4 | 0 | 0 |
+| zog | sequential | 1295 | 169 | 13 |
+| zog | `RunParallel` | 606.8 | 170 | 13 |
 | handwritten | sequential | 230.5 | 96 | 5 |
 
-**Headline:** go-zod ≈ **1.2×** validator sequential; **~1.8× faster than zog**.
+**Headline:** go-zod is **~1.5× faster than validator** sequential and **~3.1× faster than zog**.
 
 ## Nested
 
@@ -39,12 +39,12 @@ User + `address{city,zip}` + `[]tags` max 10
 
 | Library | Mode | ns/op | B/op | allocs/op |
 |---|---|---:|---:|---:|
-| go-zod | sequential | 1281 | 870 | 14 |
-| go-zod | `RunParallel` | 459.3 | 875 | 14 |
+| go-zod | sequential | 977.6 | 864 | 14 |
+| go-zod | `RunParallel` | 555.8 | 864 | 14 |
 | validator | sequential | 1090 | 88 | 4 |
-| zog | sequential | 2829 | 491 | 36 |
+| zog | sequential | 2783 | 492 | 36 |
 
-**Headline:** go-zod ≈ **1.2×** validator; **~2.2× faster than zog**.
+**Headline:** go-zod is **~1.1× faster than validator** and **~2.8× faster than zog**.
 
 ## Array 10k — parallel ~2.5×
 
@@ -61,7 +61,7 @@ User + `address{city,zip}` + `[]tags` max 10
 
 At **N=10 000**: sequential **7.23 ms** → parallel **2.94 ms** ≈ **2.5×** on 4 workers.
 
-At the same N, parallel go-zod also beats validator’s per-element loop (**2.94 ms** vs **6.17 ms**) and zog (**13.1 ms**).
+At the same N, even sequential go-zod beats validator’s per-element loop (**4.24 ms** vs **6.09 ms**); parallel widens it to **2.75 ms**. zog takes **12.9 ms**.
 
 :::tip When parallel pays off
 Default `MinChunk` is 64. Below that, `ParseParallelSlice` stays sequential. See [Parallel validation](#/guide/parallel).
@@ -71,19 +71,19 @@ Default `MinChunk` is 64. Below that, `ParseParallelSlice` stays sequential. See
 
 | Scenario | go-zod | validator | zog |
 |---|---:|---:|---:|
-| email+uuid+url | 1157 ns | 1090 ns | 1817 ns |
-| FailurePath (invalid FlatUser) | 7192 ns | 1987 ns | 2788 ns |
+| email+uuid+url | 890 ns | 1099 ns | 1810 ns |
+| FailurePath (invalid FlatUser) | 6706 ns | 2001 ns | 2790 ns |
 
-Format checks are within ~6% of validator. Failure-path rendering is heavier in go-zod (Zod-shaped finalize + JSON issues) — expected.
+Format checks beat validator by ~20% since email, UUID, and the ISO date/time formats moved from backtracking regexes to hand-written matchers. Failure-path rendering is still heavier in go-zod (Zod-shaped finalize + JSON issues).
 
 ## Summary
 
 | Scenario | vs validator | vs zog |
 |---|---|---|
-| FlatUser | ~1.2× slower | ~1.8× faster |
-| Nested | ~1.2× slower | ~2.2× faster |
-| StringFormats | ~1.06× slower | ~1.6× faster |
-| Array 10k parallel | **~2.1× faster** | **~4.4× faster** |
-| FailurePath | slower (richer errors) | slower |
+| FlatUser | **~1.5× faster** | **~3.1× faster** |
+| Nested | **~1.1× faster** | **~2.8× faster** |
+| StringFormats | **~1.2× faster** | **~2.0× faster** |
+| Array 10k parallel | **~2.2× faster** | **~4.7× faster** |
+| FailurePath | ~3.4× slower (richer errors) | ~2.4× slower |
 
 Full tables, handwritten baseline, and methodology: **[BENCHMARKS.md](https://github.com/iKunalChhabra/go-zod/blob/main/BENCHMARKS.md)** in the repository root.

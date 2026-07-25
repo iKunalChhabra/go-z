@@ -34,9 +34,9 @@ type fieldPlan struct {
 	// nested is non-nil when typ (or its element, for pointers/slices) is a struct.
 	nested *structPlan
 	// elem is the element type plan for slices/arrays of structs.
-	elem     *structPlan
-	isPtr    bool
-	isSlice  bool
+	elem      *structPlan
+	isPtr     bool
+	isSlice   bool
 	omitEmpty bool // json:",omitempty" — unused on decode, kept for tag fidelity
 }
 

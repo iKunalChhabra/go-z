@@ -31,10 +31,10 @@ type CodecTx struct {
 // Encode: out → encodeTx → in.
 type CodecSchema struct {
 	schemaBase[any]
-	def   *Def
-	inSch AnySchemaLike
+	def    *Def
+	inSch  AnySchemaLike
 	outSch AnySchemaLike
-	tx    CodecTx
+	tx     CodecTx
 }
 
 // Codec returns a bidirectional codec schema.

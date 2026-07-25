@@ -58,7 +58,7 @@ schema := z.String().Min(5).Email()
 
 s, err := schema.Parse("hi@example.com")
 if err != nil {
-    zerr := err.(*z.ZodError)
+    zerr, _ := z.AsZodError(err) // unwraps wrapped errors too
     fmt.Println(z.Prettify(zerr))
     // ✖ Too small: expected string to have >=5 characters
     //   → at
@@ -157,10 +157,10 @@ Zod classic test ports live in `parity_*_test.go` — see [PARITY.md](./PARITY.m
 
 | Scenario | go-zod | go-playground/validator | Oudwins/zog |
 |---|---:|---:|---:|
-| FlatUser | **739 ns** | 610 ns | 1314 ns |
-| Nested object | **1281 ns** | 1090 ns | 2829 ns |
-| Array 10k (parallel) | **2.94 ms** | 6.17 ms | 13.1 ms |
-| String formats | ~within 6% of validator | — | ~1.6× slower |
+| FlatUser | **416 ns** | 607 ns | 1295 ns |
+| Nested object | **978 ns** | 1090 ns | 2783 ns |
+| Array 10k (parallel) | **2.75 ms** | 6.09 ms | 12.9 ms |
+| String formats | **890 ns** | 1099 ns | 1810 ns |
 
 Schemas are immutable and lock-free — `b.RunParallel` / `-race` clean under concurrent load.
 

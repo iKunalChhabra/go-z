@@ -116,7 +116,7 @@ By default, `FinalizeIssue` clears `Input` unless `ReportInput` is true — matc
 
 ### Schema[T]
 
-The typed public surface. `String()` is roughly `Schema[string]`; `Object(...)` is `Schema[map[string]any]`; wrappers like `Optional` widen to `any` because the output may be `Missing` or a mixed type.
+The typed public surface. `String()` is roughly `Schema[string]`; `Object(...)` is `Schema[map[string]any]`. Wrappers keep the inner type: `String().Optional()` is `Schema[*string]` (nil when absent) and `String().Default("x")` is `Schema[string]`. Only the type-erased constructors — `z.Optional(anySchemaLike)` — widen to `any`.
 
 ```go
 var asString z.Schema[string] = z.String().Min(1)

@@ -181,7 +181,7 @@ func (s *TemplateLiteralSchema) Nullable(params ...any) *NullableSchema {
 func (s *TemplateLiteralSchema) Nullish(params ...any) *OptionalSchema {
 	return Nullish(s, params...)
 }
-func (s *TemplateLiteralSchema) Default(v string) *DefaultSchema  { return Default(s, v) }
+func (s *TemplateLiteralSchema) Default(v string) *DefaultSchema   { return Default(s, v) }
 func (s *TemplateLiteralSchema) Prefault(v string) *PrefaultSchema { return Prefault(s, v) }
 func (s *TemplateLiteralSchema) Catch(v string) *CatchSchema       { return Catch(s, v) }
 func (s *TemplateLiteralSchema) NonOptional(params ...any) *NonOptionalSchema {

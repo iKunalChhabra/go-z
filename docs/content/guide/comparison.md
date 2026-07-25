@@ -163,11 +163,11 @@ Headline numbers (4-core, see repo `BENCHMARKS.md` for methodology):
 
 | Scenario | go-zod | go-playground/validator | Oudwins/zog |
 |---|---:|---:|---:|
-| Flat user | ~739 ns | ~610 ns | ~1314 ns |
-| Nested object | ~1281 ns | ~1090 ns | ~2829 ns |
-| Array 10k (parallel) | ~2.94 ms | ~6.17 ms | ~13.1 ms |
+| Flat user | ~416 ns | ~607 ns | ~1295 ns |
+| Nested object | ~978 ns | ~1090 ns | ~2783 ns |
+| Array 10k (parallel) | ~2.75 ms | ~6.09 ms | ~12.9 ms |
 
-validator often wins micro flat-struct races. go-zod pulls ahead on large parallel arrays and stays competitive on nested JSON work while offering a richer composition model.
+go-zod now leads on all three after replacing the backtracking format regexes with hand-written matchers. validator still wins the failure path, where go-zod pays for building Zod-shaped issues.
 
 ## Decision guide
 

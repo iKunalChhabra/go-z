@@ -123,7 +123,9 @@ func (s *NumberSchema) Gt(value float64, params ...any) *NumberSchema {
 func (s *NumberSchema) Gte(value float64, params ...any) *NumberSchema {
 	return newNumber(s.def.withChecks(Gte(value, params...)))
 }
-func (s *NumberSchema) Min(value float64, params ...any) *NumberSchema { return s.Gte(value, params...) }
+func (s *NumberSchema) Min(value float64, params ...any) *NumberSchema {
+	return s.Gte(value, params...)
+}
 
 func (s *NumberSchema) Lt(value float64, params ...any) *NumberSchema {
 	return newNumber(s.def.withChecks(Lt(value, params...)))
@@ -131,7 +133,9 @@ func (s *NumberSchema) Lt(value float64, params ...any) *NumberSchema {
 func (s *NumberSchema) Lte(value float64, params ...any) *NumberSchema {
 	return newNumber(s.def.withChecks(Lte(value, params...)))
 }
-func (s *NumberSchema) Max(value float64, params ...any) *NumberSchema { return s.Lte(value, params...) }
+func (s *NumberSchema) Max(value float64, params ...any) *NumberSchema {
+	return s.Lte(value, params...)
+}
 
 func (s *NumberSchema) Positive(params ...any) *NumberSchema    { return s.Gt(0, params...) }
 func (s *NumberSchema) Negative(params ...any) *NumberSchema    { return s.Lt(0, params...) }
@@ -250,7 +254,9 @@ func (s *BigIntSchema) Gt(value *big.Int, params ...any) *BigIntSchema {
 func (s *BigIntSchema) Gte(value *big.Int, params ...any) *BigIntSchema {
 	return newBigInt(s.def.withChecks(GreaterThan(value, true, params...)))
 }
-func (s *BigIntSchema) Min(value *big.Int, params ...any) *BigIntSchema { return s.Gte(value, params...) }
+func (s *BigIntSchema) Min(value *big.Int, params ...any) *BigIntSchema {
+	return s.Gte(value, params...)
+}
 
 func (s *BigIntSchema) Lt(value *big.Int, params ...any) *BigIntSchema {
 	return newBigInt(s.def.withChecks(LessThan(value, false, params...)))
@@ -258,7 +264,9 @@ func (s *BigIntSchema) Lt(value *big.Int, params ...any) *BigIntSchema {
 func (s *BigIntSchema) Lte(value *big.Int, params ...any) *BigIntSchema {
 	return newBigInt(s.def.withChecks(LessThan(value, true, params...)))
 }
-func (s *BigIntSchema) Max(value *big.Int, params ...any) *BigIntSchema { return s.Lte(value, params...) }
+func (s *BigIntSchema) Max(value *big.Int, params ...any) *BigIntSchema {
+	return s.Lte(value, params...)
+}
 
 func (s *BigIntSchema) Positive(params ...any) *BigIntSchema {
 	return s.Gt(big.NewInt(0), params...)
