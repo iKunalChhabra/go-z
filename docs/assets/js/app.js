@@ -57,7 +57,9 @@
       (_, type, title, body) => {
         const icons = { tip: "✓", info: "i", warn: "!", danger: "×" };
         const icon = icons[type] || "i";
-        const heading = title ? `<p><strong>${title.trim()}</strong></p>\n` : "";
+        // The blank line matters: without it marked swallows the body into the
+        // preceding raw HTML block and inline markdown stops rendering.
+        const heading = title ? `<p class="callout-title">${title.trim()}</p>\n\n` : "";
         return `<div class="callout ${type}"><div class="icon">${icon}</div><div class="body">\n\n${heading}${body}\n</div></div>\n`;
       }
     );
@@ -172,6 +174,19 @@
     }
   }
 
+  // Wide tables (the comparison matrix especially) need their own scroll area
+  // so they never blow out the prose column.
+  function decorateTables(root) {
+    root.querySelectorAll("table").forEach((table) => {
+      if (table.closest(".table-wrap")) return;
+      const wrap = document.createElement("div");
+      const cols = table.querySelector("tr")?.children.length || 0;
+      wrap.className = cols > 4 ? "table-wrap wide" : "table-wrap";
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    });
+  }
+
   function renderPager(path) {
     const idx = DOCS_PAGES.findIndex((p) => p.path === path);
     if (idx < 0) {
@@ -230,6 +245,7 @@
         if (!h.id) h.id = slugify(h.textContent || "section");
       });
       decorateCodeBlocks(contentEl);
+      decorateTables(contentEl);
       renderToc(contentEl);
       renderPager(path);
       triggerPageEnter(contentEl);
