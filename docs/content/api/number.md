@@ -75,6 +75,19 @@ p, _ := z.Uint32().Parse(8080)
 f, _ := z.Float32().Parse(1.5)
 ```
 
+### Custom numeric types with `NumericOf`
+
+`z.NumericOf[T]()` builds a schema over any type satisfying the `Numeric` constraint — including named types you define:
+
+```go
+type UserID uint64
+
+id := z.NumericOf[UserID]().Gte(UserID(1))
+got, err := id.Parse(UserID(42)) // got is UserID, no assertion
+```
+
+All fluent checks (`Gt`/`Gte`/`Min`/`Lt`/`Lte`/`Max`/`MultipleOf`/`Integer`/…) take and return `T`.
+
 :::info Int vs Int64
 `Int` models a JSON number, so it stops at the safe-integer range (`±2^53−1`) where `float64` can no longer represent every integer exactly. `Int64` covers the full 64-bit range and never round-trips through `float64`, which makes it the right choice for database identifiers and counters:
 

@@ -94,6 +94,29 @@ schema := z.CatchFunc(z.String().Email(), func(ctx z.CatchCtx) any {
 | `Issues` | `[]Issue` | Finalized issues from the failed inner parse |
 | `Input` | `any` | Payload value when catch ran |
 
+## Typed variants (`*Of`)
+
+The plain constructors operate on `any`. When your inner schema is a typed `Schema[T]`, use the `*Of` variants to keep the wrapper typed end-to-end — the fallback must be a `T`, and `Parse` returns `T`:
+
+```go
+schema := z.DefaultOf[int](z.Int(), 8080)
+port, err := schema.Parse(z.Missing) // port is int — no type assertion
+
+required := z.DefaultOf[string](z.String().Optional().NonOptional(), "fallback")
+name, err := required.Parse(z.Missing) // name is string
+```
+
+| Typed | Untyped | Fallback shape |
+|---|---|---|
+| `DefaultOf[T](inner, defVal T)` | `Default` | value |
+| `DefaultFuncOf[T](inner, fn func() T)` | `DefaultFunc` | func |
+| `PrefaultOf[T](inner, defVal T)` | `Prefault` | value, validated |
+| `PrefaultFuncOf[T](inner, fn func() T)` | `PrefaultFunc` | func, validated |
+| `CatchOf[T](inner, fallback T)` | `Catch` | value |
+| `CatchFuncOf[T](inner, fn func(CatchCtx) T)` | `CatchFunc` | func |
+
+Semantics (Missing vs failure, validation of the fallback) are identical to the untyped versions above.
+
 ## Default vs Prefault vs Catch
 
 | | Trigger | Validates fallback? | Can still fail? |
