@@ -1,8 +1,11 @@
 package z
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -24,12 +27,13 @@ type fieldPlan struct {
 	index    []int
 	typ      reflect.Type
 	kind     reflect.Kind
-	// nested is non-nil when typ (or its element, for pointers/slices) is a struct.
+	// nested is non-nil when typ (or its element, for pointers) is a struct.
 	nested *structPlan
-	// elem is the element type plan for slices/arrays of structs.
-	elem      *structPlan
+	// elem is the element plan for slices and arrays.
+	elem      *fieldPlan
 	isPtr     bool
 	isSlice   bool
+	isArray   bool
 	omitEmpty bool // json:",omitempty" — unused on decode, kept for tag fidelity
 }
 
@@ -115,7 +119,7 @@ func DecodeStruct[T any](data map[string]any) (T, error) {
 	if ok {
 		plan = planAny.(*structPlan)
 	} else {
-		plan = buildStructPlan(typ)
+		plan = buildStructPlan(typ, make(map[reflect.Type]*structPlan))
 		decodePlans.Store(typ, plan)
 	}
 	return decodeWithPlan[T](plan, data)
@@ -126,16 +130,23 @@ func planFor(typ reflect.Type) *structPlan {
 	if plan, ok := decodePlans.Load(typ); ok {
 		return plan.(*structPlan)
 	}
-	plan := buildStructPlan(typ)
+	plan := buildStructPlan(typ, make(map[reflect.Type]*structPlan))
 	actual, _ := decodePlans.LoadOrStore(typ, plan)
 	return actual.(*structPlan)
 }
 
-func buildStructPlan(typ reflect.Type) *structPlan {
+// buildStructPlan builds the decode plan for typ. pending carries plans that
+// are mid-build within this call tree, so a recursive type (type Node struct {
+// Next *Node }) reuses its own in-progress plan instead of recursing forever.
+func buildStructPlan(typ reflect.Type, pending map[reflect.Type]*structPlan) *structPlan {
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
+	if plan, ok := pending[typ]; ok {
+		return plan
+	}
 	plan := &structPlan{typ: typ}
+	pending[typ] = plan
 	n := typ.NumField()
 	plan.fields = make([]fieldPlan, 0, n)
 	seen := make(map[string]bool, n)
@@ -157,7 +168,7 @@ func buildStructPlan(typ reflect.Type) *structPlan {
 			continue
 		}
 		seen[name] = true
-		plan.fields = append(plan.fields, buildFieldPlan(sf, name, omit))
+		plan.fields = append(plan.fields, buildFieldPlan(sf, name, omit, pending))
 	}
 
 	// Then the fields of embedded structs, flattened into this level.
@@ -166,7 +177,7 @@ func buildStructPlan(typ reflect.Type) *structPlan {
 		if et.Kind() == reflect.Ptr {
 			et = et.Elem()
 		}
-		for _, ef := range buildStructPlan(et).fields {
+		for _, ef := range buildStructPlan(et, pending).fields {
 			if seen[ef.jsonName] {
 				continue
 			}
@@ -193,14 +204,21 @@ func isPromotableEmbed(sf reflect.StructField) bool {
 	return t.Kind() == reflect.Struct && t != reflect.TypeOf(time.Time{})
 }
 
-func buildFieldPlan(sf reflect.StructField, name string, omitEmpty bool) fieldPlan {
+func buildFieldPlan(sf reflect.StructField, name string, omitEmpty bool, pending map[reflect.Type]*structPlan) fieldPlan {
 	fp := fieldPlan{
 		jsonName:  name,
 		index:     sf.Index,
-		typ:       sf.Type,
 		omitEmpty: omitEmpty,
 	}
-	t := sf.Type
+	buildTypePlan(sf.Type, &fp, pending)
+	return fp
+}
+
+// buildTypePlan fills fp with the decode shape of t: pointer unwrapping, nested
+// struct plans, and element plans for slices and arrays (scalar, struct, or
+// nested-slice elements alike).
+func buildTypePlan(t reflect.Type, fp *fieldPlan, pending map[reflect.Type]*structPlan) {
+	fp.typ = t
 	if t.Kind() == reflect.Ptr {
 		fp.isPtr = true
 		t = t.Elem()
@@ -209,19 +227,17 @@ func buildFieldPlan(sf reflect.StructField, name string, omitEmpty bool) fieldPl
 	switch t.Kind() {
 	case reflect.Struct:
 		if t != reflect.TypeOf(time.Time{}) {
-			fp.nested = buildStructPlan(t)
+			fp.nested = buildStructPlan(t, pending)
 		}
-	case reflect.Slice, reflect.Array:
+	case reflect.Slice:
 		fp.isSlice = true
-		et := t.Elem()
-		if et.Kind() == reflect.Ptr {
-			et = et.Elem()
-		}
-		if et.Kind() == reflect.Struct && et != reflect.TypeOf(time.Time{}) {
-			fp.elem = buildStructPlan(et)
-		}
+		fp.elem = &fieldPlan{}
+		buildTypePlan(t.Elem(), fp.elem, pending)
+	case reflect.Array:
+		fp.isArray = true
+		fp.elem = &fieldPlan{}
+		buildTypePlan(t.Elem(), fp.elem, pending)
 	}
-	return fp
 }
 
 func parseJSONTag(tag, fieldName string) (name string, omitEmpty bool, skip bool) {
@@ -336,16 +352,12 @@ func setField(fv reflect.Value, fp *fieldPlan, raw any) error {
 	}
 	target := fv
 	if fp.isPtr {
-		if raw == nil {
-			fv.Set(reflect.Zero(fv.Type()))
-			return nil
-		}
 		elem := reflect.New(fv.Type().Elem())
 		fv.Set(elem)
 		target = elem.Elem()
 	}
 
-	if fp.nested != nil && !fp.isSlice {
+	if fp.nested != nil {
 		m, ok := raw.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected object, got %T", raw)
@@ -353,7 +365,7 @@ func setField(fv reflect.Value, fp *fieldPlan, raw any) error {
 		return applyPlan(fp.nested, target, m)
 	}
 
-	if fp.isSlice {
+	if fp.isSlice || fp.isArray {
 		return setSlice(target, fp, raw)
 	}
 
@@ -381,48 +393,54 @@ func setSlice(fv reflect.Value, fp *fieldPlan, raw any) error {
 		}
 	}
 
-	slice := reflect.MakeSlice(fv.Type(), len(arr), len(arr))
-	elemType := fv.Type().Elem()
-	for i, item := range arr {
-		ev := slice.Index(i)
-		if elemType.Kind() == reflect.Ptr {
-			if item == nil {
-				continue
-			}
-			ptr := reflect.New(elemType.Elem())
-			ev.Set(ptr)
-			ev = ptr.Elem()
-			if fp.elem != nil {
-				m, ok := item.(map[string]any)
-				if !ok {
-					return fmt.Errorf("[%d]: expected object, got %T", i, item)
-				}
-				if err := applyPlan(fp.elem, ev, m); err != nil {
-					return err
-				}
-				continue
-			}
-			if err := assignScalar(ev, item); err != nil {
+	// Fixed-size arrays decode in place and reject overflow input — there is no
+	// grow operation the way a slice grows.
+	if fp.isArray {
+		if len(arr) > fv.Len() {
+			return fmt.Errorf("expected at most %d elements for %s, got %d", fv.Len(), fv.Type(), len(arr))
+		}
+		for i, item := range arr {
+			if err := setSliceElem(fv.Index(i), fp.elem, item); err != nil {
 				return fmt.Errorf("[%d]: %w", i, err)
 			}
-			continue
 		}
-		if fp.elem != nil {
-			m, ok := item.(map[string]any)
-			if !ok {
-				return fmt.Errorf("[%d]: expected object, got %T", i, item)
-			}
-			if err := applyPlan(fp.elem, ev, m); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := assignScalar(ev, item); err != nil {
+		return nil
+	}
+
+	slice := reflect.MakeSlice(fv.Type(), len(arr), len(arr))
+	for i, item := range arr {
+		if err := setSliceElem(slice.Index(i), fp.elem, item); err != nil {
 			return fmt.Errorf("[%d]: %w", i, err)
 		}
 	}
 	fv.Set(slice)
 	return nil
+}
+
+// setSliceElem decodes one collection element: allocating pointer elements,
+// descending into nested struct plans, recursing into nested slices, and
+// assigning scalars.
+func setSliceElem(ev reflect.Value, ep *fieldPlan, item any) error {
+	target := ev
+	if ep.isPtr {
+		if item == nil {
+			return nil
+		}
+		ptr := reflect.New(ev.Type().Elem())
+		ev.Set(ptr)
+		target = ptr.Elem()
+	}
+	if ep.nested != nil {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return fmt.Errorf("expected object, got %T", item)
+		}
+		return applyPlan(ep.nested, target, m)
+	}
+	if ep.isSlice || ep.isArray {
+		return setSlice(target, ep, item)
+	}
+	return assignScalar(target, item)
 }
 
 func assignScalar(fv reflect.Value, raw any) error {
@@ -457,26 +475,30 @@ func assignScalar(fv reflect.Value, raw any) error {
 		fv.Set(rv)
 		return nil
 	}
-	if rv.Type().ConvertibleTo(fv.Type()) {
-		fv.Set(rv.Convert(fv.Type()))
-		return nil
-	}
 
-	// JSON numbers decode as float64 — coerce into numeric fields.
+	// The kind switch runs before the ConvertibleTo fallback: Go conversions
+	// truncate (300 → int8 = 44) and stringify runes (65 → "A"), neither of
+	// which is a decode anyone asked for.
 	switch fv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		f, ok := toFloat64(raw)
-		if !ok {
-			return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
+		n, err := scalarToInt64(raw)
+		if err != nil {
+			return fmt.Errorf("cannot assign %s to %s: %v", describeRaw(raw), fv.Type(), err)
 		}
-		fv.SetInt(int64(f))
+		if fv.OverflowInt(n) {
+			return fmt.Errorf("value %d overflows %s", n, fv.Type())
+		}
+		fv.SetInt(n)
 		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		f, ok := toFloat64(raw)
-		if !ok {
-			return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
+		n, err := scalarToUint64(raw)
+		if err != nil {
+			return fmt.Errorf("cannot assign %s to %s: %v", describeRaw(raw), fv.Type(), err)
 		}
-		fv.SetUint(uint64(f))
+		if fv.OverflowUint(n) {
+			return fmt.Errorf("value %d overflows %s", n, fv.Type())
+		}
+		fv.SetUint(n)
 		return nil
 	case reflect.Float32, reflect.Float64:
 		f, ok := toFloat64(raw)
@@ -517,7 +539,15 @@ func assignScalar(fv reflect.Value, raw any) error {
 	case reflect.Map:
 		return assignMap(fv, raw)
 	case reflect.Interface:
-		fv.Set(reflect.ValueOf(raw))
+		// The AssignableTo fast path above already accepted anything that
+		// satisfies the interface; reaching here means raw does not implement
+		// it (e.g. a string into a fmt.Stringer field), so error rather than
+		// let Set panic.
+		return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
+	}
+
+	if rv.Type().ConvertibleTo(fv.Type()) {
+		fv.Set(rv.Convert(fv.Type()))
 		return nil
 	}
 
@@ -578,4 +608,131 @@ func toFloat64(v any) (float64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// scalarToInt64 coerces a JSON scalar to int64 without loss: non-integral floats and
+// values outside int64 range are errors, not truncations.
+func scalarToInt64(v any) (int64, error) {
+	switch x := v.(type) {
+	case int:
+		return int64(x), nil
+	case int8:
+		return int64(x), nil
+	case int16:
+		return int64(x), nil
+	case int32:
+		return int64(x), nil
+	case int64:
+		return x, nil
+	case uint:
+		return uintToInt64(uint64(x))
+	case uint8:
+		return int64(x), nil
+	case uint16:
+		return int64(x), nil
+	case uint32:
+		return int64(x), nil
+	case uint64:
+		return uintToInt64(x)
+	case float32:
+		return floatToInt64(float64(x))
+	case float64:
+		return floatToInt64(x)
+	case json.Number:
+		// Parse the literal exactly: integers above 2^53 lose precision
+		// through float64, which is where database identifiers live.
+		if n, err := strconv.ParseInt(x.String(), 10, 64); err == nil {
+			return n, nil
+		}
+		if f, err := x.Float64(); err == nil {
+			return floatToInt64(f)
+		}
+		return 0, fmt.Errorf("not a number")
+	default:
+		return 0, fmt.Errorf("not a number")
+	}
+}
+
+func uintToInt64(u uint64) (int64, error) {
+	if u > math.MaxInt64 {
+		return 0, fmt.Errorf("value %d overflows int64", u)
+	}
+	return int64(u), nil
+}
+
+func floatToInt64(f float64) (int64, error) {
+	if f != math.Trunc(f) {
+		return 0, fmt.Errorf("non-integral value %v", f)
+	}
+	if f >= 1<<63 || f < -(1<<63) {
+		return 0, fmt.Errorf("value %v overflows int64", f)
+	}
+	return int64(f), nil
+}
+
+// scalarToUint64 coerces a JSON scalar to uint64 without loss: negative and
+// non-integral values are errors.
+func scalarToUint64(v any) (uint64, error) {
+	switch x := v.(type) {
+	case int:
+		return intToUint64(int64(x))
+	case int8:
+		return intToUint64(int64(x))
+	case int16:
+		return intToUint64(int64(x))
+	case int32:
+		return intToUint64(int64(x))
+	case int64:
+		return intToUint64(x)
+	case uint:
+		return uint64(x), nil
+	case uint8:
+		return uint64(x), nil
+	case uint16:
+		return uint64(x), nil
+	case uint32:
+		return uint64(x), nil
+	case uint64:
+		return x, nil
+	case float32:
+		return floatToUint64(float64(x))
+	case float64:
+		return floatToUint64(x)
+	case json.Number:
+		if u, err := strconv.ParseUint(x.String(), 10, 64); err == nil {
+			return u, nil
+		}
+		if f, err := x.Float64(); err == nil {
+			return floatToUint64(f)
+		}
+		return 0, fmt.Errorf("not a number")
+	default:
+		return 0, fmt.Errorf("not a number")
+	}
+}
+
+func intToUint64(n int64) (uint64, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("negative value %d", n)
+	}
+	return uint64(n), nil
+}
+
+func floatToUint64(f float64) (uint64, error) {
+	if f != math.Trunc(f) {
+		return 0, fmt.Errorf("non-integral value %v", f)
+	}
+	if f < 0 || f >= 1<<64 {
+		return 0, fmt.Errorf("value %v out of uint64 range", f)
+	}
+	return uint64(f), nil
+}
+
+// describeRaw renders a rejected scalar for an error message, quoting strings
+// the way %v renders numbers.
+func describeRaw(raw any) string {
+	if s, ok := raw.(string); ok {
+		return fmt.Sprintf("%q", s)
+	}
+	return fmt.Sprintf("%v", raw)
 }

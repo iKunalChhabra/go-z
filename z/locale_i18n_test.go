@@ -62,6 +62,55 @@ func TestLocalesInvalidTypeAndTooSmall(t *testing.T) {
 	}
 }
 
+// Regression: es/pt translated the base64url format as a base64-encoded URL,
+// which describes a different thing. The message must name base64url.
+func TestLocaleBase64URLNamesBase64URL(t *testing.T) {
+	issue := &Issue{Code: IssueInvalidFormat, Format: "base64url", Input: "x"}
+	cases := []struct {
+		name   string
+		locale ErrorMap
+		not    string
+	}{
+		{"es", EsLocale, "URL codificada en base64"},
+		{"pt", PtLocale, "URL codificada em base64"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := tc.locale(issue)
+			if !strings.Contains(msg, "base64url") {
+				t.Fatalf("base64url message = %q, want it to mention base64url", msg)
+			}
+			if strings.Contains(msg, tc.not) {
+				t.Fatalf("base64url message = %q, still says %q", msg, tc.not)
+			}
+		})
+	}
+}
+
+// Regression: an empty Origin in IssueTooSmall produced a double space
+// ("erwartet, dass  >5 ist") where IssueTooBig already fell back to a generic
+// noun. TooSmall now uses the same fallback.
+func TestLocaleTooSmallEmptyOriginFallback(t *testing.T) {
+	issue := &Issue{Code: IssueTooSmall, Origin: "", Minimum: float64(5)}
+	locales := map[string]ErrorMap{
+		"es": EsLocale, "de": DeLocale, "pt": PtLocale, "zh": ZhLocale,
+	}
+	for name, locale := range locales {
+		msg := locale(issue)
+		if strings.Contains(msg, "  ") {
+			t.Errorf("locale %s renders an empty origin as a double space: %q", name, msg)
+		}
+	}
+}
+
+// Regression: the pt default message said "Campo inválido" while every other
+// pt fallback says "Entrada inválida".
+func TestPtDefaultFallbackIsEntradaInvalida(t *testing.T) {
+	if got := PtLocale(&Issue{Code: IssueCustom}); got != "Entrada inválida" {
+		t.Fatalf("pt default = %q, want %q", got, "Entrada inválida")
+	}
+}
+
 func TestLocaleLookup(t *testing.T) {
 	iss := &Issue{Code: IssueInvalidType, Expected: "string", Input: nil}
 	if Locale("es")(iss) != EsLocale(iss) {

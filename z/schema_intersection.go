@@ -243,9 +243,6 @@ func sameIntersectionRef(a, b any) bool {
 		if av == nil && bv == nil {
 			return true
 		}
-		if len(av) == 0 && len(bv) == 0 {
-			return reflect.ValueOf(av).Pointer() == reflect.ValueOf(bv).Pointer()
-		}
 		return reflect.ValueOf(av).Pointer() == reflect.ValueOf(bv).Pointer()
 	default:
 		return a == b

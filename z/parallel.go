@@ -64,12 +64,14 @@ func ParseParallelSlice(ctx context.Context, elemSchema AnySchemaLike, data []an
 func parseSliceSequential(ctx context.Context, child *Internals, data []any) ([]any, error) {
 	out := make([]any, len(data))
 	var issues []Issue
+	pctx := &ParseCtx{Context: ctx}
 	for i, item := range data {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		p := AcquirePayload(item)
-		child.Run(p, nil)
+		p.parseCtx = pctx
+		child.Run(p, pctx)
 		out[i] = p.Value
 		if len(p.Issues) > 0 {
 			issues = appendIssuesWithIndex(issues, p.Issues, i)
@@ -159,6 +161,7 @@ func parseSliceParallel(ctx context.Context, child *Internals, data []any, opts 
 func runParallelChunk(ctx context.Context, child *Internals, data []any, j parallelJob, panics *panicRecord) parallelChunk {
 	values := make([]any, j.end-j.start)
 	var issues []Issue
+	pctx := &ParseCtx{Context: ctx}
 	for i := j.start; i < j.end; i++ {
 		if err := ctx.Err(); err != nil {
 			return parallelChunk{start: j.start, values: values, issues: issues, err: err}
@@ -172,7 +175,8 @@ func runParallelChunk(ctx context.Context, child *Internals, data []any, j paral
 			// panicking closure cannot poison the pool.
 			defer ReleasePayload(p)
 			defer panics.capture(i)
-			child.Run(p, nil)
+			p.parseCtx = pctx
+			child.Run(p, pctx)
 			values[i-j.start] = p.Value
 			if len(p.Issues) > 0 {
 				issues = appendIssuesWithIndex(issues, p.Issues, i)

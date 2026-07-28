@@ -1,6 +1,7 @@
 package z_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/iKunalChhabra/go-z/z"
@@ -121,7 +122,151 @@ func TestDecodeStructJSONTagSkip(t *testing.T) {
 	}
 }
 
-// ToStruct claims to honour json tags, and encoding/json promotes the fields of
+// A recursive Go type used to overflow the plan builder with a fatal stack
+// error: the plan for Node needed the plan for Node. The pending-plan cache
+// reuses the in-progress plan, the way z.Lazy reuses an in-progress schema.
+type Node struct {
+	Value int   `json:"value"`
+	Next  *Node `json:"next"`
+}
+
+func TestToStructRecursiveType(t *testing.T) {
+	var nodeSchema z.AnySchemaLike
+	nodeSchema = z.Object(z.Shape{
+		"value": z.Int(),
+		"next":  z.Optional(z.Lazy(func() z.AnySchemaLike { return nodeSchema })),
+	})
+
+	got, err := z.ToStruct[Node](nodeSchema).Parse(map[string]any{
+		"value": 1,
+		"next": map[string]any{
+			"value": 2,
+			"next":  map[string]any{"value": 3},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Value != 1 || got.Next == nil || got.Next.Value != 2 ||
+		got.Next.Next == nil || got.Next.Next.Value != 3 || got.Next.Next.Next != nil {
+		t.Fatalf("got %+v", got)
+	}
+
+	decoded, err := z.DecodeStruct[Node](map[string]any{
+		"value": 1,
+		"next":  map[string]any{"value": 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Next == nil || decoded.Next.Value != 2 {
+		t.Fatalf("got %+v", decoded)
+	}
+}
+
+// A fixed-size array decodes in place and refuses input longer than it holds.
+func TestDecodeStructFixedArray(t *testing.T) {
+	type Pair struct {
+		Tags [2]string `json:"tags"`
+	}
+	got, err := z.DecodeStruct[Pair](map[string]any{"tags": []any{"a", "b"}})
+	if err != nil {
+		t.Fatalf("DecodeStruct: %v", err)
+	}
+	if got.Tags != [2]string{"a", "b"} {
+		t.Fatalf("got %+v", got)
+	}
+
+	short, err := z.DecodeStruct[Pair](map[string]any{"tags": []any{"only"}})
+	if err != nil {
+		t.Fatalf("DecodeStruct: %v", err)
+	}
+	if short.Tags != [2]string{"only", ""} {
+		t.Fatalf("got %+v", short)
+	}
+
+	if _, err := z.DecodeStruct[Pair](map[string]any{"tags": []any{"a", "b", "c"}}); err == nil {
+		t.Fatal("expected an error for input longer than the array")
+	}
+}
+
+// Go's int→string conversion yields a rune (65 → "A"); decoding must produce
+// the decimal form instead.
+func TestDecodeStructIntToString(t *testing.T) {
+	type Row struct {
+		Label string `json:"label"`
+	}
+	got, err := z.DecodeStruct[Row](map[string]any{"label": 65})
+	if err != nil {
+		t.Fatalf("DecodeStruct: %v", err)
+	}
+	if got.Label != "65" {
+		t.Fatalf("got %q, want %q", got.Label, "65")
+	}
+}
+
+// Numeric fields reject values they cannot hold exactly — no silent
+// truncation or wraparound.
+func TestDecodeStructRejectsLossyNumbers(t *testing.T) {
+	type Row struct {
+		Small int8   `json:"small"`
+		Count uint32 `json:"count"`
+		Whole int    `json:"whole"`
+	}
+	cases := map[string]map[string]any{
+		"int8 overflow":      {"small": 300},
+		"negative to uint32": {"count": -1},
+		"non-integral float": {"whole": 3.9},
+		"float overflow":     {"small": 300.0},
+	}
+	for name, input := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := z.DecodeStruct[Row](input); err == nil {
+				t.Fatalf("expected a decode error for %#v", input)
+			}
+		})
+	}
+
+	ok, err := z.DecodeStruct[Row](map[string]any{
+		"small": 127,
+		"count": 4000000000.0,
+		"whole": 3.0,
+	})
+	if err != nil {
+		t.Fatalf("DecodeStruct: %v", err)
+	}
+	if ok.Small != 127 || ok.Count != 4000000000 || ok.Whole != 3 {
+		t.Fatalf("got %+v", ok)
+	}
+}
+
+// Slice element plans are built for any element type, so nested slices decode.
+func TestDecodeStructNestedSlices(t *testing.T) {
+	type Grid struct {
+		Rows [][]string `json:"rows"`
+	}
+	got, err := z.DecodeStruct[Grid](map[string]any{
+		"rows": []any{[]any{"a", "b"}, []any{"c"}},
+	})
+	if err != nil {
+		t.Fatalf("DecodeStruct: %v", err)
+	}
+	if len(got.Rows) != 2 || got.Rows[0][1] != "b" || got.Rows[1][0] != "c" {
+		t.Fatalf("got %#v", got.Rows)
+	}
+}
+
+// A non-empty interface field must not be Set blindly: a value that does not
+// implement it is a decode error, not a panic.
+func TestDecodeStructNonEmptyInterface(t *testing.T) {
+	type Row struct {
+		S fmt.Stringer `json:"s"`
+	}
+	if _, err := z.DecodeStruct[Row](map[string]any{"s": "plain string"}); err == nil {
+		t.Fatal("expected a decode error, not a panic or silent success")
+	}
+}
+
 // an embedded struct to the outer level. It used to skip them, so an embedded
 // field silently stayed at its zero value.
 func TestToStructPromotesEmbeddedFields(t *testing.T) {

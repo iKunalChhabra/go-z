@@ -1,6 +1,7 @@
 package z
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -239,5 +240,63 @@ func TestJSONSchemaDialectIgnoresPropertyNames(t *testing.T) {
 	}
 	if _, ok := doc["enum"]; ok {
 		t.Error("a property named const must not be read as the const keyword")
+	}
+}
+
+func TestToJSONSchemaNullableUnionKeepsNull(t *testing.T) {
+	// Regression: Nullable(Union(...)) silently dropped null acceptance
+	// because the rewrite only fired for a string "type".
+	sch := Nullable(Union([]AnySchemaLike{String(), Int()}))
+	js, err := ToJSONSchema(sch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	anyOf, ok := js["anyOf"].([]any)
+	if !ok {
+		t.Fatalf("want anyOf, got %#v", js)
+	}
+	last, ok := anyOf[len(anyOf)-1].(map[string]any)
+	if !ok || last["type"] != "null" {
+		t.Fatalf("want trailing null branch, got %#v", anyOf)
+	}
+}
+
+func TestToJSONSchemaNullableEnum(t *testing.T) {
+	sch := Nullable(Enum("a", "b"))
+	js, err := ToJSONSchema(sch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enum, ok := js["enum"].([]any)
+	if !ok || len(enum) != 3 || enum[2] != nil {
+		t.Fatalf("want enum [a b nil], got %#v", js["enum"])
+	}
+	typ, ok := js["type"].([]any)
+	if !ok || len(typ) != 2 || typ[1] != "null" {
+		t.Fatalf("want type [string null], got %#v", js["type"])
+	}
+}
+
+func TestToJSONSchemaEnumDeterministicOrder(t *testing.T) {
+	// Regression: enum values came from a Go map, so documents were
+	// nondeterministic. Output is now sorted by stringified value.
+	js, err := ToJSONSchema(EnumWith([]string{"b", "c", "a"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	enum, ok := js["enum"].([]any)
+	if !ok {
+		t.Fatalf("want enum, got %#v", js)
+	}
+	want := []any{"a", "b", "c"}
+	if !reflect.DeepEqual(enum, want) {
+		t.Fatalf("enum = %#v, want %#v", enum, want)
+	}
+	js2, err := ToJSONSchema(EnumWith([]string{"c", "a", "b"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(js2["enum"], want) {
+		t.Fatalf("enum = %#v, want %#v", js2["enum"], want)
 	}
 }

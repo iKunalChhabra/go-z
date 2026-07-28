@@ -72,9 +72,8 @@ type RefineOpts struct {
 // T is the inner schema's output type — checks never change it.
 type CheckedSchema[T any] struct {
 	schemaBase[T]
-	def    *Def
-	inner  AnySchemaLike
-	checks []*Check
+	def   *Def
+	inner AnySchemaLike
 }
 
 // CheckSchema runs inner then the provided checks (composition primitive for
@@ -90,7 +89,7 @@ func CheckOf[T any](inner Schema[T], checks ...*Check) *CheckedSchema[T] {
 
 func newChecked[T any](inner AnySchemaLike, checks ...*Check) *CheckedSchema[T] {
 	def := &Def{Type: "check", Checks: append([]*Check(nil), checks...)}
-	s := &CheckedSchema[T]{def: def, inner: inner, checks: checks}
+	s := &CheckedSchema[T]{def: def, inner: inner}
 	innerIn := inner.Internals()
 	// buildInternals will compose parse→runChecks when Checks is non-empty.
 	parse := func(p *Payload, ctx *ParseCtx) {

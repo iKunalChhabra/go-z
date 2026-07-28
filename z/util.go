@@ -44,7 +44,7 @@ func ParsedType(v any) string {
 		return "number"
 	case *big.Int:
 		return "bigint"
-	case time.Time, *time.Time:
+	case time.Time:
 		return "date"
 	case map[string]any:
 		return "object"

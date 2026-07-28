@@ -1,6 +1,9 @@
 package z
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 // Ported from v4/classic/tests/map.test.ts (adapted to Go map[any]any / map[string]any).
 
@@ -79,5 +82,30 @@ func TestMapRejectsNonMap(t *testing.T) {
 	}
 	if Map(String(), String()).SafeParse("nope").Success {
 		t.Fatal("string should fail")
+	}
+}
+
+func TestMapChildrenSeeParseContext(t *testing.T) {
+	// Regression: map key/value payloads never received the caller's ParseCtx,
+	// so SuperRefine on either child schema saw context.Background().
+	type ctxKey struct{}
+	want := context.WithValue(context.Background(), ctxKey{}, "v")
+
+	var keyCtx, valCtx context.Context
+	key := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		keyCtx = rctx.Context()
+	})
+	val := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		valCtx = rctx.Context()
+	})
+	schema := Map(key, val)
+	if _, err := ParseAnyCtx(schema, map[any]any{"k": "v"}, &ParseCtx{Context: want}); err != nil {
+		t.Fatal(err)
+	}
+	if keyCtx != want {
+		t.Fatalf("map key context = %v, want caller's", keyCtx)
+	}
+	if valCtx != want {
+		t.Fatalf("map value context = %v, want caller's", valCtx)
 	}
 }

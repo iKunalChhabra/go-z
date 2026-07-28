@@ -497,3 +497,17 @@ func makeJWT(t *testing.T, header, payload map[string]any) string {
 	_ = enc
 	return h + "." + p + ".sig"
 }
+
+func TestCoerceToStringLargeFloat(t *testing.T) {
+	// Regression: 'f' formatting printed 1e21 as a 22-digit integer; JS
+	// String(number) switches to exponent notation at 1e21.
+	if got := coerceToString(1e21); got != "1e+21" {
+		t.Fatalf("coerceToString(1e21) = %q, want %q", got, "1e+21")
+	}
+	if got := coerceToString(1.5); got != "1.5" {
+		t.Fatalf("coerceToString(1.5) = %q", got)
+	}
+	if got := coerceToString(123456.0); got != "123456" {
+		t.Fatalf("coerceToString(123456) = %q", got)
+	}
+}

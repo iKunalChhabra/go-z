@@ -1,6 +1,7 @@
 package z
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -310,5 +311,27 @@ func TestTreeifyMapStructureMatchesTreeify(t *testing.T) {
 	}
 	if got := strings.Properties["name"].Errors; len(got) != 1 || got[0] == "" {
 		t.Fatalf("name messages = %#v", got)
+	}
+}
+
+func TestPathSegIndexOverflow(t *testing.T) {
+	// Regression: int(v) on a float64 above MaxInt64 is implementation-defined.
+	if got := pathSegIndex(float64(3)); got != 3 {
+		t.Fatalf("pathSegIndex(3.0) = %d", got)
+	}
+	if got := pathSegIndex(1e19); got != -1 {
+		t.Fatalf("pathSegIndex(1e19) = %d, want -1", got)
+	}
+	if got := pathSegIndex(float64(math.MaxInt64)); got != -1 {
+		t.Fatalf("pathSegIndex(2^63) = %d, want -1", got)
+	}
+	if got := pathSegIndex(uint64(math.MaxUint64)); got != -1 {
+		t.Fatalf("pathSegIndex(MaxUint64) = %d, want -1", got)
+	}
+	if got := pathSegIndex(uint64(7)); got != 7 {
+		t.Fatalf("pathSegIndex(uint64(7)) = %d", got)
+	}
+	if got := pathSegIndex(-1.5); got != -1 {
+		t.Fatalf("pathSegIndex(-1.5) = %d, want -1", got)
 	}
 }

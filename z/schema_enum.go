@@ -1,5 +1,10 @@
 package z
 
+import (
+	"maps"
+	"slices"
+)
+
 // EnumSchema is the Go port of Enum / Enum (Schema[string]).
 type EnumSchema struct {
 	schemaBase[string]
@@ -38,14 +43,15 @@ func EnumWith(values []string, params ...any) *EnumSchema {
 }
 
 // NativeEnum builds an enum from a string→string map (z.nativeEnum / z.enum(object)).
-// Accepted values are the map values (not keys).
+// Accepted values are the map values (not keys). Go maps are unordered, so
+// Options() is sorted by key for deterministic error messages and JSON Schema.
 func NativeEnum(m map[string]string, params ...any) *EnumSchema {
 	p := normalizeParams(params)
 	opts := make([]string, 0, len(m))
 	entries := make(map[string]string, len(m))
-	for k, v := range m {
-		entries[k] = v
-		opts = append(opts, v)
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		entries[k] = m[k]
+		opts = append(opts, m[k])
 	}
 	def := &Def{Type: "enum", Error: p.Error}
 	return newEnum(def, opts, entries)

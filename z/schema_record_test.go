@@ -1,6 +1,9 @@
 package z
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 // Ported from v4/classic/tests/record.test.ts (key/value validation, enum exhaustiveness via Keyof Values).
 
@@ -91,5 +94,54 @@ func TestRecordNestedPath(t *testing.T) {
 	iss := res.Error.Issues[0]
 	if len(iss.Path) != 2 || iss.Path[0] != "x" || iss.Path[1] != "n" {
 		t.Fatalf("path: %#v", iss.Path)
+	}
+}
+
+func TestRecordExhaustiveOptionalAbsentKeysOmitted(t *testing.T) {
+	// Regression: exhaustive enum-keyed records with an optional value schema
+	// leaked the internal Missing sentinel into output for absent keys.
+	schema := Record(Enum("a", "b"), Optional(String()))
+	got, err := schema.Parse(map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("want empty map, got %#v", got)
+	}
+	got, err = schema.Parse(map[string]any{"a": "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got["a"] != "x" {
+		t.Fatalf("%#v", got)
+	}
+}
+
+func TestRecordKeySeesParseContext(t *testing.T) {
+	// Regression: record key payloads never received the caller's ParseCtx, so
+	// SuperRefine on a key schema saw context.Background().
+	type ctxKey struct{}
+	want := context.WithValue(context.Background(), ctxKey{}, "v")
+
+	var openCtx context.Context
+	openKey := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		openCtx = rctx.Context()
+	})
+	if _, err := Record(openKey, String()).ParseCtx(map[string]any{"k": "v"}, &ParseCtx{Context: want}); err != nil {
+		t.Fatal(err)
+	}
+	if openCtx != want {
+		t.Fatalf("open record key context = %v, want caller's", openCtx)
+	}
+
+	var exhaustiveCtx context.Context
+	exhaustiveKey := SuperRefine(Enum("a"), func(_ any, rctx *RefinementCtx) {
+		exhaustiveCtx = rctx.Context()
+	})
+	if _, err := Record(exhaustiveKey, String()).ParseCtx(map[string]any{"a": "v"}, &ParseCtx{Context: want}); err != nil {
+		t.Fatal(err)
+	}
+	if exhaustiveCtx != want {
+		t.Fatalf("exhaustive record key context = %v, want caller's", exhaustiveCtx)
 	}
 }

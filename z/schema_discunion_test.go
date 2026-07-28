@@ -3,6 +3,7 @@ package z
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -187,4 +188,184 @@ func TestDiscUnionMissingDiscPanics(t *testing.T) {
 	_ = DiscriminatedUnion("type", []AnySchemaLike{
 		Object(Shape{"value": String()}),
 	})
+}
+
+func TestDiscUnionForwardReferencedLazyOption(t *testing.T) {
+	// Regression: a Lazy option whose target is assigned after construction
+	// (recursive schemas) panicked at build time resolving the discriminator
+	// map. The table is now built on first Parse.
+	var node AnySchemaLike
+	nodeLazy := Lazy(func() AnySchemaLike { return node })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("leaf"), "v": String()}),
+		nodeLazy,
+	})
+	node = Object(Shape{"type": Literal("node"), "child": Optional(u)})
+
+	got, err := u.Parse(map[string]any{"type": "leaf", "v": "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(map[string]any)["v"] != "x" {
+		t.Fatalf("%#v", got)
+	}
+	got, err = u.Parse(map[string]any{
+		"type":  "node",
+		"child": map[string]any{"type": "leaf", "v": "inner"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child := got.(map[string]any)["child"].(map[string]any)
+	if child["v"] != "inner" {
+		t.Fatalf("%#v", got)
+	}
+}
+
+func TestDiscUnionSelfReferentialLazyOptionPanics(t *testing.T) {
+	// A Lazy chain with no concrete schema behind it must fail with the usual
+	// invalid-option panic, not spin forever in unwrapLazy.
+	var l *LazySchema
+	l = Lazy(func() AnySchemaLike { return l })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a")}),
+		l,
+	})
+	defer func() {
+		r := recover()
+		if r == nil || !strings.Contains(fmt.Sprint(r), "Invalid discriminated union option") {
+			t.Fatalf("recover = %v", r)
+		}
+	}()
+	_, _ = u.Parse(map[string]any{"type": "a"})
+}
+
+func TestDiscUnionFailedLazyBuildPanicsConsistently(t *testing.T) {
+	// Regression: sync.Once is consumed even when the build panics, so the
+	// union stayed half-built — the first Parse panicked but every later
+	// Parse silently returned invalid_union for valid input. A failed build
+	// must fail the same way on every Parse.
+	var l *LazySchema
+	l = Lazy(func() AnySchemaLike { return l })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a")}),
+		l,
+	})
+	for attempt := 1; attempt <= 3; attempt++ {
+		func() {
+			defer func() {
+				r := recover()
+				if r == nil || !strings.Contains(fmt.Sprint(r), "Invalid discriminated union option") {
+					t.Fatalf("attempt %d: recover = %v, want invalid-option panic", attempt, r)
+				}
+			}()
+			_, _ = u.Parse(map[string]any{"type": "a"})
+		}()
+	}
+}
+
+func TestDiscUnionResolve(t *testing.T) {
+	// Resolve forces the lazy build so misconfiguration panics at startup.
+	var node AnySchemaLike
+	nodeLazy := Lazy(func() AnySchemaLike { return node })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("leaf")}),
+		nodeLazy,
+	})
+	node = Object(Shape{"type": Literal("node"), "child": Optional(u)})
+	u.Resolve() // must not panic once the Lazy target is assigned
+	if _, err := u.Parse(map[string]any{"type": "leaf"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var l *LazySchema
+	l = Lazy(func() AnySchemaLike { return l })
+	bad := DiscriminatedUnion("type", []AnySchemaLike{l})
+	defer func() {
+		r := recover()
+		if r == nil || !strings.Contains(fmt.Sprint(r), "Invalid discriminated union option") {
+			t.Fatalf("recover = %v", r)
+		}
+	}()
+	bad.Resolve()
+}
+
+func TestDiscUnionLazyBuildConcurrentParseAndCompose(t *testing.T) {
+	// Regression (race detector): the lazy build used to write Internals.
+	// PropValues during Parse while newObject (via Extend/Pick/Merge) reads
+	// them at construction with no synchronization.
+	var node AnySchemaLike
+	nodeLazy := Lazy(func() AnySchemaLike { return node })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("leaf")}),
+		nodeLazy,
+	})
+	node = Object(Shape{"type": Literal("node"), "child": Optional(u)})
+
+	var wg sync.WaitGroup
+	for g := range 8 {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for range 50 {
+				if g%2 == 0 {
+					if _, err := u.Parse(map[string]any{"type": "leaf"}); err != nil {
+						t.Error(err)
+						return
+					}
+				} else {
+					_ = Object(Shape{"u": u, "x": String()}).Pick("u")
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
+}
+
+func TestNestedLazyDiscUnionAsOption(t *testing.T) {
+	// A lazy-built union nested as an option of another union exposes its
+	// discriminator values via its dispatch table, not Internals.PropValues.
+	var inner AnySchemaLike
+	innerLazy := Lazy(func() AnySchemaLike { return inner })
+	inner = DiscriminatedUnion("kind", []AnySchemaLike{
+		Object(Shape{"kind": Literal("x")}),
+		Object(Shape{"kind": Literal("y")}),
+	})
+	outer := DiscriminatedUnion("kind", []AnySchemaLike{
+		Object(Shape{"kind": Literal("z")}),
+		innerLazy,
+	})
+	for _, k := range []string{"x", "y", "z"} {
+		if _, err := outer.Parse(map[string]any{"kind": k}); err != nil {
+			t.Fatalf("kind %q: %v", k, err)
+		}
+	}
+}
+
+func TestNestedLazyDiscUnionDifferentDiscriminator(t *testing.T) {
+	// Regression: propValuesOf for a nested lazy-built union exposed only
+	// {Discriminator: values}, so an outer union keyed on a different
+	// property could not find the inner one's values and panicked with
+	// "Invalid discriminated union option". It must expose the merged
+	// prop values across all options, like an eager union does.
+	var extra AnySchemaLike
+	extraLazy := Lazy(func() AnySchemaLike { return extra })
+	inner := DiscriminatedUnion("kind", []AnySchemaLike{
+		Object(Shape{"type": Literal("x"), "kind": Literal("k1")}),
+		extraLazy,
+	})
+	extra = Object(Shape{"type": Literal("x"), "kind": Literal("k2")})
+	outer := DiscriminatedUnion("type", []AnySchemaLike{
+		inner,
+		Object(Shape{"type": Literal("y")}),
+	})
+	for _, in := range []map[string]any{
+		{"type": "x", "kind": "k1"},
+		{"type": "x", "kind": "k2"},
+		{"type": "y"},
+	} {
+		if _, err := outer.Parse(in); err != nil {
+			t.Fatalf("%v: %v", in, err)
+		}
+	}
 }

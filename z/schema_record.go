@@ -62,6 +62,7 @@ func makeRecordParse(def *Def, keySchema, valueSchema AnySchemaLike, loose bool)
 				seen[k] = struct{}{}
 				// Validate key itself.
 				kp := AcquirePayload(k)
+				kp.parseCtx = ctx
 				keyIn.Run(kp, ctx)
 				if len(kp.Issues) > 0 {
 					p.AddIssue(Issue{
@@ -87,8 +88,12 @@ func makeRecordParse(def *Def, keySchema, valueSchema AnySchemaLike, loose bool)
 				}
 				if valIn != nil {
 					childOut, _ := RunChild(valIn, p, raw, ctx, k)
+					if IsMissing(childOut) {
+						// Optional value on an absent key: omit from output.
+						continue
+					}
 					out[outKey] = childOut
-				} else {
+				} else if !IsMissing(raw) {
 					out[outKey] = raw
 				}
 			}
@@ -110,6 +115,7 @@ func makeRecordParse(def *Def, keySchema, valueSchema AnySchemaLike, loose bool)
 		for _, k := range keys {
 			if keyIn != nil {
 				kp := AcquirePayload(k)
+				kp.parseCtx = ctx
 				keyIn.Run(kp, ctx)
 				if len(kp.Issues) > 0 {
 					if loose {

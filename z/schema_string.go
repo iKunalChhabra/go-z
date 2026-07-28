@@ -65,7 +65,7 @@ func coerceToString(v any) string {
 		if math.IsInf(x, -1) {
 			return "-Infinity"
 		}
-		return strconv.FormatFloat(x, 'f', -1, 64)
+		return formatFloat(x)
 	case float32:
 		return coerceToString(float64(x))
 	case int:

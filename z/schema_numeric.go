@@ -21,9 +21,9 @@ type Numeric interface {
 //
 // Input is accepted in whatever numeric form it arrives — JSON decodes numbers
 // to float64, so that is the common case — and is converted to T only when the
-// conversion is exact. A value T cannot hold (33.7 for an integer type, 1e10
-// for int32) fails the schema's format check with invalid_format instead of
-// being silently truncated.
+// conversion is exact. A value T cannot hold fails instead of being silently
+// truncated: a non-integral value for an integer type is invalid_type, and an
+// out-of-range value is too_small/too_big against T's bounds.
 type NumericSchema[T Numeric] struct {
 	schemaBase[T]
 	def *Def

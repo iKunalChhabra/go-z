@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -232,6 +233,83 @@ func TestCoerceQueryValues(t *testing.T) {
 	if out["c"] != "" {
 		t.Fatalf("c=%#v", out["c"])
 	}
+}
+
+// A nil error used to serialize as {"error":{"issues":null}}; clients expect
+// an array they can iterate.
+func TestAbortWithErrorNilRendersEmptyIssues(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	zgin.AbortWithError(c, nil, zgin.Options{})
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `"issues":[]`) {
+		t.Fatalf("body=%s, want an empty issues array", w.Body.String())
+	}
+}
+
+// Validation failures used to always render 400 + FormatIssues; the
+// WithOptions binders let a handler choose the status and body shape.
+func TestBindersWithErrorOptions(t *testing.T) {
+	t.Run("json", func(t *testing.T) {
+		schema := z.Object(z.Shape{"name": z.String().Min(2)})
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"A"}`))
+		_, ok := zgin.BindJSONWithOptions(c, schema,
+			zgin.Options{Status: http.StatusUnprocessableEntity, Format: zgin.FormatFlatten})
+		if ok {
+			t.Fatal("expected failure")
+		}
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		var resp struct {
+			Error struct {
+				FieldErrors map[string][]string `json:"fieldErrors"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("json: %v", err)
+		}
+		if len(resp.Error.FieldErrors["name"]) == 0 {
+			t.Fatalf("body=%s", w.Body.String())
+		}
+	})
+
+	t.Run("query", func(t *testing.T) {
+		schema := z.Object(z.Shape{"limit": z.Coerce.Number().Gte(1)})
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/items?limit=nope", nil)
+		_, ok := zgin.BindQueryWithOptions(c, schema,
+			zgin.Options{Status: http.StatusUnprocessableEntity})
+		if ok {
+			t.Fatal("expected failure")
+		}
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("uri", func(t *testing.T) {
+		schema := z.Object(z.Shape{"id": z.Coerce.Number().Gte(1)})
+		r := gin.New()
+		r.GET("/users/:id", func(c *gin.Context) {
+			if _, ok := zgin.BindURIWithOptions(c, schema,
+				zgin.Options{Status: http.StatusNotFound}); !ok {
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+		})
+		req := httptest.NewRequest(http.MethodGet, "/users/zero", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+	})
 }
 
 func TestAbortWithErrorFormats(t *testing.T) {

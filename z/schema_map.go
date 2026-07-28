@@ -54,6 +54,7 @@ func makeMapParse(def *Def, keySchema, valueSchema AnySchemaLike) ParseFn {
 
 			if keyIn != nil {
 				kp := AcquirePayload(e.key)
+				kp.parseCtx = ctx
 				keyIn.Run(kp, ctx)
 				if len(kp.Issues) > 0 {
 					if isPropertyKey(e.key) {
@@ -76,6 +77,7 @@ func makeMapParse(def *Def, keySchema, valueSchema AnySchemaLike) ParseFn {
 
 			if valIn != nil {
 				vp := AcquirePayload(e.value)
+				vp.parseCtx = ctx
 				valIn.Run(vp, ctx)
 				if len(vp.Issues) > 0 {
 					if isPropertyKey(e.key) {

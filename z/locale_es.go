@@ -42,7 +42,7 @@ var esFormatDictionary = map[string]string{
 	"cidrv4":           "rango IPv4",
 	"cidrv6":           "rango IPv6",
 	"base64":           "cadena codificada en base64",
-	"base64url":        "URL codificada en base64",
+	"base64url":        "cadena codificada en base64url",
 	"json_string":      "cadena JSON",
 	"e164":             "número E.164",
 	"jwt":              "JWT",
@@ -130,6 +130,9 @@ func EsLocale(issue *Issue) string {
 		origin := issue.Origin
 		if d, ok := esTypeDictionary[origin]; ok {
 			origin = d
+		}
+		if origin == "" {
+			origin = "valor"
 		}
 		if s, ok := esSizable[issue.Origin]; ok {
 			return fmt.Sprintf("Demasiado pequeño: se esperaba que %s tuviera %s%s %s",

@@ -37,7 +37,7 @@ var ptFormatDictionary = map[string]string{
 	"cidrv4":           "faixa de IPv4",
 	"cidrv6":           "faixa de IPv6",
 	"base64":           "texto codificado em base64",
-	"base64url":        "URL codificada em base64",
+	"base64url":        "texto codificado em base64url",
 	"json_string":      "texto JSON",
 	"e164":             "número E.164",
 	"jwt":              "JWT",
@@ -96,11 +96,15 @@ func PtLocale(issue *Issue) string {
 		if issue.Inclusive {
 			adj = ">="
 		}
+		origin := issue.Origin
+		if origin == "" {
+			origin = "valor"
+		}
 		if s, ok := ptSizable[issue.Origin]; ok {
 			return fmt.Sprintf("Muito pequeno: esperado que %s tivesse %s%s %s",
-				issue.Origin, adj, FormatNumeric(issue.Minimum), s.Unit)
+				origin, adj, FormatNumeric(issue.Minimum), s.Unit)
 		}
-		return fmt.Sprintf("Muito pequeno: esperado que %s fosse %s%s", issue.Origin, adj, FormatNumeric(issue.Minimum))
+		return fmt.Sprintf("Muito pequeno: esperado que %s fosse %s%s", origin, adj, FormatNumeric(issue.Minimum))
 
 	case IssueInvalidFormat:
 		switch issue.Format {
@@ -144,5 +148,5 @@ func PtLocale(issue *Issue) string {
 	case IssueInvalidElement:
 		return "Valor inválido em " + issue.Origin
 	}
-	return "Campo inválido"
+	return "Entrada inválida"
 }

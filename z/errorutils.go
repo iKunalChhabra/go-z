@@ -3,6 +3,7 @@ package z
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -328,11 +329,13 @@ func pathSegIndex(seg any) int {
 			return int(v)
 		}
 	case int64:
-		if v >= 0 {
+		if v >= 0 && v <= int64(math.MaxInt) {
 			return int(v)
 		}
 	case uint:
-		return int(v)
+		if uint64(v) <= uint64(math.MaxInt) {
+			return int(v)
+		}
 	case uint8:
 		return int(v)
 	case uint16:
@@ -340,9 +343,13 @@ func pathSegIndex(seg any) int {
 	case uint32:
 		return int(v)
 	case uint64:
-		return int(v)
+		if v <= uint64(math.MaxInt) {
+			return int(v)
+		}
 	case float64:
-		if v >= 0 && v == float64(int(v)) {
+		// float64(math.MaxInt) rounds up to 2^63, so a strict < excludes the
+		// one value whose int conversion would overflow.
+		if v >= 0 && v < float64(math.MaxInt) && v == math.Trunc(v) {
 			return int(v)
 		}
 	}
