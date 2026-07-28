@@ -22,6 +22,9 @@ Every failed format check sets `Issue.Format` to the string in the table below. 
 |--------|----------------|-----------------|-------------------------|
 | `Email` | `email` | `a@b.cd` | `Invalid email address` |
 | `URL` | `url` | `https://example.com` | `Invalid URL` |
+| `HttpURL` | `url` | `https://example.com` (http/https only) | `Invalid URL` |
+| `Hostname` | `hostname` | `api.example.com` | (locale default) |
+| `Hash` | `hash` | hex digest of the given algorithm | (locale default) |
 | `UUID` | `uuid` | any RFC UUID (v1–v8-ish) | `Invalid UUID` |
 | `UUIDv4` | `uuid` | version **4** only | `Invalid UUID` |
 | `UUIDv6` | `uuid` | version **6** only | `Invalid UUID` |
@@ -89,6 +92,34 @@ res := u.SafeParse("asdf")
 
 norm := z.String().URL(z.URLOpts{Normalize: true})
 _ = norm.MustParse("https://example.com?key=value")
+```
+
+## HttpURL / Hostname
+
+`HttpURL` is `URL` restricted to the `http` and `https` schemes with a domain hostname — handy for webhooks and callbacks where `ftp://` or `file://` must not pass.
+
+```go
+h := z.String().HttpURL()
+h.MustParse("https://api.example.com/hook")
+_ = h.SafeParse("ftp://example.com/file") // fail — wrong scheme
+
+host := z.String().Hostname()
+host.MustParse("api.example.com")
+_ = host.SafeParse("not a host!") // fail
+```
+
+## Hash
+
+`Hash(alg)` validates a lowercase/uppercase hex digest of the given algorithm. Supported algorithms: `md5`, `sha1`, `sha256`, `sha384`, `sha512`. Any other name panics at schema construction.
+
+```go
+md5 := z.String().Hash("md5")
+md5.MustParse("5d41402abc4b2a76b9719d911017c592")
+
+sha256 := z.String().Hash("sha256")
+sha256.MustParse("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+
+_ = md5.SafeParse("not-hex!") // fail
 ```
 
 ## UUID / GUID
@@ -202,6 +233,22 @@ res := z.String().ISODuration().SafeParse("not-a-duration")
 :::warn Time vs `z.Time()`
 `ISODate` / `ISODateTime` validate **strings**. For Go `time.Time` values, use [`z.Time()`](/api/time).
 :::
+
+## Custom formats with `z.StringFormat`
+
+When the built-ins don’t cover you, define your own named format with `z.StringFormat(name, matcher, params...)`. The matcher is either a `*regexp.Regexp` or a `func(string) bool` (anything else panics). Failures produce a regular `invalid_format` issue with `Issue.Format` set to your name, so custom formats flow through locales and error maps like the built-ins.
+
+```go
+import "regexp"
+
+tag := z.StringFormat("tag", regexp.MustCompile(`^[a-z][a-z0-9-]{2,31}$`))
+tag.MustParse("billing-team")
+_ = tag.SafeParse("NOPE") // fail, Format == "tag"
+
+evenLen := z.StringFormat("even-len", func(v string) bool { return len(v)%2 == 0 })
+evenLen.MustParse("abcd")
+_ = evenLen.SafeParse("abc") // fail
+```
 
 ## Custom messages & abort
 

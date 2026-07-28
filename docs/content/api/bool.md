@@ -42,6 +42,26 @@ _ = s.SafeParse("yes") // fail
 _ = s.SafeParse(2)     // fail
 ```
 
+## StringBool
+
+`z.StringBool()` parses **string tokens** into booleans — useful for env vars, CLI flags, and form values. Matching is trimmed and case-insensitive.
+
+| Accepted as `true` | Accepted as `false` |
+|---|---|
+| `true`, `yes`, `1`, `on`, `y`, `enabled` | `false`, `no`, `0`, `off`, `n`, `disabled` |
+
+```go
+s := z.StringBool()
+s.MustParse("true")    // true
+s.MustParse("YES")     // true
+s.MustParse(" off ")   // false
+
+_ = s.SafeParse("maybe") // fail
+_ = s.SafeParse(true)    // fail — real bools are rejected, strings only
+```
+
+Unlike `Coerce.Bool()`, `StringBool` accepts the wider `yes/no/on/off/enabled/disabled` vocabulary but rejects non-string input entirely.
+
 ## Custom messages
 
 ```go
@@ -54,5 +74,6 @@ res := schema.SafeParse("true")
 
 ```go
 func Bool(params ...any) *BoolSchema
+func StringBool(params ...any) *BoolSchema
 func (s *BoolSchema) Check(checks ...*Check) *BoolSchema
 ```

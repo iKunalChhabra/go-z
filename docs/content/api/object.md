@@ -178,6 +178,7 @@ res = strict.SafeParse(map[string]any{"n": 1, "x": 2})
 ```go
 type Shape map[string]AnySchemaLike
 func Object(shape Shape, params ...any) *ObjectSchema
+func ObjectShapeOf(s AnySchemaLike) (Shape, bool) // extract the Shape through wrappers
 
 func (s *ObjectSchema) Strict(params ...any) *ObjectSchema
 func (s *ObjectSchema) Loose() *ObjectSchema

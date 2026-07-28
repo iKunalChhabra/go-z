@@ -23,6 +23,7 @@ Dense reference for `github.com/iKunalChhabra/go-z`. Import: `import "github.com
 | `Int32` / `Uint32` | `int32` / `uint32` | range-checked |
 | `Float32` / `Float64` | `float32` / `float64` | range-checked |
 | `Bool` | `bool` | |
+| `StringBool` | `bool` | string tokens: `yes/no/on/off/1/0/…` |
 | `Time` | `time.Time` | |
 | `BigInt` | `*big.Int` | |
 | `Literal(values...)` | `any` | |
@@ -30,12 +31,17 @@ Dense reference for `github.com/iKunalChhabra/go-z`. Import: `import "github.com
 | `Any` / `Unknown` | `any` | |
 | `Never` | — | always fails |
 | `Nil` | `any` | JSON null only |
+| `Undefined` / `Void` | `any` | `Missing` only |
+| `JSON` | `any` | any JSON-shaped value, recursive |
+| `NumericOf[T]` | `T` | named/custom numeric types |
 
 ### String checks (fluent)
 
 `Min` `Max` `Length` `NonEmpty` `Regex` `Includes` `StartsWith` `EndsWith` `Uppercase` `Lowercase` `Trim` `ToLowerCase` `ToUpperCase` `Normalize`
 
-Formats: `Email` `URL` `UUID` `UUIDv4` `UUIDv6` `UUIDv7` `GUID` `NanoID` `CUID` `CUID2` `ULID` `KSUID` `XID` `Base64` `Base64URL` `Hex` `JWT` `E164` `Emoji` `IPv4` `IPv6` `CIDRv4` `CIDRv6` `MAC` `ISODate` `ISOTime` `ISODateTime` `ISODuration`
+Formats: `Email` `URL` `HttpURL` `Hostname` `Hash(alg)` `UUID` `UUIDv4` `UUIDv6` `UUIDv7` `GUID` `NanoID` `CUID` `CUID2` `ULID` `KSUID` `XID` `Base64` `Base64URL` `Hex` `JWT` `E164` `Emoji` `IPv4` `IPv6` `CIDRv4` `CIDRv6` `MAC` `ISODate` `ISOTime` `ISODateTime` `ISODuration`
+
+Custom formats: `z.StringFormat(name, regexOrPredicate)` — named `invalid_format` checks.
 
 ### Number checks (fluent)
 
@@ -81,6 +87,7 @@ z.Coerce.Time()
 | `Default(s, v)` / `DefaultFunc` | Missing → value (no re-parse) |
 | `Prefault(s, v)` / `PrefaultFunc` | Missing → value → parse |
 | `Catch(s, v)` / `CatchFunc` | on failure → value |
+| `DefaultOf` / `PrefaultOf` / `CatchOf` (+`Func`) | typed `Schema[T]` variants |
 | `Union(opts)` / `UnionOf(...)` | try in order |
 | `DiscriminatedUnion(key, opts)` | disc map fast path |
 | `Intersection(a, b)` | parse both + merge |
@@ -97,10 +104,22 @@ z.Coerce.Time()
 
 | API | Role |
 |---|---|
-| `ParseParallelSlice(ctx, elem, data, opts)` | worker pool |
+| `ParseParallelSlice(ctx, elem, data, opts)` | worker pool, combined error |
+| `ConcurrentBatch[T]` / `ConcurrentParseAny` | worker pool, per-element errors |
+| `Share(s).ParseAll(ctx, inputs, workers)` | batch on a shared schema |
+| `WorkerPanic` | worker panic re-raised on caller |
 | `Flatten` / `Treeify` / `Format` / `Prettify` | error shapes |
 | `ToDotPath` | path string |
 | `EnLocale` (+ `Es` `Fr` `De` `Ja` `Pt` `Zh`) | messages |
+
+## Registries & metadata
+
+| API | Role |
+|---|---|
+| `NewRegistry[M]()` | isolated metadata registry |
+| `Add` / `Get` / `Has` / `Remove` / `Clear` / `GetByID` | registry ops |
+| `GlobalRegistry` / `GlobalMeta` | process-wide registry + conventional meta shape |
+| `Meta` / `Describe` / `GetDescription` | global-registry helpers |
 
 ## Gin (`zgin`)
 
@@ -108,7 +127,9 @@ z.Coerce.Time()
 |---|---|
 | `BindJSON` / `BindJSONAny` | body |
 | `BindQuery` / `BindURI` | query / params |
-| `Validate` / `Get` | middleware |
+| `Bind*WithOptions` | per-bind error rendering |
+| `Validate` / `Get` / `GetAs` | middleware |
+| `GetFrom` / `GetAsFrom` | custom context keys |
 | `AbortWithError` + `Options` | 400 shapes |
 
 ## Sentinels & config

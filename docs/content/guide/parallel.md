@@ -106,3 +106,69 @@ func ParseParallelSlice(
     opts ParallelOpts,
 ) ([]any, error)
 ```
+
+## ConcurrentBatch / ConcurrentParseAny
+
+Lower-level worker-pool helpers when you want **per-element errors** instead of one combined `*z.Error`. Both always run the pool (no `MinChunk` threshold) and preserve input order in the results.
+
+```go
+func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any, workers int) ([]T, []error, error)
+func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any, workers int) ([]any, []error, error)
+```
+
+- `workers <= 0` → `GOMAXPROCS`.
+- Returns `outs[i]` / `errs[i]` aligned with `inputs[i]`; elements that failed leave their zero value in `outs`.
+- The third return value is the first non-nil element error (or `ctx.Err()` on cancellation) — a cheap “did anything fail” signal without scanning `errs`.
+
+```go
+outs, errs, err := z.ConcurrentBatch(context.Background(), userSchema, rows, 4)
+if err != nil {
+    for i, e := range errs {
+        if e != nil {
+            log.Printf("row %d: %v", i, e)
+        }
+    }
+}
+_ = outs
+```
+
+Use `ConcurrentParseAny` for untyped schemas; `ConcurrentBatch[T]` keeps typed `Schema[T]` outputs typed.
+
+## Shared.ParseAll
+
+[`Share`](#/guide/concurrency) wraps a schema with a tiny bit of reusable state; `Shared[T].ParseAll` is the same worker-pool batch as `ConcurrentBatch`, hung off the shared schema:
+
+```go
+func (s Shared[T]) ParseAll(ctx context.Context, inputs []any, workers int) (outs []T, errs []error, err error)
+```
+
+```go
+shared := z.Share(userSchema)
+outs, errs, err := shared.ParseAll(ctx, rows, 0) // workers = GOMAXPROCS
+```
+
+## Worker panics
+
+A panic inside a worker goroutine (from a `Refine`, `Transform`, or `Check` closure) is captured and **re-raised on the calling goroutine**, so your normal `recover()` keeps working. The recovered value is a `*z.WorkerPanic`:
+
+```go
+type WorkerPanic struct {
+    Op    string // call the panic happened under, e.g. "ParseParallelSlice"
+    Index int    // input element being validated, or -1 if unknown
+    Value any    // whatever was passed to panic
+    Stack []byte // worker goroutine stack
+}
+```
+
+```go
+defer func() {
+    if r := recover(); r != nil {
+        if wp, ok := r.(*z.WorkerPanic); ok {
+            log.Printf("panic in %s at index %d: %v", wp.Op, wp.Index, wp.Value)
+        }
+    }
+}()
+out, err := z.ParseParallelSlice(ctx, schema, items, z.ParallelOpts{Workers: 4})
+```
+
+`WorkerPanic.Unwrap()` exposes `Value` when the panicked value was an `error`, so `errors.Is/As` keep working through it.

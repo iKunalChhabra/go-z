@@ -133,10 +133,7 @@
 
       const header = document.createElement("div");
       header.className = "code-block-header";
-      header.innerHTML = `
-        <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-        <span class="code-lang">${lang}</span>
-      `;
+      header.innerHTML = `<span class="code-lang">${lang}</span>`;
 
       const btn = document.createElement("button");
       btn.className = "copy-btn";

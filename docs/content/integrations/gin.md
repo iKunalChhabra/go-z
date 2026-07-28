@@ -173,6 +173,53 @@ r.POST("/users", zgin.ValidateToStruct[User](userSchema), func(c *gin.Context) {
 
 `Validate` uses `BindJSONAny` under the hood. On failure it aborts; on success it `c.Set(zgin.ContextKey, v)` and calls `c.Next`.
 
+### Custom context keys with GetFrom / GetAsFrom
+
+When two middlewares validate different schemas on the same request, store each result under its own key with `BindOptions.ContextKey`, then read them back with `GetFrom` / `GetAsFrom`:
+
+```go
+r.POST("/teams/:id/members",
+    zgin.Validate(teamSchema, zgin.BindOptions{ContextKey: "team"}),
+    zgin.Validate(memberSchema, zgin.BindOptions{ContextKey: "member"}),
+    func(c *gin.Context) {
+        team, _ := zgin.GetFrom(c, "team")            // any
+        member, _ := zgin.GetAsFrom[Member](c, "member") // typed
+        c.JSON(200, gin.H{"team": team, "member": member})
+    },
+)
+```
+
+```go
+func GetFrom(c *gin.Context, key string) (any, bool)
+func GetAsFrom[T any](c *gin.Context, key string) (T, bool)
+```
+
+An empty key falls back to `zgin.ContextKey`, so `Get(c)` is `GetFrom(c, zgin.ContextKey)`.
+
+## Per-bind error rendering (`*WithOptions`)
+
+The plain binders abort with the default `Options` (status 400, `FormatIssues`). Each binder has a `WithOptions` variant that takes the error options explicitly — no manual `Parse` + `AbortWithError` dance needed:
+
+```go
+func BindJSONWithOptions[T any](c *gin.Context, schema z.Schema[T], errOpts Options, opts ...BindOptions) (T, bool)
+func BindJSONAnyWithOptions(c *gin.Context, schema z.AnySchemaLike, errOpts Options, opts ...BindOptions) (any, bool)
+func BindQueryWithOptions[T any](c *gin.Context, schema z.Schema[T], errOpts Options) (T, bool)
+func BindURIWithOptions[T any](c *gin.Context, schema z.Schema[T], errOpts Options) (T, bool)
+```
+
+```go
+u, ok := zgin.BindJSONWithOptions(c, createUser, zgin.Options{
+    Status: http.StatusUnprocessableEntity,
+    Format: zgin.FormatFlatten,
+})
+if !ok {
+    return // already aborted with 422 + flattened errors
+}
+c.JSON(http.StatusCreated, u)
+```
+
+The `opts ...BindOptions` on the JSON binders accepts the same body-handling overrides as `BindJSON` (`MaxBodyBytes`, `AllowAnyContentType`, `AllowTrailingData`, `ContextKey`).
+
 ## AbortWithError & Options
 
 ```go
@@ -305,12 +352,14 @@ if err != nil {
 | `BindJSONAny` | JSON body + `AnySchemaLike` |
 | `BindQuery[T]` | Query string + coerce |
 | `BindURI[T]` | Path params |
+| `Bind*WithOptions` | Same four binders, with explicit `Options` |
 | `Validate` | Middleware |
-| `Get` | Read middleware value |
+| `Get` / `GetAs` | Read middleware value (default key) |
+| `GetFrom` / `GetAsFrom` | Read middleware value (custom key) |
 | `ContextKey` | `"go-z:value"` |
 | `AbortWithError` | Write schema-shaped error |
 | `Options` / `ErrorFormat` | Status + renderer |
-| `BindOptions` | Body limit, Content-Type policy, trailing data |
+| `BindOptions` | Body limit, Content-Type policy, trailing data, context key |
 | `DefaultMaxBodyBytes` | 1 MiB body cap used when `BindOptions` is omitted |
 | `CoerceQueryValues` | `url.Values` → `map[string]any` |
 | `CoerceQueryValuesFor` | the same, with array fields always slices |

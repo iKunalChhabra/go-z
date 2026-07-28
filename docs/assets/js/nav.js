@@ -65,6 +65,7 @@ window.DOCS_NAV = [
     title: "Interop",
     items: [
       { title: "JSON Schema export", path: "/api/json-schema" },
+      { title: "Registries & metadata", path: "/api/registry" },
     ],
   },
   {

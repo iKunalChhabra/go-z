@@ -141,6 +141,6 @@ There is no `fromJSONSchema`. Going the other way — generating go-z schemas fr
 
 ## Related
 
-- [Registries & metadata](#/reference/cheatsheet) — where titles and descriptions live
+- [Registries & metadata](#/api/registry) — where titles and descriptions live
 - [Xor](#/api/xor) — `oneOf` vs `anyOf`
 - [Codec](#/api/codec) — the input/output distinction

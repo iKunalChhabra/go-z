@@ -102,6 +102,56 @@ _, err := onlyHello.Parse("hi")
 
 Prefer high-level helpers (`Min`, `Email`, `Refine`, …) when they exist; use raw `Check` for one-off rules or library extensions.
 
+## Standalone check constructors
+
+Every fluent method (`Min`, `Email`, `Gt`, …) is a thin wrapper over an exported constructor that returns a `*Check`. Reach for these when building checks dynamically, attaching the same check to several schemas, or writing your own fluent helpers:
+
+```go
+s := z.String().Check(z.MinLength(3), z.Trim())
+n := z.Number().Check(z.Gte(0), z.MultipleOf(0.5))
+```
+
+### Number checks
+
+| Constructor | Fluent equivalent | Rule |
+|---|---|---|
+| `Gt(value float64, ...)` | `.Gt` | `>` |
+| `Gte(value float64, ...)` | `.Gte` / `.Min` | `≥` |
+| `Lt(value float64, ...)` | `.Lt` | `<` |
+| `Lte(value float64, ...)` | `.Lte` / `.Max` | `≤` |
+| `GreaterThan(value any, inclusive bool, ...)` | — | generic form of the above |
+| `LessThan(value any, inclusive bool, ...)` | — | generic form of the above |
+| `MultipleOf(divisor float64, ...)` | `.MultipleOf` | float divisibility |
+| `MultipleOfInt64(divisor int64, ...)` | `.MultipleOf` | exact int64 divisibility |
+| `MultipleOfUint64(divisor uint64, ...)` | `.MultipleOf` | exact uint64 divisibility |
+| `MultipleOfBigInt(divisor *big.Int, ...)` | `.MultipleOf` | big.Int divisibility |
+| `NumberFormat(format string, ...)` | `.Int`, `.Safe`, … | e.g. `"safeint"`, `"int32"`, `"float64"` |
+
+### String checks
+
+| Constructor | Fluent equivalent | Rule |
+|---|---|---|
+| `MinLength(minimum int, ...)` | `.Min` | length ≥ |
+| `MaxLength(maximum int, ...)` | `.Max` | length ≤ |
+| `LengthEquals(length int, ...)` | `.Length` | exact length |
+| `Regex(pattern *regexp.Regexp, ...)` | `.Regex` | pattern match |
+| `Includes(includes string, ...)` | `.Includes` | substring |
+| `StartsWith(prefix string, ...)` | `.StartsWith` | prefix |
+| `EndsWith(suffix string, ...)` | `.EndsWith` | suffix |
+| `LowerCase(...)` | `.Lowercase` | must be lowercase |
+| `UpperCase(...)` | `.Uppercase` | must be uppercase |
+| `Overwrite(tx func(string) string)` | — | generic transform |
+| `Trim()` | `.Trim` | transform: trim space |
+| `ToLowerCase()` | `.ToLowerCase` | transform: lowercase |
+| `ToUpperCase()` | `.ToUpperCase` | transform: uppercase |
+| `NormalizeNFC()` | `.Normalize` | transform: Unicode NFC |
+
+### Format checks
+
+Each [string format](#/api/string-formats) has a constructor too: `FormatEmail`, `FormatURL`, `FormatHttpURL`, `FormatHostname`, `FormatHash(alg)`, `FormatUUID` / `FormatUUIDv4` / `FormatUUIDv6` / `FormatUUIDv7`, `FormatGUID`, `FormatNanoID`, `FormatCUID`, `FormatCUID2`, `FormatULID`, `FormatKSUID`, `FormatXID`, `FormatBase64`, `FormatBase64URL`, `FormatHex`, `FormatJWT`, `FormatE164`, `FormatEmoji`, `FormatIPv4`, `FormatIPv6`, `FormatCIDRv4`, `FormatCIDRv6`, `FormatMAC`, `FormatISODate`, `FormatISOTime`, `FormatISODateTime`, `FormatISODuration`. They accept the same option structs as their fluent counterparts (`URLOpts`, `JWTOpts`, `MACOpts`, `ISOTimeOpts`, `ISODateTimeOpts`).
+
+All constructors take trailing `params ...any` for custom messages / abort — see [Error maps](#/guide/error-maps).
+
 ## Abort semantics
 
 Without abort, multiple failing checks can all contribute issues (subject to the continue flags):
