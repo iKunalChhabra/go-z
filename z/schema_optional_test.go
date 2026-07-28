@@ -144,3 +144,25 @@ func TestReadonlyNoop(t *testing.T) {
 		t.Fatal("readonly should inherit non-optional")
 	}
 }
+
+func TestNestedOptionalRescueKeepsPriorIssues(t *testing.T) {
+	// Regression: the absent-key rescue for nested optionals wiped the whole
+	// payload issue list, discarding issues from fields parsed earlier.
+	schema := Object(Shape{
+		"a": Int(),
+		"b": Optional(Optional(String())),
+	})
+	res := schema.SafeParse(map[string]any{"a": "not-a-number"})
+	if res.Success {
+		t.Fatal("expected failure for invalid field a")
+	}
+	found := false
+	for _, iss := range res.Error.Issues {
+		if len(iss.Path) == 1 && iss.Path[0] == "a" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("want issue at path a, got %+v", res.Error.Issues)
+	}
+}

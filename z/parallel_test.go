@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -277,5 +278,41 @@ func TestParseParallelSliceStringElements(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("issues: %#v", zerr.Issues)
+	}
+}
+
+func TestParseParallelSlicePlumbsContext(t *testing.T) {
+	// Regression: elements ran with a nil ParseCtx, so SuperRefine saw
+	// context.Background() instead of the caller's context.
+	type ctxKey struct{}
+	want := context.WithValue(context.Background(), ctxKey{}, "v")
+
+	var seqCtx context.Context
+	seqSchema := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		seqCtx = rctx.Context()
+	})
+	if _, err := ParseParallelSlice(want, seqSchema, []any{"a", "b"}, ParallelOpts{Workers: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if seqCtx != want {
+		t.Fatalf("sequential element context = %v, want caller's", seqCtx)
+	}
+
+	var parOK atomic.Bool
+	parOK.Store(true)
+	parSchema := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		if rctx.Context() != want {
+			parOK.Store(false)
+		}
+	})
+	data := make([]any, 200)
+	for i := range data {
+		data[i] = "x"
+	}
+	if _, err := ParseParallelSlice(want, parSchema, data, ParallelOpts{Workers: 4, MinChunk: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if !parOK.Load() {
+		t.Fatal("parallel element saw context.Background(), want caller's")
 	}
 }

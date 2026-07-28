@@ -366,6 +366,11 @@ func MultipleOf(divisor float64, params ...any) *Check {
 		},
 	}
 	ch.Fn = func(payload *Payload) {
+		if divisor == 0 {
+			// Consistent with MultipleOfInt64/MultipleOfUint64: a zero
+			// divisor is a no-op (division by zero is undefined).
+			return
+		}
 		f, ok := ToFloat(payload.Value)
 		if !ok {
 			return

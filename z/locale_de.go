@@ -96,11 +96,15 @@ func DeLocale(issue *Issue) string {
 		if issue.Inclusive {
 			adj = ">="
 		}
+		origin := issue.Origin
+		if origin == "" {
+			origin = "Wert"
+		}
 		if s, ok := deSizable[issue.Origin]; ok {
 			return fmt.Sprintf("Zu klein: erwartet, dass %s %s%s %s hat",
-				issue.Origin, adj, FormatNumeric(issue.Minimum), s.Unit)
+				origin, adj, FormatNumeric(issue.Minimum), s.Unit)
 		}
-		return fmt.Sprintf("Zu klein: erwartet, dass %s %s%s ist", issue.Origin, adj, FormatNumeric(issue.Minimum))
+		return fmt.Sprintf("Zu klein: erwartet, dass %s %s%s ist", origin, adj, FormatNumeric(issue.Minimum))
 
 	case IssueInvalidFormat:
 		switch issue.Format {

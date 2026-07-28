@@ -1,6 +1,10 @@
 package z
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+	"sync/atomic"
+)
 
 // DiscUnionParams customizes DiscriminatedUnion construction.
 type DiscUnionParams struct {
@@ -23,6 +27,16 @@ type DiscriminatedUnionSchema struct {
 	unionFallback   bool
 	discMap         map[any]AnySchemaLike
 	knownDiscValues []any
+	// lazyBuild defers discriminator-map construction to the first Parse.
+	// Required when an option is a (forward-referenced) Lazy: resolving it at
+	// construction panics on recursive schemas because the getter's target is
+	// not assigned yet.
+	lazyBuild bool
+	buildOnce sync.Once
+	// building marks an in-progress ensureDiscMap so a self-referential
+	// option (a Lazy resolving to this very union) does not deadlock the
+	// non-reentrant sync.Once.
+	building atomic.Bool
 }
 
 // DiscriminatedUnion returns a discriminated union over options keyed by
@@ -78,22 +92,49 @@ func normalizeDiscUnionParams(params []any) (Params, bool) {
 }
 
 func newDiscUnion(def *Def, discriminator string, options []AnySchemaLike, fallback bool) *DiscriminatedUnionSchema {
-	discMap, known := buildDiscMap(discriminator, options)
 	s := &DiscriminatedUnionSchema{
-		def:             def,
-		Discriminator:   discriminator,
-		Options:         options,
-		unionFallback:   fallback,
-		discMap:         discMap,
-		knownDiscValues: known,
+		def:           def,
+		Discriminator: discriminator,
+		Options:       options,
+		unionFallback: fallback,
 	}
 	parse := makeDiscUnionParse(s)
 	in := buildInternals(def, parse)
 	applyUnionTraits(in, options)
-	// Aggregate PropValues across options (lazy propValues on disc union).
-	in.PropValues = mergeOptionPropValues(options)
 	s.schemaBase = newBase[any](in)
+	if hasLazyOption(options) {
+		// Defer the dispatch table (and PropValues aggregation) to first Parse;
+		// the Lazy target may not exist until then (recursive unions).
+		s.lazyBuild = true
+	} else {
+		s.discMap, s.knownDiscValues = buildDiscMap(discriminator, options)
+		// Aggregate PropValues across options (lazy propValues on disc union).
+		in.PropValues = mergeOptionPropValues(options)
+	}
 	return s
+}
+
+func hasLazyOption(options []AnySchemaLike) bool {
+	for _, o := range options {
+		if _, ok := o.(*LazySchema); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureDiscMap builds the dispatch table once, on first Parse. Only used on
+// the lazyBuild path; eager schemas build in newDiscUnion so invalid options
+// (duplicate/unknown discriminators) still panic at construction.
+func (s *DiscriminatedUnionSchema) ensureDiscMap() {
+	s.buildOnce.Do(func() {
+		s.building.Store(true)
+		defer s.building.Store(false)
+		s.discMap, s.knownDiscValues = buildDiscMap(s.Discriminator, s.Options)
+		if s.in.PropValues == nil {
+			s.in.PropValues = mergeOptionPropValues(s.Options)
+		}
+	})
 }
 
 func mergeOptionPropValues(options []AnySchemaLike) map[string]map[any]struct{} {
@@ -140,6 +181,14 @@ func buildDiscMap(discriminator string, options []AnySchemaLike) (map[any]AnySch
 // back to Shape().Internals().Values for Object schemas.
 func propValuesOf(opt AnySchemaLike) map[string]map[any]struct{} {
 	opt = unwrapLazy(opt)
+	if opt == nil {
+		return nil
+	}
+	if du, ok := opt.(*DiscriminatedUnionSchema); ok && du.lazyBuild && !du.building.Load() {
+		// A nested lazy-built union exposes its PropValues only after its
+		// dispatch table exists. Skip while it is building (self-reference).
+		du.ensureDiscMap()
+	}
 	in := opt.Internals()
 	if in.PropValues != nil {
 		return in.PropValues
@@ -176,18 +225,29 @@ func discriminatorValues(opt AnySchemaLike, discriminator string) map[any]struct
 	return pv[discriminator]
 }
 
+// unwrapLazy resolves a chain of Lazy wrappers. A directly self-referential
+// Lazy (a cycle with no concrete schema) returns nil instead of spinning
+// forever; callers treat nil as "no discriminator values".
 func unwrapLazy(opt AnySchemaLike) AnySchemaLike {
+	seen := map[AnySchemaLike]struct{}{}
 	for {
 		l, ok := opt.(*LazySchema)
 		if !ok {
 			return opt
 		}
+		if _, dup := seen[opt]; dup {
+			return nil
+		}
+		seen[opt] = struct{}{}
 		opt = l.innerType()
 	}
 }
 
 func makeDiscUnionParse(s *DiscriminatedUnionSchema) ParseFn {
 	return func(p *Payload, ctx *ParseCtx) {
+		if s.lazyBuild {
+			s.ensureDiscMap()
+		}
 		input := p.Value
 		obj, ok := input.(map[string]any)
 		if !ok {

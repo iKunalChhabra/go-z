@@ -279,15 +279,13 @@ func makeObjectParse(s *ObjectSchema) ParseFn {
 	}
 }
 
-// unknownKeys yields the input keys that no declared field claims, skipping
-// the __proto__ guard. Callers that need stable issue ordering wrap it in
-// slices.Sorted.
+// unknownKeys yields the input keys that no declared field claims. Unlike JS,
+// Go maps have no prototype to pollute, so "__proto__" is an ordinary key:
+// strict mode reports it like any other unknown key. Callers that need stable
+// issue ordering wrap it in slices.Sorted.
 func unknownKeys(input map[string]any, known map[string]struct{}) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		for k := range input {
-			if k == "__proto__" {
-				continue
-			}
 			if _, ok := known[k]; ok {
 				continue
 			}
@@ -466,13 +464,18 @@ func (s *ObjectSchema) Merge(other *ObjectSchema) *ObjectSchema {
 		seen[k] = struct{}{}
 	}
 	for _, k := range other.fieldOrder {
-		next[k] = other.shape[k]
+		if sch := other.shape[k]; sch != nil {
+			next[k] = sch
+		}
 		if _, ok := seen[k]; !ok {
 			order = append(order, k)
 			seen[k] = struct{}{}
 		}
 	}
 	for k, sch := range other.shape {
+		if sch == nil {
+			continue
+		}
 		next[k] = sch
 		if _, ok := seen[k]; !ok {
 			order = append(order, k)

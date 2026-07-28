@@ -59,3 +59,15 @@ func TestFloatSafeRemainder(t *testing.T) {
 		t.Fatal("5.1234567 should NOT be multiple of 1e-6")
 	}
 }
+
+func TestMultipleOfZeroDivisorFloatPasses(t *testing.T) {
+	// Regression: MultipleOf(0) on floats reported not_multiple_of via fmod
+	// by zero, while the int64/uint64 variants treated a zero divisor as pass.
+	sch := Number().Check(MultipleOf(0))
+	if _, err := sch.Parse(3.7); err != nil {
+		t.Fatalf("zero divisor should pass: %v", err)
+	}
+	if _, err := sch.Parse(0.0); err != nil {
+		t.Fatalf("zero divisor should pass: %v", err)
+	}
+}

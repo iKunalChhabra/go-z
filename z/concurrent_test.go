@@ -233,3 +233,45 @@ func BenchmarkConcurrentSharedParse(b *testing.B) {
 		}
 	})
 }
+
+func TestConcurrentBatchPlumbsContext(t *testing.T) {
+	// Regression: ConcurrentBatch accepted a ctx but never plumbed it into
+	// ParseCtx, so SuperRefine saw context.Background().
+	type ctxKey struct{}
+	want := context.WithValue(context.Background(), ctxKey{}, "v")
+
+	var ok atomic.Bool
+	ok.Store(true)
+	schema := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		if rctx.Context() != want {
+			ok.Store(false)
+		}
+	})
+	_, _, err := ConcurrentBatch(want, schema, []any{"a", "b", "c"}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok.Load() {
+		t.Fatal("ConcurrentBatch element context was not the caller's context")
+	}
+}
+
+func TestConcurrentParseAnyPlumbsContext(t *testing.T) {
+	type ctxKey struct{}
+	want := context.WithValue(context.Background(), ctxKey{}, "v")
+
+	var ok atomic.Bool
+	ok.Store(true)
+	schema := SuperRefine(String(), func(_ any, rctx *RefinementCtx) {
+		if rctx.Context() != want {
+			ok.Store(false)
+		}
+	})
+	_, _, err := ConcurrentParseAny(want, schema, []any{"a", "b", "c"}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok.Load() {
+		t.Fatal("ConcurrentParseAny element context was not the caller's context")
+	}
+}

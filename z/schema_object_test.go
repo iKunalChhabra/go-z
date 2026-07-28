@@ -249,3 +249,22 @@ func TestObjectUnknownRejectsNonObject(t *testing.T) {
 		t.Fatal("array should fail")
 	}
 }
+
+func TestObjectMergeSkipsOrderKeysAbsentFromShape(t *testing.T) {
+	// Regression: Merge wrote other.shape[k] for every key in other's field
+	// order, storing a nil schema when the key was absent from the shape.
+	a := Object(Shape{"x": String()})
+	b := Object(Shape{"y": Int()})
+	b.fieldOrder = append(b.fieldOrder, "ghost")
+	m := a.Merge(b)
+	if _, ok := m.shape["ghost"]; ok {
+		t.Fatalf("ghost key stored in merged shape: %#v", m.shape["ghost"])
+	}
+	got, err := m.Parse(map[string]any{"x": "s", "y": 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["ghost"]; ok {
+		t.Fatalf("ghost leaked into output: %#v", got)
+	}
+}

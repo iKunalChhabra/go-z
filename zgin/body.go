@@ -1,6 +1,7 @@
 package zgin
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -57,18 +58,19 @@ func firstBindOptions(opts []BindOptions) BindOptions {
 	return BindOptions{}
 }
 
-// bodyCacheKey holds the decoded body on the context so a second bind on the
-// same request — a chain of two Validate middlewares, or a handler that binds
-// again — sees the same value. A request body is a one-shot reader, so without
-// this the second read finds it empty.
-const bodyCacheKey = "go-z:decoded-body"
+// bodyCacheKey holds the raw request body on the context so a second bind on
+// the same request — a chain of two Validate middlewares, or a handler that
+// binds again — sees the same bytes. A request body is a one-shot reader, so
+// without this the second read finds it empty. The raw bytes are cached rather
+// than the decoded value: a decoded value tied to the first call's options
+// would let a later, stricter bind (smaller MaxBodyBytes, no
+// AllowAnyContentType, no AllowTrailingData) silently reuse a result its own
+// options would reject.
+const bodyCacheKey = "go-z:raw-body"
 
 // readJSONBody reads, size-limits and decodes the request body. It writes the
 // response and returns false when the request cannot produce a JSON value.
 func readJSONBody(c *gin.Context, opts BindOptions) (any, bool) {
-	if cached, ok := c.Get(bodyCacheKey); ok {
-		return cached, true
-	}
 	if c.Request == nil || c.Request.Body == nil {
 		bindFailure(c, http.StatusBadRequest, "missing request body")
 		return nil, false
@@ -79,27 +81,42 @@ func readJSONBody(c *gin.Context, opts BindOptions) (any, bool) {
 		return nil, false
 	}
 
-	body := c.Request.Body
-	if limit := opts.limit(); limit >= 0 {
-		// MaxBytesReader stops the read rather than buffering an arbitrarily
-		// large body in memory, and closes the underlying reader.
-		body = http.MaxBytesReader(c.Writer, body, limit)
+	raw, ok := cachedBody(c)
+	if !ok {
+		body := c.Request.Body
+		if limit := opts.limit(); limit >= 0 {
+			// MaxBytesReader stops the read rather than buffering an arbitrarily
+			// large body in memory, and closes the underlying reader.
+			body = http.MaxBytesReader(c.Writer, body, limit)
+		}
+		b, err := io.ReadAll(body)
+		if err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				bindFailure(c, http.StatusRequestEntityTooLarge, "request body too large")
+			} else {
+				bindFailure(c, http.StatusBadRequest, "could not read request body: "+err.Error())
+			}
+			return nil, false
+		}
+		raw = b
+		c.Set(bodyCacheKey, raw)
+	} else if limit := opts.limit(); limit >= 0 && int64(len(raw)) > limit {
+		// The bytes were read under a looser limit; this bind's cap still applies.
+		bindFailure(c, http.StatusRequestEntityTooLarge, "request body too large")
+		return nil, false
 	}
 
-	dec := json.NewDecoder(body)
+	dec := json.NewDecoder(bytes.NewReader(raw))
 	// Decode integers exactly: encoding/json's default float64 silently rounds
 	// anything above 2^53, which is where database identifiers live.
 	dec.UseNumber()
 
 	var data any
 	if err := dec.Decode(&data); err != nil {
-		var tooLarge *http.MaxBytesError
-		switch {
-		case errors.As(err, &tooLarge):
-			bindFailure(c, http.StatusRequestEntityTooLarge, "request body too large")
-		case errors.Is(err, io.EOF):
+		if errors.Is(err, io.EOF) {
 			bindFailure(c, http.StatusBadRequest, "empty request body")
-		default:
+		} else {
 			bindFailure(c, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		}
 		return nil, false
@@ -109,9 +126,16 @@ func readJSONBody(c *gin.Context, opts BindOptions) (any, bool) {
 		return nil, false
 	}
 
-	decoded := normalizeJSONNumbers(data)
-	c.Set(bodyCacheKey, decoded)
-	return decoded, true
+	return normalizeJSONNumbers(data), true
+}
+
+func cachedBody(c *gin.Context) ([]byte, bool) {
+	cached, ok := c.Get(bodyCacheKey)
+	if !ok {
+		return nil, false
+	}
+	raw, ok := cached.([]byte)
+	return raw, ok
 }
 
 // isJSONContentType accepts application/json and the +json structured suffix,

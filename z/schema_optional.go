@@ -38,9 +38,12 @@ func newOptional[T any](def *Def, inner AnySchemaLike) *OptionalSchema[T] {
 		// then restore Missing when the original input was absent.
 		if innerIn.traits().OptIn {
 			input := p.Value
+			startIssues := len(p.Issues)
 			RunSelf(innerIn, p, ctx)
-			if IsMissing(input) && len(p.Issues) > 0 {
-				p.Issues = p.Issues[:0]
+			if IsMissing(input) && len(p.Issues) > startIssues {
+				// Rescue an absent value from a nested optional's complaint —
+				// but keep issues the inner run did not add.
+				p.Issues = p.Issues[:startIssues]
 				p.Value = missingSentinel
 			}
 			return

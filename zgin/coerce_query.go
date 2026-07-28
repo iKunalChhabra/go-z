@@ -36,7 +36,9 @@ func CoerceQueryValuesFor(schema z.AnySchemaLike, values map[string][]string) ma
 }
 
 // isSliceSchema reports whether a field schema consumes a list, looking through
-// wrappers such as Optional and Default.
+// wrappers such as Optional and Default. Wrapper chains are followed at most 32
+// layers deep; a field nested past that cap is treated as a non-slice, which
+// only affects pathological schemas.
 func isSliceSchema(field z.AnySchemaLike) bool {
 	for range 32 {
 		if field == nil {

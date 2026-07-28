@@ -63,3 +63,19 @@ func TestEnumNonConst(t *testing.T) {
 		t.Fatal("Cucumbers should fail")
 	}
 }
+
+func TestNativeEnumOptionsDeterministic(t *testing.T) {
+	// Regression: Options() ranged over a Go map, so error messages and JSON
+	// Schema docs were nondeterministic. Order is now sorted by map key.
+	e := NativeEnum(map[string]string{"b": "B", "c": "C", "a": "A"})
+	got := e.Options()
+	want := []string{"A", "B", "C"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}

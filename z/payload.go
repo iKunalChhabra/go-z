@@ -93,6 +93,7 @@ func AcquirePayload(value any) *Payload {
 	p.Value = value
 	p.Issues = p.Issues[:0]
 	p.Aborted = false
+	p.parseCtx = nil
 	return p
 }
 

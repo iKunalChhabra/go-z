@@ -33,7 +33,8 @@ type Options struct {
 // AbortWithError writes an issue-shaped error response and aborts the Gin context.
 func AbortWithError(c *gin.Context, err *z.Error, opts Options) {
 	if err == nil {
-		err = &z.Error{Issues: nil}
+		// An empty slice, not nil: "issues":null breaks clients that iterate.
+		err = &z.Error{Issues: []z.Issue{}}
 	}
 	status := opts.Status
 	if status == 0 {

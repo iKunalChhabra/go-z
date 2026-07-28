@@ -188,3 +188,53 @@ func TestDiscUnionMissingDiscPanics(t *testing.T) {
 		Object(Shape{"value": String()}),
 	})
 }
+
+func TestDiscUnionForwardReferencedLazyOption(t *testing.T) {
+	// Regression: a Lazy option whose target is assigned after construction
+	// (recursive schemas) panicked at build time resolving the discriminator
+	// map. The table is now built on first Parse.
+	var node AnySchemaLike
+	nodeLazy := Lazy(func() AnySchemaLike { return node })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("leaf"), "v": String()}),
+		nodeLazy,
+	})
+	node = Object(Shape{"type": Literal("node"), "child": Optional(u)})
+
+	got, err := u.Parse(map[string]any{"type": "leaf", "v": "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.(map[string]any)["v"] != "x" {
+		t.Fatalf("%#v", got)
+	}
+	got, err = u.Parse(map[string]any{
+		"type":  "node",
+		"child": map[string]any{"type": "leaf", "v": "inner"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child := got.(map[string]any)["child"].(map[string]any)
+	if child["v"] != "inner" {
+		t.Fatalf("%#v", got)
+	}
+}
+
+func TestDiscUnionSelfReferentialLazyOptionPanics(t *testing.T) {
+	// A Lazy chain with no concrete schema behind it must fail with the usual
+	// invalid-option panic, not spin forever in unwrapLazy.
+	var l *LazySchema
+	l = Lazy(func() AnySchemaLike { return l })
+	u := DiscriminatedUnion("type", []AnySchemaLike{
+		Object(Shape{"type": Literal("a")}),
+		l,
+	})
+	defer func() {
+		r := recover()
+		if r == nil || !strings.Contains(fmt.Sprint(r), "Invalid discriminated union option") {
+			t.Fatalf("recover = %v", r)
+		}
+	}()
+	_, _ = u.Parse(map[string]any{"type": "a"})
+}

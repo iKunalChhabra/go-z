@@ -499,3 +499,27 @@ func TestParityObjectPartialAlreadyOptional(t *testing.T) {
 		t.Fatalf("want Optional, got %T", a)
 	}
 }
+
+func TestParityObjectStrictReportsProtoKey(t *testing.T) {
+	// In Go there is no prototype pollution, so __proto__ is an ordinary key:
+	// strict mode must report it as unrecognized (JSON.parse can produce
+	// __proto__ own keys, and Zod v4 flags them).
+	sch := Object(Shape{"a": String()}).Strict()
+	res := sch.SafeParse(map[string]any{"a": "x", "__proto__": 1})
+	if res.Success {
+		t.Fatal("expected unrecognized_keys for __proto__")
+	}
+	iss := res.Error.Issues[0]
+	if iss.Code != IssueUnrecognizedKeys {
+		t.Fatalf("code = %s", iss.Code)
+	}
+	found := false
+	for _, k := range iss.Keys {
+		if k == "__proto__" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("keys = %v, want __proto__ reported", iss.Keys)
+	}
+}

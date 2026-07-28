@@ -107,7 +107,7 @@ func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any,
 				}
 				func() {
 					defer panics.capture(i)
-					outs[i], errs[i] = schema.Parse(inputs[i])
+					outs[i], errs[i] = schema.ParseCtx(inputs[i], &ParseCtx{Context: ctx})
 				}()
 			}
 		})
@@ -177,7 +177,7 @@ func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any,
 				}
 				func() {
 					defer panics.capture(i)
-					outs[i], errs[i] = parseTyped[any](in, inputs[i], nil)
+					outs[i], errs[i] = parseTyped[any](in, inputs[i], &ParseCtx{Context: ctx})
 				}()
 			}
 		})

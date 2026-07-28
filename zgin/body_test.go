@@ -228,6 +228,75 @@ func TestChainedValidateMiddlewares(t *testing.T) {
 	}
 }
 
+// The decoded body used to be cached under one fixed key, so a second bind
+// with stricter options silently reused the first result. The cache now holds
+// the raw bytes and every bind re-checks its own options against them.
+func TestSecondBindWithStricterOptionsIsNotSilentlyReused(t *testing.T) {
+	schema := z.Object(z.Shape{"note": z.String()})
+
+	t.Run("content type", func(t *testing.T) {
+		r := gin.New()
+		r.POST("/", func(c *gin.Context) {
+			if _, ok := zgin.BindJSONAny(c, schema, zgin.BindOptions{AllowAnyContentType: true}); !ok {
+				return
+			}
+			if _, ok := zgin.BindJSONAny(c, schema); ok {
+				c.JSON(http.StatusOK, gin.H{"bug": "second bind reused the permissive result"})
+			}
+		})
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"note":"x"}`))
+		req.Header.Set("Content-Type", "text/html")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusUnsupportedMediaType {
+			t.Fatalf("status = %d, want 415: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("body limit", func(t *testing.T) {
+		r := gin.New()
+		r.POST("/", func(c *gin.Context) {
+			if _, ok := zgin.BindJSONAny(c, schema, zgin.BindOptions{MaxBodyBytes: -1}); !ok {
+				return
+			}
+			if _, ok := zgin.BindJSONAny(c, schema, zgin.BindOptions{MaxBodyBytes: 64}); ok {
+				c.JSON(http.StatusOK, gin.H{"bug": "second bind ignored its smaller limit"})
+			}
+		})
+		big := `{"note":"` + strings.Repeat("a", 4096) + `"}`
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(big))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("status = %d, want 413: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("trailing data", func(t *testing.T) {
+		r := gin.New()
+		r.POST("/", func(c *gin.Context) {
+			if _, ok := zgin.BindJSONAny(c, schema, zgin.BindOptions{AllowTrailingData: true}); !ok {
+				return
+			}
+			if _, ok := zgin.BindJSONAny(c, schema); ok {
+				c.JSON(http.StatusOK, gin.H{"bug": "second bind ignored trailing data"})
+			}
+		})
+		req := httptest.NewRequest(http.MethodPost, "/",
+			bytes.NewBufferString(`{"note":"a"}{"note":"b"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400: %s", w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "unexpected data") {
+			t.Errorf("body = %s", w.Body.String())
+		}
+	})
+}
+
 // A custom context key keeps two validated values apart; GetAsFrom types it.
 func TestCustomContextKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)

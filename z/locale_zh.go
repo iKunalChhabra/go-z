@@ -97,11 +97,15 @@ func ZhLocale(issue *Issue) string {
 		if issue.Inclusive {
 			adj = ">="
 		}
+		origin := issue.Origin
+		if origin == "" {
+			origin = "值"
+		}
 		if s, ok := zhSizable[issue.Origin]; ok {
 			return fmt.Sprintf("数值过小：期望 %s %s%s %s",
-				issue.Origin, adj, FormatNumeric(issue.Minimum), s.Unit)
+				origin, adj, FormatNumeric(issue.Minimum), s.Unit)
 		}
-		return fmt.Sprintf("数值过小：期望 %s %s%s", issue.Origin, adj, FormatNumeric(issue.Minimum))
+		return fmt.Sprintf("数值过小：期望 %s %s%s", origin, adj, FormatNumeric(issue.Minimum))
 
 	case IssueInvalidFormat:
 		switch issue.Format {

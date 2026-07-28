@@ -3,6 +3,8 @@ package z
 import (
 	"fmt"
 	"math"
+	"slices"
+	"strings"
 )
 
 // JSONSchemaTarget selects the JSON Schema dialect for ToJSONSchema.
@@ -202,9 +204,25 @@ func emitJSONSchema(schema AnySchemaLike, o ToJSONSchemaOpts, seen map[*Internal
 			}
 		}
 		if defType == "nullable" {
-			// type: [T, "null"] when possible
+			// type: [T, "null"] when possible; composite inners keep their
+			// keyword and gain a null branch instead.
+			nullBranch := map[string]any{"type": "null"}
 			if t, ok := out["type"].(string); ok {
 				out["type"] = []any{t, "null"}
+			} else if anyOf, ok := out["anyOf"].([]any); ok {
+				out["anyOf"] = append(anyOf, nullBranch)
+			} else if oneOf, ok := out["oneOf"].([]any); ok {
+				out["oneOf"] = append(oneOf, nullBranch)
+			} else if allOf, ok := out["allOf"]; ok {
+				delete(out, "allOf")
+				out["anyOf"] = []any{map[string]any{"allOf": allOf}, nullBranch}
+			}
+			// const/enum must list null too, or the widened type is a lie.
+			if c, ok := out["const"]; ok {
+				delete(out, "const")
+				out["enum"] = []any{c, nil}
+			} else if enum, ok := out["enum"].([]any); ok {
+				out["enum"] = append(enum, nil)
 			}
 		}
 	case "undefined", "void", "nan", "bigint", "date", "time", "map", "set":
@@ -228,6 +246,8 @@ func handleUnrepresentable(kind string, o ToJSONSchemaOpts) (map[string]any, err
 	return nil, fmt.Errorf("go-z: ToJSONSchema: unrepresentable type %q", kind)
 }
 
+// valueEnum returns the schema's literal value set (minus Missing) sorted by
+// stringified value, so generated documents are deterministic.
 func valueEnum(in *Internals) []any {
 	if in == nil || in.Values == nil {
 		return nil
@@ -239,6 +259,9 @@ func valueEnum(in *Internals) []any {
 		}
 		out = append(out, v)
 	}
+	slices.SortFunc(out, func(a, b any) int {
+		return strings.Compare(StringifyPrimitive(a), StringifyPrimitive(b))
+	})
 	return out
 }
 
@@ -246,20 +269,10 @@ func hasFormatCheck(in *Internals, format string) bool {
 	if in == nil || in.Bag == nil {
 		return false
 	}
-	if f, ok := in.Bag["format"].(string); ok && f == format {
-		return true
-	}
-	if in.Def == nil {
-		return false
-	}
-	for _, ch := range in.Def.Checks {
-		if ch == nil {
-			continue
-		}
-		// bag format from OnAttach
-	}
-	_ = format
-	return false
+	// Format checks record their format in the bag via OnAttach (which runs
+	// for every check at buildInternals), so the bag is the source of truth.
+	f, ok := in.Bag["format"].(string)
+	return ok && f == format
 }
 
 func applyStringChecks(out map[string]any, in *Internals) {
