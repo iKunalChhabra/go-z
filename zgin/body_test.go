@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -395,5 +396,32 @@ func TestCoerceQueryValuesForLooksThroughWrappers(t *testing.T) {
 	plain := zgin.CoerceQueryValuesFor(z.String(), map[string][]string{"tag": {"only"}})
 	if plain["tag"] != "only" {
 		t.Fatalf("tag = %#v", plain["tag"])
+	}
+}
+
+func TestBindRestoresRequestBody(t *testing.T) {
+	// Downstream handlers and logging middleware must still see the body
+	// after a bind drained it.
+	schema := z.Object(z.Shape{"note": z.String()})
+	r := gin.New()
+	var after string
+	r.POST("/", func(c *gin.Context) {
+		if _, ok := zgin.BindJSON(c, schema); !ok {
+			return
+		}
+		b, _ := io.ReadAll(c.Request.Body)
+		after = string(b)
+		c.Status(http.StatusNoContent)
+	})
+	body := `{"note":"hi"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if after != body {
+		t.Fatalf("body after bind = %q, want %q", after, body)
 	}
 }

@@ -37,6 +37,10 @@ type DiscriminatedUnionSchema struct {
 	// option (a Lazy resolving to this very union) does not deadlock the
 	// non-reentrant sync.Once.
 	building atomic.Bool
+	// buildErr holds the panic value from a failed lazy build. sync.Once is
+	// consumed even when f panics, so without this the union would stay
+	// half-built (nil discMap) and silently reject valid input forever.
+	buildErr any
 }
 
 // DiscriminatedUnion returns a discriminated union over options keyed by
@@ -125,16 +129,38 @@ func hasLazyOption(options []AnySchemaLike) bool {
 
 // ensureDiscMap builds the dispatch table once, on first Parse. Only used on
 // the lazyBuild path; eager schemas build in newDiscUnion so invalid options
-// (duplicate/unknown discriminators) still panic at construction.
+// (duplicate/unknown discriminators) still panic at construction. A failed
+// build records buildErr instead of panicking inside the Once, so the union
+// fails the same way on every Parse rather than staying half-built.
+//
+// The Internals are deliberately not mutated here: PropValues consumers
+// (newObject, propagateWrapperMeta) read them at construction without
+// synchronization, so a write during Parse would race. propValuesOf derives
+// a lazy union's values from its discMap instead.
 func (s *DiscriminatedUnionSchema) ensureDiscMap() {
 	s.buildOnce.Do(func() {
 		s.building.Store(true)
 		defer s.building.Store(false)
-		s.discMap, s.knownDiscValues = buildDiscMap(s.Discriminator, s.Options)
-		if s.in.PropValues == nil {
-			s.in.PropValues = mergeOptionPropValues(s.Options)
-		}
+		defer func() {
+			if r := recover(); r != nil {
+				s.buildErr = r
+			}
+		}()
+		m, known := buildDiscMap(s.Discriminator, s.Options)
+		s.discMap, s.knownDiscValues = m, known
 	})
+}
+
+// Resolve forces the deferred dispatch-table build of a lazy-built union so
+// a misconfigured schema panics at startup rather than on first Parse.
+func (s *DiscriminatedUnionSchema) Resolve() {
+	if !s.lazyBuild {
+		return
+	}
+	s.ensureDiscMap()
+	if s.buildErr != nil {
+		panic(s.buildErr)
+	}
 }
 
 func mergeOptionPropValues(options []AnySchemaLike) map[string]map[any]struct{} {
@@ -184,10 +210,22 @@ func propValuesOf(opt AnySchemaLike) map[string]map[any]struct{} {
 	if opt == nil {
 		return nil
 	}
-	if du, ok := opt.(*DiscriminatedUnionSchema); ok && du.lazyBuild && !du.building.Load() {
-		// A nested lazy-built union exposes its PropValues only after its
-		// dispatch table exists. Skip while it is building (self-reference).
+	if du, ok := opt.(*DiscriminatedUnionSchema); ok && du.lazyBuild {
+		// A lazy-built union never writes PropValues onto its Internals (that
+		// would race with construction-time readers); derive the values from
+		// its dispatch table instead. Skip while it is building (self-ref).
+		if du.building.Load() {
+			return nil
+		}
 		du.ensureDiscMap()
+		if len(du.discMap) == 0 {
+			return nil
+		}
+		vals := make(map[any]struct{}, len(du.discMap))
+		for v := range du.discMap {
+			vals[v] = struct{}{}
+		}
+		return map[string]map[any]struct{}{du.Discriminator: vals}
 	}
 	in := opt.Internals()
 	if in.PropValues != nil {
@@ -247,6 +285,9 @@ func makeDiscUnionParse(s *DiscriminatedUnionSchema) ParseFn {
 	return func(p *Payload, ctx *ParseCtx) {
 		if s.lazyBuild {
 			s.ensureDiscMap()
+			if s.buildErr != nil {
+				panic(s.buildErr)
+			}
 		}
 		input := p.Value
 		obj, ok := input.(map[string]any)

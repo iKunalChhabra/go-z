@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+Code-review fixes across `z` and `zgin`, with two user-visible behavior
+tightenings.
+
+### Breaking (behavior tightening)
+
+- **`.Strict()` now reports `__proto__` as an unrecognized key.** It was
+  silently dropped before. Matches Zod v4 strict-mode behavior (the JS-side
+  skip only guards against prototype pollution, which does not exist in Go).
+- **`ToStruct[T]`/`DecodeStruct[T]` reject lossy numeric conversions.**
+  Non-integral floats into int fields (`3.9` → `3`), out-of-range values
+  (`300` into `int8`), and negative values into unsigned fields now return a
+  decode error instead of silently truncating or wrapping. Integer input into
+  a string field now yields `"65"`, not the rune `"A"`.
+
+### Fixed
+
+- `ToStruct[T]`: stack overflow on recursive struct types (`Next *Node`),
+  panic on fixed-size array fields (`[2]string`), undecodable nested slices,
+  panic on non-empty interface fields; `json.Number` decoded exactly.
+- Discriminated unions: forward-referenced/recursive `Lazy` options no longer
+  panic at construction (dispatch table builds on first Parse; new `Resolve()`
+  forces it at startup); self-referential `Lazy` cycles detected; a failed
+  lazy build now fails consistently instead of leaving the union half-built.
+- Exhaustive-key records no longer leak an internal sentinel for absent keys.
+- `Map`/`Record` child schemas and `ParseParallelSlice`/`ConcurrentBatch`/
+  `ConcurrentParseAny` now see the caller's `context.Context` in refinements.
+- JSON Schema: `Nullable` preserved for `anyOf`/`oneOf`/`allOf`/`enum` inners;
+  deterministic enum ordering (also `NativeEnum.Options()`).
+- Locales: es/pt `base64url` mistranslations, empty-origin fallback in
+  de/es/pt/zh `IssueTooSmall`, pt default fallback message.
+- zgin: body cache re-validates per-bind options; request body restored after
+  bind for downstream handlers; `AbortWithError(nil)` renders `"issues":[]`;
+  new `BindJSONWithOptions`/`BindQueryWithOptions`/`BindURIWithOptions` for
+  custom error status/format.
+- Misc: `MultipleOf(0)` float passes like int variants; typed-nil
+  `*time.Time` reports `"null"`; float→string coercion matches JS (`1e21` →
+  `"1e+21"`); `__proto__` in strict mode (above); dead code removed.
+
 ## v0.2.0
 
 Breaking changes to the numeric surface, correctness fixes across the schema

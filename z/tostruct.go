@@ -1,9 +1,11 @@
 package z
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -537,12 +539,10 @@ func assignScalar(fv reflect.Value, raw any) error {
 	case reflect.Map:
 		return assignMap(fv, raw)
 	case reflect.Interface:
-		// Anything satisfies an empty interface, but a non-empty one (e.g.
-		// fmt.Stringer) must be checked, or Set panics.
-		if rv.Type().Implements(fv.Type()) {
-			fv.Set(rv)
-			return nil
-		}
+		// The AssignableTo fast path above already accepted anything that
+		// satisfies the interface; reaching here means raw does not implement
+		// it (e.g. a string into a fmt.Stringer field), so error rather than
+		// let Set panic.
 		return fmt.Errorf("cannot assign %T to %s", raw, fv.Type())
 	}
 
@@ -610,7 +610,7 @@ func toFloat64(v any) (float64, bool) {
 	}
 }
 
-// toInt64 coerces a JSON scalar to int64 without loss: non-integral floats and
+// scalarToInt64 coerces a JSON scalar to int64 without loss: non-integral floats and
 // values outside int64 range are errors, not truncations.
 func scalarToInt64(v any) (int64, error) {
 	switch x := v.(type) {
@@ -638,6 +638,16 @@ func scalarToInt64(v any) (int64, error) {
 		return floatToInt64(float64(x))
 	case float64:
 		return floatToInt64(x)
+	case json.Number:
+		// Parse the literal exactly: integers above 2^53 lose precision
+		// through float64, which is where database identifiers live.
+		if n, err := strconv.ParseInt(x.String(), 10, 64); err == nil {
+			return n, nil
+		}
+		if f, err := x.Float64(); err == nil {
+			return floatToInt64(f)
+		}
+		return 0, fmt.Errorf("not a number")
 	default:
 		return 0, fmt.Errorf("not a number")
 	}
@@ -660,7 +670,7 @@ func floatToInt64(f float64) (int64, error) {
 	return int64(f), nil
 }
 
-// toUint64 coerces a JSON scalar to uint64 without loss: negative and
+// scalarToUint64 coerces a JSON scalar to uint64 without loss: negative and
 // non-integral values are errors.
 func scalarToUint64(v any) (uint64, error) {
 	switch x := v.(type) {
@@ -688,6 +698,14 @@ func scalarToUint64(v any) (uint64, error) {
 		return floatToUint64(float64(x))
 	case float64:
 		return floatToUint64(x)
+	case json.Number:
+		if u, err := strconv.ParseUint(x.String(), 10, 64); err == nil {
+			return u, nil
+		}
+		if f, err := x.Float64(); err == nil {
+			return floatToUint64(f)
+		}
+		return 0, fmt.Errorf("not a number")
 	default:
 		return 0, fmt.Errorf("not a number")
 	}

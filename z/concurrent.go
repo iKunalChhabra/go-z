@@ -92,6 +92,7 @@ func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any,
 		workers = n
 	}
 
+	pctx := &ParseCtx{Context: ctx} // never mutated during parse; share it
 	jobs := make(chan int, n)
 	var wg sync.WaitGroup
 	var panics panicRecord
@@ -107,7 +108,7 @@ func ConcurrentBatch[T any](ctx context.Context, schema Schema[T], inputs []any,
 				}
 				func() {
 					defer panics.capture(i)
-					outs[i], errs[i] = schema.ParseCtx(inputs[i], &ParseCtx{Context: ctx})
+					outs[i], errs[i] = schema.ParseCtx(inputs[i], pctx)
 				}()
 			}
 		})
@@ -162,6 +163,7 @@ func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any,
 		workers = n
 	}
 	in := schema.Internals()
+	pctx := &ParseCtx{Context: ctx} // never mutated during parse; share it
 	jobs := make(chan int, n)
 	var wg sync.WaitGroup
 	var panics panicRecord
@@ -177,7 +179,7 @@ func ConcurrentParseAny(ctx context.Context, schema AnySchemaLike, inputs []any,
 				}
 				func() {
 					defer panics.capture(i)
-					outs[i], errs[i] = parseTyped[any](in, inputs[i], &ParseCtx{Context: ctx})
+					outs[i], errs[i] = parseTyped[any](in, inputs[i], pctx)
 				}()
 			}
 		})

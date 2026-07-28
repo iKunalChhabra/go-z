@@ -107,6 +107,10 @@ func readJSONBody(c *gin.Context, opts BindOptions) (any, bool) {
 		return nil, false
 	}
 
+	// The read above drained the one-shot body; restore it so downstream
+	// handlers and logging middleware can still read the request.
+	c.Request.Body = io.NopCloser(bytes.NewReader(raw))
+
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	// Decode integers exactly: encoding/json's default float64 silently rounds
 	// anything above 2^53, which is where database identifiers live.
