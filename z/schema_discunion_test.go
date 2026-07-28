@@ -341,3 +341,31 @@ func TestNestedLazyDiscUnionAsOption(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedLazyDiscUnionDifferentDiscriminator(t *testing.T) {
+	// Regression: propValuesOf for a nested lazy-built union exposed only
+	// {Discriminator: values}, so an outer union keyed on a different
+	// property could not find the inner one's values and panicked with
+	// "Invalid discriminated union option". It must expose the merged
+	// prop values across all options, like an eager union does.
+	var extra AnySchemaLike
+	extraLazy := Lazy(func() AnySchemaLike { return extra })
+	inner := DiscriminatedUnion("kind", []AnySchemaLike{
+		Object(Shape{"type": Literal("x"), "kind": Literal("k1")}),
+		extraLazy,
+	})
+	extra = Object(Shape{"type": Literal("x"), "kind": Literal("k2")})
+	outer := DiscriminatedUnion("type", []AnySchemaLike{
+		inner,
+		Object(Shape{"type": Literal("y")}),
+	})
+	for _, in := range []map[string]any{
+		{"type": "x", "kind": "k1"},
+		{"type": "x", "kind": "k2"},
+		{"type": "y"},
+	} {
+		if _, err := outer.Parse(in); err != nil {
+			t.Fatalf("%v: %v", in, err)
+		}
+	}
+}

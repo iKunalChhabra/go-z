@@ -221,11 +221,11 @@ func propValuesOf(opt AnySchemaLike) map[string]map[any]struct{} {
 		if len(du.discMap) == 0 {
 			return nil
 		}
-		vals := make(map[any]struct{}, len(du.discMap))
-		for v := range du.discMap {
-			vals[v] = struct{}{}
-		}
-		return map[string]map[any]struct{}{du.Discriminator: vals}
+		// Merge across options rather than deriving only the discriminator
+		// values, so an enclosing union keyed on a different property still
+		// finds its values. Computed, never stored on Internals — storing
+		// would race with construction-time readers.
+		return mergeOptionPropValues(du.Options)
 	}
 	in := opt.Internals()
 	if in.PropValues != nil {
