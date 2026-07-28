@@ -406,6 +406,23 @@ func TestDecodeStructByteSliceBase64(t *testing.T) {
 		}
 	})
 
+	t.Run("named byte element type", func(t *testing.T) {
+		// []Digit where Digit is a uint8: right kind but not slice-convertible
+		// from []byte — must fill element-wise, not panic in Convert.
+		type Digit uint8
+		type holder struct {
+			D []Digit `json:"d"`
+		}
+		hs := z.ToStruct[holder](z.Object(z.Shape{"d": z.String()}))
+		out, err := hs.Parse(map[string]any{"d": "aGk="})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out.D) != 2 || out.D[0] != 104 || out.D[1] != 105 {
+			t.Fatalf("D = %v, want [104 105]", out.D)
+		}
+	})
+
 	t.Run("fixed byte array rejects string", func(t *testing.T) {
 		// encoding/json only special-cases []byte slices, not [N]byte.
 		type fixed struct {
