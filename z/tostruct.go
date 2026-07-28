@@ -1,6 +1,7 @@
 package z
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -373,6 +374,30 @@ func setField(fv reflect.Value, fp *fieldPlan, raw any) error {
 }
 
 func setSlice(fv reflect.Value, fp *fieldPlan, raw any) error {
+	// []byte mirrors encoding/json: a base64 string decodes into bytes.
+	if fp.isSlice && fv.Type().Elem().Kind() == reflect.Uint8 {
+		if s, ok := raw.(string); ok {
+			b, err := decodeBase64(s)
+			if err != nil {
+				return fmt.Errorf("cannot decode base64 string into %s: %w", fv.Type(), err)
+			}
+			bv := reflect.ValueOf(b)
+			if bv.Type().ConvertibleTo(fv.Type()) {
+				fv.Set(bv.Convert(fv.Type()))
+				return nil
+			}
+			// A named element type ([]Digit where Digit is a uint8) has the
+			// right kind but is not slice-convertible; fill it element-wise
+			// rather than letting Convert panic.
+			out := reflect.MakeSlice(fv.Type(), len(b), len(b))
+			for i, c := range b {
+				out.Index(i).SetUint(uint64(c))
+			}
+			fv.Set(out)
+			return nil
+		}
+	}
+
 	var arr []any
 	switch v := raw.(type) {
 	case []any:
@@ -415,6 +440,28 @@ func setSlice(fv reflect.Value, fp *fieldPlan, raw any) error {
 	}
 	fv.Set(slice)
 	return nil
+}
+
+// decodeBase64 accepts the standard and URL-safe alphabets, padded or raw.
+// This is deliberately more permissive than encoding/json, which only takes
+// padded StdEncoding; APIs commonly emit URL-safe or unpadded base64.
+func decodeBase64(s string) ([]byte, error) {
+	// Report the StdEncoding failure: it is the alphabet most callers
+	// intend, so its offset points at the offending character.
+	var stdErr error
+	for i, enc := range []*base64.Encoding{
+		base64.StdEncoding, base64.RawStdEncoding,
+		base64.URLEncoding, base64.RawURLEncoding,
+	} {
+		b, err := enc.DecodeString(s)
+		if err == nil {
+			return b, nil
+		}
+		if i == 0 {
+			stdErr = err
+		}
+	}
+	return nil, stdErr
 }
 
 // setSliceElem decodes one collection element: allocating pointer elements,

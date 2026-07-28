@@ -345,3 +345,92 @@ func TestToStructEmbeddedPrecedence(t *testing.T) {
 		t.Fatalf("a tagged embed is a nested object: %+v", tagged)
 	}
 }
+
+func TestDecodeStructByteSliceBase64(t *testing.T) {
+	// Mirrors encoding/json: []byte fields accept a base64 string.
+	type req struct {
+		Data []byte `json:"data"`
+	}
+	s := z.ToStruct[req](z.Object(z.Shape{"data": z.String()}))
+
+	cases := []struct {
+		name, in, want string
+	}{
+		{"std padded", "aGk=", "hi"},
+		{"std raw", "aGk", "hi"},
+		{"url padded", "aGktXw==", "hi-_"},
+		{"url raw", "aGktXw", "hi-_"},
+		{"empty", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := s.Parse(map[string]any{"data": tc.in})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(out.Data) != tc.want {
+				t.Fatalf("Data = %q, want %q", out.Data, tc.want)
+			}
+		})
+	}
+
+	t.Run("invalid base64", func(t *testing.T) {
+		if _, err := s.Parse(map[string]any{"data": "!!!not-base64!!!"}); err == nil {
+			t.Fatal("want error")
+		}
+	})
+
+	t.Run("number array still works", func(t *testing.T) {
+		arr := z.ToStruct[req](z.Object(z.Shape{"data": z.Array(z.Int())}))
+		out, err := arr.Parse(map[string]any{"data": []any{104, 105}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(out.Data) != "hi" {
+			t.Fatalf("Data = %q", out.Data)
+		}
+	})
+
+	t.Run("named byte slice type", func(t *testing.T) {
+		type blob []byte
+		type named struct {
+			Data blob `json:"data"`
+		}
+		ns := z.ToStruct[named](z.Object(z.Shape{"data": z.String()}))
+		out, err := ns.Parse(map[string]any{"data": "aGk="})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(out.Data) != "hi" {
+			t.Fatalf("Data = %q", out.Data)
+		}
+	})
+
+	t.Run("named byte element type", func(t *testing.T) {
+		// []Digit where Digit is a uint8: right kind but not slice-convertible
+		// from []byte — must fill element-wise, not panic in Convert.
+		type Digit uint8
+		type holder struct {
+			D []Digit `json:"d"`
+		}
+		hs := z.ToStruct[holder](z.Object(z.Shape{"d": z.String()}))
+		out, err := hs.Parse(map[string]any{"d": "aGk="})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out.D) != 2 || out.D[0] != 104 || out.D[1] != 105 {
+			t.Fatalf("D = %v, want [104 105]", out.D)
+		}
+	})
+
+	t.Run("fixed byte array rejects string", func(t *testing.T) {
+		// encoding/json only special-cases []byte slices, not [N]byte.
+		type fixed struct {
+			Data [2]byte `json:"data"`
+		}
+		fs := z.ToStruct[fixed](z.Object(z.Shape{"data": z.String()}))
+		if _, err := fs.Parse(map[string]any{"data": "aGk="}); err == nil {
+			t.Fatal("want error")
+		}
+	})
+}
