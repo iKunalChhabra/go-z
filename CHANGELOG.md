@@ -20,7 +20,9 @@ tightenings.
 
 - `ToStruct[T]`: stack overflow on recursive struct types (`Next *Node`),
   panic on fixed-size array fields (`[2]string`), undecodable nested slices,
-  panic on non-empty interface fields; `json.Number` decoded exactly.
+  panic on non-empty interface fields; `json.Number` decoded exactly;
+  `[]byte` fields accept base64 strings like `encoding/json` (std/URL-safe,
+  padded/raw).
 - Discriminated unions: forward-referenced/recursive `Lazy` options no longer
   panic at construction (dispatch table builds on first Parse; new `Resolve()`
   forces it at startup); self-referential `Lazy` cycles detected; a failed

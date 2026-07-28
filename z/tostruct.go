@@ -1,6 +1,7 @@
 package z
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -373,6 +374,18 @@ func setField(fv reflect.Value, fp *fieldPlan, raw any) error {
 }
 
 func setSlice(fv reflect.Value, fp *fieldPlan, raw any) error {
+	// []byte mirrors encoding/json: a base64 string decodes into bytes.
+	if fp.isSlice && fv.Type().Elem().Kind() == reflect.Uint8 {
+		if s, ok := raw.(string); ok {
+			b, err := decodeBase64(s)
+			if err != nil {
+				return fmt.Errorf("cannot decode base64 string into %s", fv.Type())
+			}
+			fv.Set(reflect.ValueOf(b).Convert(fv.Type()))
+			return nil
+		}
+	}
+
 	var arr []any
 	switch v := raw.(type) {
 	case []any:
@@ -415,6 +428,20 @@ func setSlice(fv reflect.Value, fp *fieldPlan, raw any) error {
 	}
 	fv.Set(slice)
 	return nil
+}
+
+// decodeBase64 accepts the standard and URL-safe alphabets, padded or raw,
+// the same inputs encoding/json tolerates for []byte fields.
+func decodeBase64(s string) ([]byte, error) {
+	for _, enc := range []*base64.Encoding{
+		base64.StdEncoding, base64.RawStdEncoding,
+		base64.URLEncoding, base64.RawURLEncoding,
+	} {
+		if b, err := enc.DecodeString(s); err == nil {
+			return b, nil
+		}
+	}
+	return nil, fmt.Errorf("invalid base64")
 }
 
 // setSliceElem decodes one collection element: allocating pointer elements,
