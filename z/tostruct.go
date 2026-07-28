@@ -446,17 +446,22 @@ func setSlice(fv reflect.Value, fp *fieldPlan, raw any) error {
 // This is deliberately more permissive than encoding/json, which only takes
 // padded StdEncoding; APIs commonly emit URL-safe or unpadded base64.
 func decodeBase64(s string) ([]byte, error) {
-	var err error
-	for _, enc := range []*base64.Encoding{
+	// Report the StdEncoding failure: it is the alphabet most callers
+	// intend, so its offset points at the offending character.
+	var stdErr error
+	for i, enc := range []*base64.Encoding{
 		base64.StdEncoding, base64.RawStdEncoding,
 		base64.URLEncoding, base64.RawURLEncoding,
 	} {
-		var b []byte
-		if b, err = enc.DecodeString(s); err == nil {
+		b, err := enc.DecodeString(s)
+		if err == nil {
 			return b, nil
 		}
+		if i == 0 {
+			stdErr = err
+		}
 	}
-	return nil, err
+	return nil, stdErr
 }
 
 // setSliceElem decodes one collection element: allocating pointer elements,
